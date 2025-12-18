@@ -191,6 +191,45 @@ class SummarizeRequest(BaseModel):
     url: str
 
 
+class BatchSummarizeRequest(BaseModel):
+    """Request to summarize multiple URLs."""
+    urls: list[str]
+
+
+class BatchSummarizeResult(BaseModel):
+    """Result of a single URL summarization in a batch."""
+    url: str
+    success: bool
+    title: str | None = None
+    one_liner: str | None = None
+    full_summary: str | None = None
+    key_points: list[str] | None = None
+    model_used: str | None = None
+    cached: bool = False
+    error: str | None = None
+
+
+class BatchSummarizeResponse(BaseModel):
+    """Response from batch summarization."""
+    total: int
+    successful: int
+    failed: int
+    results: list[BatchSummarizeResult]
+
+
+class ArticleGroupResponse(BaseModel):
+    """A group of articles."""
+    key: str
+    label: str
+    articles: list[ArticleResponse]
+
+
+class GroupedArticlesResponse(BaseModel):
+    """Response for grouped articles."""
+    group_by: str
+    groups: list[ArticleGroupResponse]
+
+
 class SettingsResponse(BaseModel):
     """Application settings."""
     refresh_interval_minutes: int = 30
@@ -253,6 +292,60 @@ async def list_articles(
         offset=offset
     )
     return [ArticleResponse.from_db(a) for a in articles]
+
+
+@app.get("/articles/grouped")
+async def get_articles_grouped(
+    db: Annotated[Database, Depends(get_db)],
+    group_by: str = Query(default="date", regex="^(date|feed)$"),
+    unread_only: bool = False,
+    limit: int = Query(default=100, le=500)
+) -> GroupedArticlesResponse:
+    """
+    Get articles grouped by date or feed.
+
+    Args:
+        group_by: 'date' for daily groups, 'feed' for source groups
+        unread_only: Only include unread articles
+        limit: Maximum total articles to return
+    """
+    feeds_map = {f.id: f for f in db.get_feeds()}
+
+    if group_by == "date":
+        grouped = db.get_articles_grouped_by_date(unread_only=unread_only, limit=limit)
+        groups = []
+        for date_str in sorted(grouped.keys(), reverse=True):
+            articles = grouped[date_str]
+            # Format date label
+            date_obj = datetime.strptime(date_str, "%Y-%m-%d")
+            today = datetime.now().date()
+            if date_obj.date() == today:
+                label = "Today"
+            elif (today - date_obj.date()).days == 1:
+                label = "Yesterday"
+            else:
+                label = date_obj.strftime("%B %d, %Y")
+
+            groups.append(ArticleGroupResponse(
+                key=date_str,
+                label=label,
+                articles=[ArticleResponse.from_db(a) for a in articles]
+            ))
+    else:  # group_by == "feed"
+        grouped = db.get_articles_grouped_by_feed(unread_only=unread_only, limit=limit)
+        groups = []
+        for feed_id in sorted(grouped.keys()):
+            articles = grouped[feed_id]
+            feed = feeds_map.get(feed_id)
+            label = feed.name if feed else f"Feed {feed_id}"
+
+            groups.append(ArticleGroupResponse(
+                key=str(feed_id),
+                label=label,
+                articles=[ArticleResponse.from_db(a) for a in articles]
+            ))
+
+    return GroupedArticlesResponse(group_by=group_by, groups=groups)
 
 
 @app.get("/articles/{article_id}")
@@ -379,6 +472,64 @@ async def summarize_url(request: SummarizeRequest) -> dict:
         }
     except Exception as e:
         raise HTTPException(status_code=400, detail=str(e))
+
+
+@app.post("/summarize/batch")
+async def batch_summarize_urls(request: BatchSummarizeRequest) -> BatchSummarizeResponse:
+    """
+    Summarize multiple URLs at once.
+
+    Processes URLs concurrently and returns results for each.
+    Useful for summarizing multiple articles or webpages in one request.
+    """
+    if not state.summarizer or not state.fetcher:
+        raise HTTPException(status_code=503, detail="Summarization not configured")
+
+    if not request.urls:
+        raise HTTPException(status_code=400, detail="No URLs provided")
+
+    if len(request.urls) > 20:
+        raise HTTPException(status_code=400, detail="Maximum 20 URLs per batch")
+
+    async def summarize_single(url: str) -> BatchSummarizeResult:
+        """Summarize a single URL, catching errors."""
+        try:
+            result = await state.fetcher.fetch(url)
+            summary = await state.summarizer.summarize_async(
+                result.content,
+                result.url,
+                result.title
+            )
+            return BatchSummarizeResult(
+                url=url,
+                success=True,
+                title=result.title,
+                one_liner=summary.one_liner,
+                full_summary=summary.full_summary,
+                key_points=summary.key_points,
+                model_used=summary.model_used.value,
+                cached=summary.cached
+            )
+        except Exception as e:
+            return BatchSummarizeResult(
+                url=url,
+                success=False,
+                error=str(e)
+            )
+
+    # Process all URLs concurrently
+    tasks = [summarize_single(url) for url in request.urls]
+    results = await asyncio.gather(*tasks)
+
+    successful = sum(1 for r in results if r.success)
+    failed = len(results) - successful
+
+    return BatchSummarizeResponse(
+        total=len(results),
+        successful=successful,
+        failed=failed,
+        results=results
+    )
 
 
 # ─────────────────────────────────────────────────────────────

@@ -253,6 +253,91 @@ actor APIClient {
         )
     }
 
+    // MARK: - Batch Summarization
+
+    struct BatchSummarizeRequest: Encodable {
+        let urls: [String]
+    }
+
+    struct BatchSummarizeResult: Codable {
+        let url: String
+        let success: Bool
+        let title: String?
+        let oneLiner: String?
+        let fullSummary: String?
+        let keyPoints: [String]?
+        let modelUsed: String?
+        let cached: Bool
+        let error: String?
+
+        enum CodingKeys: String, CodingKey {
+            case url
+            case success
+            case title
+            case oneLiner = "one_liner"
+            case fullSummary = "full_summary"
+            case keyPoints = "key_points"
+            case modelUsed = "model_used"
+            case cached
+            case error
+        }
+    }
+
+    struct BatchSummarizeResponse: Codable {
+        let total: Int
+        let successful: Int
+        let failed: Int
+        let results: [BatchSummarizeResult]
+    }
+
+    func batchSummarize(urls: [String]) async throws -> BatchSummarizeResponse {
+        return try await post(
+            path: "/summarize/batch",
+            body: BatchSummarizeRequest(urls: urls),
+            timeout: 300  // 5 minutes for batch processing
+        )
+    }
+
+    // MARK: - Grouped Articles
+
+    struct ArticleGroup: Codable {
+        let key: String
+        let label: String
+        let articles: [Article]
+    }
+
+    struct GroupedArticlesResponse: Codable {
+        let groupBy: String
+        let groups: [ArticleGroup]
+
+        enum CodingKeys: String, CodingKey {
+            case groupBy = "group_by"
+            case groups
+        }
+    }
+
+    enum ArticleGrouping: String {
+        case date
+        case feed
+    }
+
+    func getArticlesGrouped(
+        by grouping: ArticleGrouping = .date,
+        unreadOnly: Bool = false,
+        limit: Int = 100
+    ) async throws -> GroupedArticlesResponse {
+        var queryItems: [URLQueryItem] = [
+            URLQueryItem(name: "group_by", value: grouping.rawValue),
+            URLQueryItem(name: "limit", value: String(limit))
+        ]
+
+        if unreadOnly {
+            queryItems.append(URLQueryItem(name: "unread_only", value: "true"))
+        }
+
+        return try await get(path: "/articles/grouped", queryItems: queryItems)
+    }
+
     // MARK: - HTTP Methods
 
     private func get<T: Decodable>(

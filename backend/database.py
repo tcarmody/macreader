@@ -341,6 +341,35 @@ class Database:
                 ).fetchone()
             return row["count"] if row else 0
 
+    def get_articles_grouped_by_date(
+        self,
+        unread_only: bool = False,
+        limit: int = 100
+    ) -> dict[str, list[DBArticle]]:
+        """Get articles grouped by date (YYYY-MM-DD)."""
+        articles = self.get_articles(unread_only=unread_only, limit=limit)
+        grouped: dict[str, list[DBArticle]] = {}
+        for article in articles:
+            date_key = (article.published_at or article.created_at).strftime("%Y-%m-%d")
+            if date_key not in grouped:
+                grouped[date_key] = []
+            grouped[date_key].append(article)
+        return grouped
+
+    def get_articles_grouped_by_feed(
+        self,
+        unread_only: bool = False,
+        limit: int = 100
+    ) -> dict[int, list[DBArticle]]:
+        """Get articles grouped by feed ID."""
+        articles = self.get_articles(unread_only=unread_only, limit=limit)
+        grouped: dict[int, list[DBArticle]] = {}
+        for article in articles:
+            if article.feed_id not in grouped:
+                grouped[article.feed_id] = []
+            grouped[article.feed_id].append(article)
+        return grouped
+
     # ─────────────────────────────────────────────────────────────
     # Settings operations
     # ─────────────────────────────────────────────────────────────
