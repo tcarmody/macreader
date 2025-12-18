@@ -28,10 +28,36 @@ enum APIError: Error, LocalizedError, Sendable {
 private enum JSONHelper {
     static let decoder: JSONDecoder = {
         let decoder = JSONDecoder()
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
-        dateFormatter.timeZone = TimeZone(identifier: "UTC")
-        decoder.dateDecodingStrategy = .formatted(dateFormatter)
+        // Use custom date decoding to handle both formats:
+        // - "yyyy-MM-dd'T'HH:mm:ss" (articles)
+        // - "yyyy-MM-dd'T'HH:mm:ss.SSSSSS" (feeds with microseconds)
+        decoder.dateDecodingStrategy = .custom { decoder in
+            let container = try decoder.singleValueContainer()
+            let dateString = try container.decode(String.self)
+
+            // Try format with microseconds first (more specific)
+            let formatterWithMicroseconds = DateFormatter()
+            formatterWithMicroseconds.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS"
+            formatterWithMicroseconds.timeZone = TimeZone(identifier: "UTC")
+            if let date = formatterWithMicroseconds.date(from: dateString) {
+                return date
+            }
+
+            // Try format without microseconds
+            let formatterWithoutMicroseconds = DateFormatter()
+            formatterWithoutMicroseconds.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+            formatterWithoutMicroseconds.timeZone = TimeZone(identifier: "UTC")
+            if let date = formatterWithoutMicroseconds.date(from: dateString) {
+                return date
+            }
+
+            throw DecodingError.dataCorrupted(
+                DecodingError.Context(
+                    codingPath: decoder.codingPath,
+                    debugDescription: "Unable to parse date: \(dateString)"
+                )
+            )
+        }
         return decoder
     }()
 
@@ -430,6 +456,13 @@ actor APIClient {
         try validateResponse(response, data: data)
         do {
             return try JSONHelper.decode(T.self, from: data)
+        } catch let decodingError as DecodingError {
+            let errorMessage = Self.formatDecodingError(decodingError)
+            print("❌ Decoding error for \(path): \(errorMessage)")
+            if let jsonString = String(data: data.prefix(500), encoding: .utf8) {
+                print("📄 JSON preview: \(jsonString)...")
+            }
+            throw APIError.decodingError(errorMessage)
         } catch {
             throw APIError.decodingError(error.localizedDescription)
         }
@@ -529,6 +562,21 @@ actor APIClient {
         guard (200...299).contains(httpResponse.statusCode) else {
             let message = String(data: data, encoding: .utf8) ?? "Unknown error"
             throw APIError.serverError(httpResponse.statusCode, message)
+        }
+    }
+
+    private static func formatDecodingError(_ error: DecodingError) -> String {
+        switch error {
+        case .typeMismatch(let type, let context):
+            return "Type mismatch: expected \(type) at \(context.codingPath.map { $0.stringValue }.joined(separator: "."))"
+        case .valueNotFound(let type, let context):
+            return "Value not found: expected \(type) at \(context.codingPath.map { $0.stringValue }.joined(separator: "."))"
+        case .keyNotFound(let key, let context):
+            return "Key not found: '\(key.stringValue)' at \(context.codingPath.map { $0.stringValue }.joined(separator: "."))"
+        case .dataCorrupted(let context):
+            return "Data corrupted at \(context.codingPath.map { $0.stringValue }.joined(separator: ".")): \(context.debugDescription)"
+        @unknown default:
+            return error.localizedDescription
         }
     }
 }
