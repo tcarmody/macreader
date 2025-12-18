@@ -1,9 +1,11 @@
 import SwiftUI
+import WebKit
 
 /// Right pane: full article detail with summary
 struct ArticleDetailView: View {
     @EnvironmentObject var appState: AppState
     @State private var isSummarizing: Bool = false
+    @State private var contentHeight: CGFloat = 200
 
     var body: some View {
         Group {
@@ -140,14 +142,14 @@ struct ArticleDetailView: View {
                             .buttonStyle(.bordered)
                         }
 
-                        // Original content preview (collapsed by default)
+                        // Original content (rendered HTML)
                         if let content = article.content, !content.isEmpty {
-                            DisclosureGroup("Original Content") {
-                                Text(content)
-                                    .font(.body)
-                                    .foregroundStyle(.secondary)
-                                    .textSelection(.enabled)
-                                    .padding(.top, 8)
+                            VStack(alignment: .leading, spacing: 12) {
+                                Text("Original Content")
+                                    .font(.headline)
+
+                                HTMLContentView(html: content, dynamicHeight: $contentHeight)
+                                    .frame(height: contentHeight)
                             }
                             .padding(.top, 8)
                         }
