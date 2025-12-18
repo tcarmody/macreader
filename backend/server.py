@@ -25,6 +25,7 @@ from .cache import TieredCache, create_cache
 from .feeds import FeedParser
 from .fetcher import Fetcher
 from .summarizer import Summarizer, Summary, Model
+from .opml import parse_opml, generate_opml, OPMLFeed
 
 # Load environment variables
 load_dotenv()
@@ -606,4 +607,145 @@ async def get_stats(
         "total_feeds": len(feeds),
         "total_unread": total_unread,
         "refresh_in_progress": state.refresh_in_progress
+    }
+
+
+# ─────────────────────────────────────────────────────────────
+# OPML Import/Export
+# ─────────────────────────────────────────────────────────────
+
+class OPMLImportRequest(BaseModel):
+    """Request to import feeds from OPML."""
+    opml_content: str
+
+
+class OPMLImportResult(BaseModel):
+    """Result of importing a single feed from OPML."""
+    url: str
+    name: str | None
+    success: bool
+    error: str | None = None
+    feed_id: int | None = None
+
+
+class OPMLImportResponse(BaseModel):
+    """Response from OPML import."""
+    total: int
+    imported: int
+    skipped: int
+    failed: int
+    results: list[OPMLImportResult]
+
+
+@app.post("/feeds/import-opml")
+async def import_opml(
+    request: OPMLImportRequest,
+    db: Annotated[Database, Depends(get_db)],
+    background_tasks: BackgroundTasks
+) -> OPMLImportResponse:
+    """
+    Import feeds from OPML content.
+
+    Parses the OPML, validates each feed, and adds them to the database.
+    Returns detailed results for each feed.
+    """
+    if not state.feed_parser:
+        raise HTTPException(status_code=500, detail="Feed parser not initialized")
+
+    # Parse OPML
+    try:
+        opml_doc = parse_opml(request.opml_content)
+    except ValueError as e:
+        raise HTTPException(status_code=400, detail=f"Invalid OPML: {e}")
+
+    if not opml_doc.feeds:
+        raise HTTPException(status_code=400, detail="No feeds found in OPML")
+
+    results: list[OPMLImportResult] = []
+    imported = 0
+    skipped = 0
+    failed = 0
+
+    # Get existing feed URLs to skip duplicates
+    existing_feeds = db.get_feeds()
+    existing_urls = {f.url.lower() for f in existing_feeds}
+
+    for opml_feed in opml_doc.feeds:
+        # Skip if already subscribed
+        if opml_feed.url.lower() in existing_urls:
+            results.append(OPMLImportResult(
+                url=opml_feed.url,
+                name=opml_feed.title,
+                success=False,
+                error="Already subscribed"
+            ))
+            skipped += 1
+            continue
+
+        # Try to validate and add the feed
+        try:
+            parsed_feed = await state.feed_parser.fetch(opml_feed.url)
+            feed_name = opml_feed.title or parsed_feed.title
+
+            feed_id = db.add_feed(
+                url=opml_feed.url,
+                name=feed_name,
+                category=opml_feed.category
+            )
+
+            # Fetch articles in background
+            background_tasks.add_task(_fetch_feed_articles, feed_id, parsed_feed)
+
+            results.append(OPMLImportResult(
+                url=opml_feed.url,
+                name=feed_name,
+                success=True,
+                feed_id=feed_id
+            ))
+            imported += 1
+            existing_urls.add(opml_feed.url.lower())
+
+        except Exception as e:
+            results.append(OPMLImportResult(
+                url=opml_feed.url,
+                name=opml_feed.title,
+                success=False,
+                error=str(e)
+            ))
+            failed += 1
+
+    return OPMLImportResponse(
+        total=len(opml_doc.feeds),
+        imported=imported,
+        skipped=skipped,
+        failed=failed,
+        results=results
+    )
+
+
+@app.get("/feeds/export-opml")
+async def export_opml(
+    db: Annotated[Database, Depends(get_db)]
+) -> dict:
+    """
+    Export all feeds as OPML.
+
+    Returns OPML XML content that can be imported into other feed readers.
+    """
+    feeds = db.get_feeds()
+
+    opml_feeds = [
+        OPMLFeed(
+            url=f.url,
+            title=f.name,
+            category=f.category
+        )
+        for f in feeds
+    ]
+
+    opml_content = generate_opml(opml_feeds, title="DataPointsAI Feeds")
+
+    return {
+        "opml": opml_content,
+        "feed_count": len(feeds)
     }

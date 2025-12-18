@@ -38,7 +38,19 @@ struct FeedListView: View {
         .navigationTitle("Feeds")
         .toolbar {
             ToolbarItem {
-                Button(action: { appState.showAddFeed = true }) {
+                Menu {
+                    Button {
+                        appState.showAddFeed = true
+                    } label: {
+                        Label("Add Feed...", systemImage: "plus")
+                    }
+
+                    Button {
+                        appState.showImportOPML = true
+                    } label: {
+                        Label("Import OPML...", systemImage: "square.and.arrow.down")
+                    }
+                } label: {
                     Image(systemName: "plus")
                 }
                 .help("Add Feed")

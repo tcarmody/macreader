@@ -134,6 +134,61 @@ actor APIClient {
         let _: EmptyResponse = try await post(path: "/feeds/\(id)/refresh")
     }
 
+    // MARK: - OPML Import/Export
+
+    struct OPMLImportRequest: Encodable {
+        let opmlContent: String
+
+        enum CodingKeys: String, CodingKey {
+            case opmlContent = "opml_content"
+        }
+    }
+
+    struct OPMLImportResult: Codable {
+        let url: String
+        let name: String?
+        let success: Bool
+        let error: String?
+        let feedId: Int?
+
+        enum CodingKeys: String, CodingKey {
+            case url
+            case name
+            case success
+            case error
+            case feedId = "feed_id"
+        }
+    }
+
+    struct OPMLImportResponse: Codable {
+        let total: Int
+        let imported: Int
+        let skipped: Int
+        let failed: Int
+        let results: [OPMLImportResult]
+    }
+
+    struct OPMLExportResponse: Codable {
+        let opml: String
+        let feedCount: Int
+
+        enum CodingKeys: String, CodingKey {
+            case opml
+            case feedCount = "feed_count"
+        }
+    }
+
+    func importOPML(content: String) async throws -> OPMLImportResponse {
+        return try await post(
+            path: "/feeds/import-opml",
+            body: OPMLImportRequest(opmlContent: content)
+        )
+    }
+
+    func exportOPML() async throws -> OPMLExportResponse {
+        return try await get(path: "/feeds/export-opml")
+    }
+
     // MARK: - Search
 
     func search(query: String, limit: Int = 20) async throws -> [Article] {

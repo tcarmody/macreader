@@ -23,6 +23,9 @@ struct MainView: View {
         .sheet(isPresented: $appState.showAddFeed) {
             AddFeedView()
         }
+        .sheet(isPresented: $appState.showImportOPML) {
+            ImportOPMLView()
+        }
         .alert("Error", isPresented: .constant(appState.error != nil)) {
             Button("OK") {
                 appState.error = nil

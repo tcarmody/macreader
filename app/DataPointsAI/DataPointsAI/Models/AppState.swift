@@ -24,6 +24,7 @@ class AppState: ObservableObject {
     // UI state
     @Published var showAddFeed: Bool = false
     @Published var showSettings: Bool = false
+    @Published var showImportOPML: Bool = false
 
     // MARK: - Dependencies
 
@@ -223,6 +224,28 @@ class AppState: ObservableObject {
         // Wait a moment for background refresh to start
         try? await Task.sleep(nanoseconds: 500_000_000)
         await refresh()
+    }
+
+    // MARK: - OPML Import/Export
+
+    func importOPML(content: String) async throws -> APIClient.OPMLImportResponse {
+        let result = try await apiClient.importOPML(content: content)
+
+        // Reload feeds to include newly imported ones
+        feeds = try await apiClient.getFeeds()
+        await reloadArticles()
+
+        return result
+    }
+
+    func importOPML(from fileURL: URL) async throws -> APIClient.OPMLImportResponse {
+        let content = try String(contentsOf: fileURL, encoding: .utf8)
+        return try await importOPML(content: content)
+    }
+
+    func exportOPML() async throws -> String {
+        let result = try await apiClient.exportOPML()
+        return result.opml
     }
 
     // MARK: - Search
