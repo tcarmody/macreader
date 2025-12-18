@@ -387,6 +387,100 @@ async def toggle_bookmark(
     return {"success": True, "is_bookmarked": new_status}
 
 
+class BulkMarkReadRequest(BaseModel):
+    """Request to mark multiple articles as read/unread."""
+    article_ids: list[int]
+    is_read: bool = True
+
+
+class BulkDeleteFeedsRequest(BaseModel):
+    """Request to delete multiple feeds."""
+    feed_ids: list[int]
+
+
+class UpdateFeedRequest(BaseModel):
+    """Request to update a feed."""
+    name: str | None = None
+    category: str | None = None
+
+
+@app.post("/articles/bulk/read")
+async def bulk_mark_read(
+    request: BulkMarkReadRequest,
+    db: Annotated[Database, Depends(get_db)]
+) -> dict:
+    """Mark multiple articles as read/unread."""
+    if not request.article_ids:
+        raise HTTPException(status_code=400, detail="No article IDs provided")
+
+    if len(request.article_ids) > 1000:
+        raise HTTPException(status_code=400, detail="Maximum 1000 articles per request")
+
+    db.bulk_mark_read(request.article_ids, request.is_read)
+    return {"success": True, "count": len(request.article_ids), "is_read": request.is_read}
+
+
+@app.post("/articles/feed/{feed_id}/read")
+async def mark_feed_read(
+    feed_id: int,
+    db: Annotated[Database, Depends(get_db)],
+    is_read: bool = True
+) -> dict:
+    """Mark all articles in a feed as read/unread."""
+    feed = db.get_feed(feed_id)
+    if not feed:
+        raise HTTPException(status_code=404, detail="Feed not found")
+
+    count = db.mark_feed_read(feed_id, is_read)
+    return {"success": True, "count": count, "is_read": is_read}
+
+
+@app.post("/articles/all/read")
+async def mark_all_read(
+    db: Annotated[Database, Depends(get_db)],
+    is_read: bool = True
+) -> dict:
+    """Mark all articles as read/unread."""
+    count = db.mark_all_read(is_read)
+    return {"success": True, "count": count, "is_read": is_read}
+
+
+@app.post("/feeds/bulk/delete")
+async def bulk_delete_feeds(
+    request: BulkDeleteFeedsRequest,
+    db: Annotated[Database, Depends(get_db)]
+) -> dict:
+    """Delete multiple feeds at once."""
+    if not request.feed_ids:
+        raise HTTPException(status_code=400, detail="No feed IDs provided")
+
+    if len(request.feed_ids) > 100:
+        raise HTTPException(status_code=400, detail="Maximum 100 feeds per request")
+
+    db.bulk_delete_feeds(request.feed_ids)
+    return {"success": True, "count": len(request.feed_ids)}
+
+
+@app.put("/feeds/{feed_id}")
+async def update_feed(
+    feed_id: int,
+    request: UpdateFeedRequest,
+    db: Annotated[Database, Depends(get_db)]
+) -> FeedResponse:
+    """Update a feed's name or category."""
+    feed = db.get_feed(feed_id)
+    if not feed:
+        raise HTTPException(status_code=404, detail="Feed not found")
+
+    db.update_feed(feed_id, name=request.name, category=request.category)
+
+    updated_feed = db.get_feed(feed_id)
+    if not updated_feed:
+        raise HTTPException(status_code=500, detail="Failed to retrieve updated feed")
+
+    return FeedResponse.from_db(updated_feed)
+
+
 @app.post("/articles/{article_id}/summarize")
 async def summarize_article(
     article_id: int,

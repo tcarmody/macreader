@@ -1,7 +1,7 @@
 import Foundation
 
 /// Article for list view (matches ArticleResponse from API)
-struct Article: Identifiable, Codable, Hashable {
+struct Article: Identifiable, Codable, Hashable, Sendable {
     let id: Int
     let feedId: Int
     let url: URL
@@ -64,7 +64,7 @@ struct Article: Identifiable, Codable, Hashable {
 }
 
 /// Article with full summary for detail view (matches ArticleDetailResponse from API)
-struct ArticleDetail: Identifiable, Codable {
+struct ArticleDetail: Identifiable, Codable, Sendable {
     let id: Int
     let feedId: Int
     let url: URL
@@ -130,7 +130,7 @@ struct ArticleDetail: Identifiable, Codable {
 }
 
 /// Group of articles for time-based display
-struct ArticleGroup: Identifiable {
+struct ArticleGroup: Identifiable, Sendable {
     let id: String
     let title: String  // "Today", "Yesterday", "Last Week", etc.
     let articles: [Article]

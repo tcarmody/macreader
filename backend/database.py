@@ -315,6 +315,46 @@ class Database:
             )
             return new_status
 
+    def bulk_mark_read(self, article_ids: list[int], is_read: bool = True):
+        """Mark multiple articles as read/unread."""
+        if not article_ids:
+            return
+        with self._conn() as conn:
+            read_at = datetime.now().isoformat() if is_read else None
+            placeholders = ",".join("?" * len(article_ids))
+            conn.execute(
+                f"UPDATE articles SET is_read = ?, read_at = ? WHERE id IN ({placeholders})",
+                [is_read, read_at] + article_ids
+            )
+
+    def mark_feed_read(self, feed_id: int, is_read: bool = True) -> int:
+        """Mark all articles in a feed as read/unread. Returns count updated."""
+        with self._conn() as conn:
+            read_at = datetime.now().isoformat() if is_read else None
+            cursor = conn.execute(
+                "UPDATE articles SET is_read = ?, read_at = ? WHERE feed_id = ?",
+                (is_read, read_at, feed_id)
+            )
+            return cursor.rowcount
+
+    def mark_all_read(self, is_read: bool = True) -> int:
+        """Mark all articles as read/unread. Returns count updated."""
+        with self._conn() as conn:
+            read_at = datetime.now().isoformat() if is_read else None
+            cursor = conn.execute(
+                "UPDATE articles SET is_read = ?, read_at = ?",
+                (is_read, read_at)
+            )
+            return cursor.rowcount
+
+    def bulk_delete_feeds(self, feed_ids: list[int]):
+        """Delete multiple feeds and their articles."""
+        if not feed_ids:
+            return
+        with self._conn() as conn:
+            placeholders = ",".join("?" * len(feed_ids))
+            conn.execute(f"DELETE FROM feeds WHERE id IN ({placeholders})", feed_ids)
+
     def search(self, query: str, limit: int = 20) -> list[DBArticle]:
         """Full-text search across articles."""
         with self._conn() as conn:

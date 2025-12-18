@@ -26,6 +26,13 @@ class AppState: ObservableObject {
     @Published var showSettings: Bool = false
     @Published var showImportOPML: Bool = false
 
+    // Multi-selection state
+    @Published var selectedFeedIds: Set<Int> = []
+    @Published var selectedArticleIds: Set<Int> = []
+
+    // Edit state
+    @Published var feedBeingEdited: Feed?
+
     // MARK: - Dependencies
 
     private let apiClient: APIClient
@@ -213,6 +220,55 @@ class AppState: ObservableObject {
         }
     }
 
+    // MARK: - Bulk Article Actions
+
+    func bulkMarkRead(articleIds: [Int], isRead: Bool = true) async throws {
+        guard !articleIds.isEmpty else { return }
+
+        try await apiClient.bulkMarkRead(articleIds: articleIds, isRead: isRead)
+
+        // Update local state
+        for articleId in articleIds {
+            if let index = articles.firstIndex(where: { $0.id == articleId }) {
+                articles[index].isRead = isRead
+            }
+        }
+        if let detail = selectedArticleDetail, articleIds.contains(detail.id) {
+            selectedArticleDetail?.isRead = isRead
+        }
+
+        // Refresh feeds to update unread counts
+        feeds = try await apiClient.getFeeds()
+    }
+
+    func markFeedRead(feedId: Int, isRead: Bool = true) async throws {
+        try await apiClient.markFeedRead(feedId: feedId, isRead: isRead)
+
+        // Update local state for articles from this feed
+        for i in articles.indices where articles[i].feedId == feedId {
+            articles[i].isRead = isRead
+        }
+        if let detail = selectedArticleDetail, detail.feedId == feedId {
+            selectedArticleDetail?.isRead = isRead
+        }
+
+        // Refresh feeds to update unread counts
+        feeds = try await apiClient.getFeeds()
+    }
+
+    func markAllRead(isRead: Bool = true) async throws {
+        try await apiClient.markAllRead(isRead: isRead)
+
+        // Update all local articles
+        for i in articles.indices {
+            articles[i].isRead = isRead
+        }
+        selectedArticleDetail?.isRead = isRead
+
+        // Refresh feeds to update unread counts
+        feeds = try await apiClient.getFeeds()
+    }
+
     // MARK: - Feed Actions
 
     func addFeed(url: String, name: String? = nil) async throws {
@@ -231,6 +287,30 @@ class AppState: ObservableObject {
         }
 
         await reloadArticles()
+    }
+
+    func bulkDeleteFeeds(feedIds: [Int]) async throws {
+        guard !feedIds.isEmpty else { return }
+
+        try await apiClient.bulkDeleteFeeds(ids: feedIds)
+
+        // Reset filter if we deleted the currently selected feed
+        if case .feed(let id) = selectedFilter, feedIds.contains(id) {
+            selectedFilter = .all
+        }
+
+        // Refresh feeds from server to ensure sync
+        feeds = try await apiClient.getFeeds()
+        await reloadArticles()
+    }
+
+    func updateFeed(feedId: Int, name: String) async throws {
+        let updatedFeed = try await apiClient.updateFeed(id: feedId, name: name)
+
+        // Update local state
+        if let index = feeds.firstIndex(where: { $0.id == feedId }) {
+            feeds[index] = updatedFeed
+        }
     }
 
     func refreshFeeds() async throws {

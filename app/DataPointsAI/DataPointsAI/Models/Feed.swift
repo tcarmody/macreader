@@ -1,7 +1,7 @@
 import Foundation
 
 /// Feed model (matches FeedResponse from API)
-struct Feed: Identifiable, Codable, Hashable {
+struct Feed: Identifiable, Codable, Hashable, Sendable {
     let id: Int
     let url: URL
     var name: String
@@ -46,7 +46,7 @@ enum ArticleFilter: Hashable {
 }
 
 /// Application settings (matches SettingsResponse from API)
-struct AppSettings: Codable {
+struct AppSettings: Codable, Sendable {
     var refreshIntervalMinutes: Int
     var autoSummarize: Bool
     var markReadOnOpen: Bool
@@ -68,7 +68,7 @@ struct AppSettings: Codable {
 }
 
 /// API health status
-struct APIStatus: Codable {
+struct APIStatus: Codable, Sendable {
     let status: String
     let version: String
     let summarizationEnabled: Bool
@@ -83,7 +83,7 @@ struct APIStatus: Codable {
 }
 
 /// Statistics from the API
-struct Stats: Codable {
+struct Stats: Codable, Sendable {
     let totalFeeds: Int
     let totalUnread: Int
     let refreshInProgress: Bool

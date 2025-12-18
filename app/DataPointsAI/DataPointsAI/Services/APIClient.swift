@@ -1,26 +1,51 @@
 import Foundation
 
 /// Errors from API calls
-enum APIError: Error, LocalizedError {
-    case networkError(Error)
+enum APIError: Error, LocalizedError, Sendable {
+    case networkError(String)
     case invalidResponse
     case serverError(Int, String)
-    case decodingError(Error)
+    case decodingError(String)
     case serverNotRunning
 
     var errorDescription: String? {
         switch self {
-        case .networkError(let error):
-            return "Network error: \(error.localizedDescription)"
+        case .networkError(let message):
+            return "Network error: \(message)"
         case .invalidResponse:
             return "Invalid response from server"
         case .serverError(let code, let message):
             return "Server error \(code): \(message)"
-        case .decodingError(let error):
-            return "Decoding error: \(error.localizedDescription)"
+        case .decodingError(let message):
+            return "Decoding error: \(message)"
         case .serverNotRunning:
             return "Server is not running"
         }
+    }
+}
+
+/// Helper for JSON decoding outside of actor context
+private enum JSONHelper {
+    static let decoder: JSONDecoder = {
+        let decoder = JSONDecoder()
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        dateFormatter.timeZone = TimeZone(identifier: "UTC")
+        decoder.dateDecodingStrategy = .formatted(dateFormatter)
+        return decoder
+    }()
+
+    static let encoder: JSONEncoder = {
+        let encoder = JSONEncoder()
+        return encoder
+    }()
+
+    static func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
+        try decoder.decode(type, from: data)
+    }
+
+    static func encode<T: Encodable>(_ value: T) throws -> Data {
+        try encoder.encode(value)
     }
 }
 
@@ -28,23 +53,10 @@ enum APIError: Error, LocalizedError {
 actor APIClient {
     private let baseURL: URL
     private let session: URLSession
-    private let decoder: JSONDecoder
-    private let encoder: JSONEncoder
 
     init(baseURL: URL = URL(string: "http://127.0.0.1:5005")!) {
         self.baseURL = baseURL
         self.session = URLSession.shared
-
-        self.decoder = JSONDecoder()
-        // Don't use automatic snake_case conversion - models have explicit CodingKeys
-        // Use custom date formatter to handle dates without timezone (e.g., "2025-12-18T19:14:09")
-        let dateFormatter = DateFormatter()
-        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
-        dateFormatter.timeZone = TimeZone(identifier: "UTC")
-        decoder.dateDecodingStrategy = .formatted(dateFormatter)
-
-        self.encoder = JSONEncoder()
-        // Don't use automatic snake_case conversion - models have explicit CodingKeys
     }
 
     // MARK: - Health
@@ -91,7 +103,7 @@ actor APIClient {
         )
     }
 
-    struct BookmarkResponse: Codable {
+    struct BookmarkResponse: Codable, Sendable {
         let success: Bool
         let isBookmarked: Bool
 
@@ -107,6 +119,48 @@ actor APIClient {
 
     func summarizeArticle(articleId: Int) async throws {
         let _: EmptyResponse = try await post(path: "/articles/\(articleId)/summarize")
+    }
+
+    // MARK: - Bulk Article Operations
+
+    struct BulkMarkReadRequest: Encodable {
+        let articleIds: [Int]
+        let isRead: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case articleIds = "article_ids"
+            case isRead = "is_read"
+        }
+    }
+
+    struct BulkOperationResponse: Codable, Sendable {
+        let success: Bool
+        let count: Int
+    }
+
+    func bulkMarkRead(articleIds: [Int], isRead: Bool = true) async throws {
+        let _: BulkOperationResponse = try await post(
+            path: "/articles/bulk/read",
+            body: BulkMarkReadRequest(articleIds: articleIds, isRead: isRead)
+        )
+    }
+
+    func markFeedRead(feedId: Int, isRead: Bool = true) async throws {
+        var queryItems: [URLQueryItem] = []
+        queryItems.append(URLQueryItem(name: "is_read", value: String(isRead)))
+        let _: BulkOperationResponse = try await post(
+            path: "/articles/feed/\(feedId)/read",
+            queryItems: queryItems
+        )
+    }
+
+    func markAllRead(isRead: Bool = true) async throws {
+        var queryItems: [URLQueryItem] = []
+        queryItems.append(URLQueryItem(name: "is_read", value: String(isRead)))
+        let _: BulkOperationResponse = try await post(
+            path: "/articles/all/read",
+            queryItems: queryItems
+        )
     }
 
     // MARK: - Feeds
@@ -130,6 +184,33 @@ actor APIClient {
         let _: EmptyResponse = try await delete(path: "/feeds/\(id)")
     }
 
+    struct BulkDeleteFeedsRequest: Encodable {
+        let feedIds: [Int]
+
+        enum CodingKeys: String, CodingKey {
+            case feedIds = "feed_ids"
+        }
+    }
+
+    func bulkDeleteFeeds(ids: [Int]) async throws {
+        let _: BulkOperationResponse = try await post(
+            path: "/feeds/bulk/delete",
+            body: BulkDeleteFeedsRequest(feedIds: ids)
+        )
+    }
+
+    struct UpdateFeedRequest: Encodable {
+        let name: String?
+        let category: String?
+    }
+
+    func updateFeed(id: Int, name: String?, category: String? = nil) async throws -> Feed {
+        return try await put(
+            path: "/feeds/\(id)",
+            body: UpdateFeedRequest(name: name, category: category)
+        )
+    }
+
     func refreshFeeds() async throws {
         let _: EmptyResponse = try await post(path: "/feeds/refresh")
     }
@@ -148,7 +229,7 @@ actor APIClient {
         }
     }
 
-    struct OPMLImportResult: Codable {
+    struct OPMLImportResult: Codable, Sendable {
         let url: String
         let name: String?
         let success: Bool
@@ -164,7 +245,7 @@ actor APIClient {
         }
     }
 
-    struct OPMLImportResponse: Codable {
+    struct OPMLImportResponse: Codable, Sendable {
         let total: Int
         let imported: Int
         let skipped: Int
@@ -172,7 +253,7 @@ actor APIClient {
         let results: [OPMLImportResult]
     }
 
-    struct OPMLExportResponse: Codable {
+    struct OPMLExportResponse: Codable, Sendable {
         let opml: String
         let feedCount: Int
 
@@ -226,7 +307,7 @@ actor APIClient {
         let url: String
     }
 
-    struct SummarizeURLResponse: Codable {
+    struct SummarizeURLResponse: Codable, Sendable {
         let url: String
         let title: String
         let oneLiner: String
@@ -259,7 +340,7 @@ actor APIClient {
         let urls: [String]
     }
 
-    struct BatchSummarizeResult: Codable {
+    struct BatchSummarizeResult: Codable, Sendable {
         let url: String
         let success: Bool
         let title: String?
@@ -283,7 +364,7 @@ actor APIClient {
         }
     }
 
-    struct BatchSummarizeResponse: Codable {
+    struct BatchSummarizeResponse: Codable, Sendable {
         let total: Int
         let successful: Int
         let failed: Int
@@ -300,13 +381,13 @@ actor APIClient {
 
     // MARK: - Grouped Articles
 
-    struct ArticleGroup: Codable {
+    struct ArticleGroup: Codable, Sendable {
         let key: String
         let label: String
         let articles: [Article]
     }
 
-    struct GroupedArticlesResponse: Codable {
+    struct GroupedArticlesResponse: Codable, Sendable {
         let groupBy: String
         let groups: [ArticleGroup]
 
@@ -347,7 +428,11 @@ actor APIClient {
         let url = buildURL(path: path, queryItems: queryItems)
         let (data, response) = try await session.data(from: url)
         try validateResponse(response, data: data)
-        return try decode(data)
+        do {
+            return try JSONHelper.decode(T.self, from: data)
+        } catch {
+            throw APIError.decodingError(error.localizedDescription)
+        }
     }
 
     private func post<T: Decodable>(
@@ -361,7 +446,11 @@ actor APIClient {
 
         let (data, response) = try await session.data(for: request)
         try validateResponse(response, data: data)
-        return try decode(data)
+        do {
+            return try JSONHelper.decode(T.self, from: data)
+        } catch {
+            throw APIError.decodingError(error.localizedDescription)
+        }
     }
 
     private func post<T: Decodable, B: Encodable>(
@@ -374,7 +463,7 @@ actor APIClient {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try encoder.encode(body)
+        request.httpBody = try JSONHelper.encode(body)
 
         if let timeout = timeout {
             request.timeoutInterval = timeout
@@ -382,7 +471,11 @@ actor APIClient {
 
         let (data, response) = try await session.data(for: request)
         try validateResponse(response, data: data)
-        return try decode(data)
+        do {
+            return try JSONHelper.decode(T.self, from: data)
+        } catch {
+            throw APIError.decodingError(error.localizedDescription)
+        }
     }
 
     private func put<T: Decodable, B: Encodable>(
@@ -393,11 +486,15 @@ actor APIClient {
         var request = URLRequest(url: url)
         request.httpMethod = "PUT"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
-        request.httpBody = try encoder.encode(body)
+        request.httpBody = try JSONHelper.encode(body)
 
         let (data, response) = try await session.data(for: request)
         try validateResponse(response, data: data)
-        return try decode(data)
+        do {
+            return try JSONHelper.decode(T.self, from: data)
+        } catch {
+            throw APIError.decodingError(error.localizedDescription)
+        }
     }
 
     private func delete<T: Decodable>(path: String) async throws -> T {
@@ -407,7 +504,11 @@ actor APIClient {
 
         let (data, response) = try await session.data(for: request)
         try validateResponse(response, data: data)
-        return try decode(data)
+        do {
+            return try JSONHelper.decode(T.self, from: data)
+        } catch {
+            throw APIError.decodingError(error.localizedDescription)
+        }
     }
 
     // MARK: - Helpers
@@ -430,18 +531,10 @@ actor APIClient {
             throw APIError.serverError(httpResponse.statusCode, message)
         }
     }
-
-    private func decode<T: Decodable>(_ data: Data) throws -> T {
-        do {
-            return try decoder.decode(T.self, from: data)
-        } catch {
-            throw APIError.decodingError(error)
-        }
-    }
 }
 
 /// Empty response for endpoints that don't return data
-private struct EmptyResponse: Codable {
+private struct EmptyResponse: Codable, Sendable {
     let success: Bool?
     let message: String?
 }

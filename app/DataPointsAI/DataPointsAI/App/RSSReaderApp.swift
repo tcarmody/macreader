@@ -60,6 +60,25 @@ struct RSSReaderApp: App {
                 .keyboardShortcut("3", modifiers: .command)
             }
 
+            // Edit menu - Selection commands
+            CommandGroup(after: .pasteboard) {
+                Divider()
+
+                Button("Select All Articles") {
+                    selectAllArticles()
+                }
+                .keyboardShortcut("a", modifiers: .command)
+
+                Button("Clear Selection") {
+                    DispatchQueue.main.async {
+                        appState.selectedArticleIds.removeAll()
+                        appState.selectedFeedIds.removeAll()
+                    }
+                }
+                .keyboardShortcut(.escape)
+                .disabled(appState.selectedArticleIds.isEmpty && appState.selectedFeedIds.isEmpty)
+            }
+
             // Article menu
             CommandMenu("Article") {
                 Button("Open Original") {
@@ -83,24 +102,58 @@ struct RSSReaderApp: App {
                 Divider()
 
                 Button("Mark as Read") {
-                    if let article = appState.selectedArticle {
-                        Task {
-                            try? await appState.markRead(articleId: article.id, isRead: true)
-                        }
-                    }
+                    markSelectedAsRead(true)
                 }
                 .keyboardShortcut("r", modifiers: .command)
-                .disabled(appState.selectedArticle == nil)
+                .disabled(appState.selectedArticle == nil && appState.selectedArticleIds.isEmpty)
 
                 Button("Mark as Unread") {
-                    if let article = appState.selectedArticle {
+                    markSelectedAsRead(false)
+                }
+                .keyboardShortcut("u", modifiers: .command)
+                .disabled(appState.selectedArticle == nil && appState.selectedArticleIds.isEmpty)
+
+                Divider()
+
+                Button("Mark All as Read") {
+                    Task {
+                        try? await markCurrentFilterAsRead()
+                    }
+                }
+                .keyboardShortcut("k", modifiers: [.command, .shift])
+            }
+
+            // Feed menu
+            CommandMenu("Feed") {
+                Button("Rename Feed...") {
+                    if case .feed(let feedId) = appState.selectedFilter,
+                       let feed = appState.feeds.first(where: { $0.id == feedId }) {
+                        appState.feedBeingEdited = feed
+                    }
+                }
+                .disabled(!isCurrentlyViewingFeed)
+
+                Button("Mark Feed as Read") {
+                    if case .feed(let feedId) = appState.selectedFilter {
                         Task {
-                            try? await appState.markRead(articleId: article.id, isRead: false)
+                            try? await appState.markFeedRead(feedId: feedId)
                         }
                     }
                 }
-                .keyboardShortcut("u", modifiers: .command)
-                .disabled(appState.selectedArticle == nil)
+                .keyboardShortcut("m", modifiers: [.command, .shift])
+                .disabled(!isCurrentlyViewingFeed)
+
+                Divider()
+
+                Button("Delete Feed") {
+                    // This will be handled by the confirmation dialog in FeedListView
+                    if case .feed(let feedId) = appState.selectedFilter {
+                        Task {
+                            try? await appState.deleteFeed(feedId: feedId)
+                        }
+                    }
+                }
+                .disabled(!isCurrentlyViewingFeed)
             }
         }
 
@@ -110,5 +163,47 @@ struct RSSReaderApp: App {
                 .environmentObject(appState)
         }
         #endif
+    }
+
+    private var isCurrentlyViewingFeed: Bool {
+        if case .feed = appState.selectedFilter {
+            return true
+        }
+        return false
+    }
+
+    private func selectAllArticles() {
+        let allIds = appState.groupedArticles.flatMap { $0.articles }.map { $0.id }
+        DispatchQueue.main.async {
+            appState.selectedArticleIds = Set(allIds)
+        }
+    }
+
+    private func markSelectedAsRead(_ isRead: Bool) {
+        Task {
+            if !appState.selectedArticleIds.isEmpty {
+                try? await appState.bulkMarkRead(
+                    articleIds: Array(appState.selectedArticleIds),
+                    isRead: isRead
+                )
+                await MainActor.run {
+                    appState.selectedArticleIds.removeAll()
+                }
+            } else if let article = appState.selectedArticle {
+                try? await appState.markRead(articleId: article.id, isRead: isRead)
+            }
+        }
+    }
+
+    private func markCurrentFilterAsRead() async throws {
+        switch appState.selectedFilter {
+        case .all, .unread:
+            try await appState.markAllRead()
+        case .bookmarked:
+            let ids = appState.filteredArticles.map { $0.id }
+            try await appState.bulkMarkRead(articleIds: ids)
+        case .feed(let feedId):
+            try await appState.markFeedRead(feedId: feedId)
+        }
     }
 }
