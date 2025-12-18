@@ -36,11 +36,11 @@ actor APIClient {
         self.session = URLSession.shared
 
         self.decoder = JSONDecoder()
-        decoder.keyDecodingStrategy = .convertFromSnakeCase
+        // Don't use automatic snake_case conversion - models have explicit CodingKeys
         decoder.dateDecodingStrategy = .iso8601
 
         self.encoder = JSONEncoder()
-        encoder.keyEncodingStrategy = .convertToSnakeCase
+        // Don't use automatic snake_case conversion - models have explicit CodingKeys
     }
 
     // MARK: - Health
@@ -146,11 +146,11 @@ actor APIClient {
 
     // MARK: - Settings
 
-    func getSettings() async throws -> Settings {
+    func getSettings() async throws -> AppSettings {
         return try await get(path: "/settings")
     }
 
-    func updateSettings(_ settings: Settings) async throws -> Settings {
+    func updateSettings(_ settings: AppSettings) async throws -> AppSettings {
         return try await put(path: "/settings", body: settings)
     }
 

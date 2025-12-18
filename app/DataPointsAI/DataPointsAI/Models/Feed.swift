@@ -46,7 +46,7 @@ enum ArticleFilter: Hashable {
 }
 
 /// Application settings (matches SettingsResponse from API)
-struct Settings: Codable {
+struct AppSettings: Codable {
     var refreshIntervalMinutes: Int
     var autoSummarize: Bool
     var markReadOnOpen: Bool
@@ -59,7 +59,7 @@ struct Settings: Codable {
         case defaultModel = "default_model"
     }
 
-    static let `default` = Settings(
+    static let `default` = AppSettings(
         refreshIntervalMinutes: 30,
         autoSummarize: true,
         markReadOnOpen: true,

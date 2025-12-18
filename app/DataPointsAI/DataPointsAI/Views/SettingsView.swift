@@ -49,7 +49,7 @@ struct SettingsView: View {
     }
 
     private func saveSettings() {
-        let newSettings = Settings(
+        let newSettings = AppSettings(
             refreshIntervalMinutes: refreshInterval,
             autoSummarize: autoSummarize,
             markReadOnOpen: markReadOnOpen,

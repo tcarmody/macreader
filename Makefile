@@ -2,7 +2,7 @@
 
 # Setup development environment
 setup:
-	python3.11 -m venv rss_venv
+	python3 -m venv rss_venv
 	./rss_venv/bin/pip install --upgrade pip
 	./rss_venv/bin/pip install -r requirements.txt
 	mkdir -p data

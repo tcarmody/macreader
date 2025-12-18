@@ -1,5 +1,6 @@
 import Foundation
 import SwiftUI
+import Combine
 
 /// Main application state manager
 @MainActor
@@ -14,7 +15,7 @@ class AppState: ObservableObject {
     @Published var searchQuery: String = ""
     @Published var isLoading: Bool = false
     @Published var error: String?
-    @Published var settings: Settings = .default
+    @Published var settings: AppSettings = .default
 
     // Server state
     @Published var serverRunning: Bool = false
@@ -80,9 +81,9 @@ class AppState: ObservableObject {
 
     // MARK: - Initialization
 
-    init(apiClient: APIClient = APIClient(), pythonServer: PythonServer = PythonServer()) {
-        self.apiClient = apiClient
-        self.pythonServer = pythonServer
+    init() {
+        self.apiClient = APIClient()
+        self.pythonServer = PythonServer()
     }
 
     // MARK: - Server Management
@@ -241,7 +242,7 @@ class AppState: ObservableObject {
 
     // MARK: - Settings
 
-    func updateSettings(_ newSettings: Settings) async throws {
+    func updateSettings(_ newSettings: AppSettings) async throws {
         settings = try await apiClient.updateSettings(newSettings)
     }
 

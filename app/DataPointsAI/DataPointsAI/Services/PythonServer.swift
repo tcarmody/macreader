@@ -1,4 +1,5 @@
 import Foundation
+import Combine
 
 /// Manages the Python backend process lifecycle
 @MainActor
@@ -34,21 +35,26 @@ class PythonServer: ObservableObject {
             throw ServerError.serverNotFound(backendDir.path)
         }
 
-        // Start the process
+        // Start the process from the project root, using backend.server:app
         let process = Process()
         process.executableURL = venvPython
         process.arguments = [
             "-m", "uvicorn",
-            "server:app",
+            "backend.server:app",
             "--host", "127.0.0.1",
             "--port", String(port)
         ]
-        process.currentDirectoryURL = backendDir
+        process.currentDirectoryURL = projectPath  // Run from project root, not backend dir
 
         // Set up environment
         var env = ProcessInfo.processInfo.environment
         env["PYTHONUNBUFFERED"] = "1"
         process.environment = env
+
+        print("🐍 Starting Python server...")
+        print("🐍 Python: \(venvPython.path)")
+        print("🐍 Project dir: \(projectPath.path)")
+        print("🐍 Arguments: \(process.arguments ?? [])")
 
         // Capture output
         let pipe = Pipe()
@@ -102,19 +108,25 @@ class PythonServer: ObservableObject {
     }
 
     private func findProjectPath() -> URL? {
-        // Method 1: Check relative to current working directory
+        // Method 1: Direct known path (most reliable when running from Xcode)
+        let knownPath = URL(fileURLWithPath: "/Users/tim/Workspace/macreader")
+        if isValidProjectPath(knownPath) {
+            return knownPath
+        }
+
+        // Method 2: Check relative to current working directory
         let cwd = URL(fileURLWithPath: FileManager.default.currentDirectoryPath)
         if isValidProjectPath(cwd) {
             return cwd
         }
 
-        // Method 2: Check parent of current directory
+        // Method 3: Check parent of current directory
         let parent = cwd.deletingLastPathComponent()
         if isValidProjectPath(parent) {
             return parent
         }
 
-        // Method 3: When running from Xcode, look relative to bundle
+        // Method 4: When running from Xcode, look relative to bundle
         if let bundlePath = Bundle.main.resourceURL?
             .deletingLastPathComponent()
             .deletingLastPathComponent()
@@ -124,9 +136,9 @@ class PythonServer: ObservableObject {
             }
         }
 
-        // Method 4: Look in user's home directory under common workspace names
+        // Method 5: Look in user's home directory under common workspace names
         let homeDir = FileManager.default.homeDirectoryForCurrentUser
-        let possibleNames = ["macreader", "rss-reader", "RSSReader"]
+        let possibleNames = ["macreader", "rss-reader", "RSSReader", "DataPointsAI"]
         let possibleParents = ["Workspace", "Projects", "Developer", "Code", "src"]
 
         for parent in possibleParents {
@@ -138,7 +150,7 @@ class PythonServer: ObservableObject {
             }
         }
 
-        // Method 5: Check directly in home directory
+        // Method 6: Check directly in home directory
         for name in possibleNames {
             let path = homeDir.appendingPathComponent(name)
             if isValidProjectPath(path) {
