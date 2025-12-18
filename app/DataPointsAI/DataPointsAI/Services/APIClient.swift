@@ -119,6 +119,10 @@ actor APIClient {
         return try await get(path: "/articles/\(id)")
     }
 
+    func fetchArticleContent(articleId: Int) async throws -> ArticleDetail {
+        return try await post(path: "/articles/\(articleId)/fetch-content")
+    }
+
     func markRead(articleId: Int, isRead: Bool = true) async throws {
         var queryItems: [URLQueryItem] = []
         queryItems.append(URLQueryItem(name: "is_read", value: String(isRead)))

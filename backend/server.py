@@ -481,6 +481,32 @@ async def update_feed(
     return FeedResponse.from_db(updated_feed)
 
 
+@app.post("/articles/{article_id}/fetch-content")
+async def fetch_article_content(
+    article_id: int,
+    db: Annotated[Database, Depends(get_db)]
+) -> ArticleDetailResponse:
+    """Fetch full content for an article from its URL."""
+    if not state.fetcher:
+        raise HTTPException(status_code=503, detail="Fetcher not configured")
+
+    article = db.get_article(article_id)
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+
+    try:
+        result = await state.fetcher.fetch(article.url)
+        if result.content:
+            db.update_article_content(article_id, result.content)
+            article = db.get_article(article_id)
+            if not article:
+                raise HTTPException(status_code=500, detail="Failed to retrieve article")
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to fetch content: {e}")
+
+    return ArticleDetailResponse.from_db(article)
+
+
 @app.post("/articles/{article_id}/summarize")
 async def summarize_article(
     article_id: int,

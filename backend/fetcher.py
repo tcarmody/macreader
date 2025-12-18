@@ -125,32 +125,31 @@ class Fetcher:
         # Try to find article content
         article = (
             soup.find("article") or
-            soup.find(class_=re.compile(r"article|post-content|entry-content|story", re.I)) or
+            soup.find(class_=re.compile(r"^(article|post|post-content|entry-content|story)$", re.I)) or
             soup.find(attrs={"role": "main"}) or
             soup.find("main") or
             soup.find(class_=re.compile(r"content|body", re.I)) or
             soup.body
         )
 
-        # Extract text
+        # Extract content as HTML (preserving formatting)
         content = ""
         if article:
-            # Get all paragraphs
-            paragraphs = article.find_all(["p", "h1", "h2", "h3", "h4", "h5", "h6", "li"])
+            # Get content elements and keep HTML structure
             content_parts = []
-            for p in paragraphs:
-                text = p.get_text(strip=True)
-                if len(text) > 20:  # Skip very short paragraphs
-                    content_parts.append(text)
-            content = "\n\n".join(content_parts)
+            for elem in article.find_all(["p", "h1", "h2", "h3", "h4", "h5", "h6", "ul", "ol", "blockquote", "pre"]):
+                # Get outer HTML to preserve formatting
+                html = str(elem)
+                if elem.get_text(strip=True):  # Skip empty elements
+                    content_parts.append(html)
+            content = "\n".join(content_parts)
 
-        # If paragraph extraction failed, fall back to full text
-        if len(content) < self.min_content_length and article:
-            content = article.get_text(separator="\n", strip=True)
+        # If HTML extraction yielded little, fall back to inner HTML of article
+        if len(content) < 100 and article:
+            content = str(article)
 
-        # Clean up whitespace
+        # Clean up excessive whitespace in content
         content = re.sub(r"\n{3,}", "\n\n", content)
-        content = re.sub(r"[ \t]+", " ", content)
 
         # Extract title
         title = ""

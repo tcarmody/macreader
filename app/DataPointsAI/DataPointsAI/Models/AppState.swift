@@ -220,6 +220,11 @@ class AppState: ObservableObject {
         }
     }
 
+    func fetchArticleContent(articleId: Int) async throws {
+        let detail = try await apiClient.fetchArticleContent(articleId: articleId)
+        selectedArticleDetail = detail
+    }
+
     // MARK: - Bulk Article Actions
 
     func bulkMarkRead(articleIds: [Int], isRead: Bool = true) async throws {

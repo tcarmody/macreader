@@ -5,6 +5,7 @@ import WebKit
 struct ArticleDetailView: View {
     @EnvironmentObject var appState: AppState
     @State private var isSummarizing: Bool = false
+    @State private var isFetchingContent: Bool = false
     @State private var contentHeight: CGFloat = 200
 
     var body: some View {
@@ -152,6 +153,32 @@ struct ArticleDetailView: View {
                                     .frame(height: contentHeight)
                             }
                             .padding(.top, 8)
+                        } else {
+                            // No content - offer to fetch it
+                            VStack(spacing: 12) {
+                                if isFetchingContent {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                    Text("Fetching content...")
+                                        .foregroundStyle(.secondary)
+                                } else {
+                                    Text("Content not available in feed")
+                                        .foregroundStyle(.secondary)
+
+                                    Button("Fetch from Website") {
+                                        Task {
+                                            isFetchingContent = true
+                                            try? await appState.fetchArticleContent(articleId: article.id)
+                                            isFetchingContent = false
+                                        }
+                                    }
+                                    .buttonStyle(.bordered)
+                                }
+                            }
+                            .frame(maxWidth: .infinity)
+                            .padding()
+                            .background(Color.secondary.opacity(0.1))
+                            .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
                     }
                     .padding()

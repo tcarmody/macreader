@@ -271,6 +271,14 @@ class Database:
             ).fetchone()
             return self._row_to_article(row) if row else None
 
+    def update_article_content(self, article_id: int, content: str):
+        """Update article content."""
+        with self._conn() as conn:
+            conn.execute(
+                "UPDATE articles SET content = ? WHERE id = ?",
+                (content, article_id)
+            )
+
     def update_summary(
         self,
         article_id: int,
