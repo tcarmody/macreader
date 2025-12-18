@@ -800,8 +800,9 @@ async def _fetch_feed_articles(feed_id: int, feed):
             published_at=item.published
         )
 
-        # Auto-summarize if enabled and API key configured
-        if article_id and state.summarizer and content:
+        # Auto-summarize only if setting is enabled and API key configured
+        auto_summarize = state.db.get_setting("auto_summarize", "false").lower() == "true"
+        if article_id and state.summarizer and content and auto_summarize:
             try:
                 summary = await state.summarizer.summarize_async(
                     content, item.url, item.title
@@ -847,7 +848,7 @@ async def get_settings(
     settings = db.get_all_settings()
     return SettingsResponse(
         refresh_interval_minutes=int(settings.get("refresh_interval_minutes", "30")),
-        auto_summarize=settings.get("auto_summarize", "true").lower() == "true",
+        auto_summarize=settings.get("auto_summarize", "false").lower() == "true",
         mark_read_on_open=settings.get("mark_read_on_open", "true").lower() == "true",
         default_model=settings.get("default_model", "haiku")
     )

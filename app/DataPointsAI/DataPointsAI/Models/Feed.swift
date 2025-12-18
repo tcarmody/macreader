@@ -61,7 +61,7 @@ struct AppSettings: Codable, Sendable {
 
     static let `default` = AppSettings(
         refreshIntervalMinutes: 30,
-        autoSummarize: true,
+        autoSummarize: false,
         markReadOnOpen: true,
         defaultModel: "haiku"
     )
