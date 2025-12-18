@@ -252,7 +252,7 @@ class PythonServer: ObservableObject {
 }
 
 /// Errors from server management
-enum ServerError: Error, LocalizedError {
+enum ServerError: Error, LocalizedError, Sendable {
     case projectNotFound
     case pythonNotFound(String)
     case serverNotFound(String)
