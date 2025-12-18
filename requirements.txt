@@ -1,0 +1,18 @@
+# Core
+fastapi>=0.100.0
+uvicorn>=0.23.0
+python-dotenv>=0.19.0
+pydantic>=2.0.0
+
+# HTTP & Parsing
+aiohttp>=3.8.0
+feedparser>=6.0.0
+beautifulsoup4>=4.11.0
+lxml>=4.9.0
+
+# AI
+anthropic>=0.50.0,<0.51.0
+
+# Development
+pytest>=7.0.0
+pytest-asyncio>=0.21.0
