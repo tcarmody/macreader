@@ -19,6 +19,22 @@ class PythonServer: ObservableObject {
     func start() async throws {
         guard !isRunning else { return }
 
+        // First, check if a server is already running and healthy
+        if await isExistingServerHealthy() {
+            print("✅ Existing server on port \(port) is healthy, reusing it")
+            isRunning = true
+            error = nil
+            return
+        }
+
+        // If port is in use but not responding, kill the zombie process
+        if isPortInUse() {
+            print("⚠️ Port \(port) is in use but not responding, clearing it...")
+            killProcessOnPort()
+            // Give the OS time to release the port
+            try? await Task.sleep(nanoseconds: 500_000_000)
+        }
+
         // Find Python and project paths
         guard let projectPath = findProjectPath() else {
             throw ServerError.projectNotFound
@@ -87,6 +103,70 @@ class PythonServer: ObservableObject {
         process?.terminate()
         process = nil
         isRunning = false
+    }
+
+    /// Check if an existing server is already running and healthy
+    private func isExistingServerHealthy() async -> Bool {
+        do {
+            let status = try await apiClient.healthCheck()
+            return status.isHealthy
+        } catch {
+            return false
+        }
+    }
+
+    /// Check if something is using the port (even if not responding to health checks)
+    private func isPortInUse() -> Bool {
+        let process = Process()
+        process.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
+        process.arguments = ["-ti", ":\(port)"]
+
+        let pipe = Pipe()
+        process.standardOutput = pipe
+        process.standardError = FileHandle.nullDevice
+
+        do {
+            try process.run()
+            process.waitUntilExit()
+
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+            return !output.isEmpty
+        } catch {
+            return false
+        }
+    }
+
+    /// Kill any process using the configured port
+    private func killProcessOnPort() {
+        let findProcess = Process()
+        findProcess.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
+        findProcess.arguments = ["-ti", ":\(port)"]
+
+        let pipe = Pipe()
+        findProcess.standardOutput = pipe
+        findProcess.standardError = FileHandle.nullDevice
+
+        do {
+            try findProcess.run()
+            findProcess.waitUntilExit()
+
+            let data = pipe.fileHandleForReading.readDataToEndOfFile()
+            if let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+               !output.isEmpty {
+                let pids = output.components(separatedBy: .newlines)
+                for pid in pids where !pid.isEmpty {
+                    print("🔪 Killing process on port \(port): PID \(pid)")
+                    let killProcess = Process()
+                    killProcess.executableURL = URL(fileURLWithPath: "/bin/kill")
+                    killProcess.arguments = ["-9", pid]
+                    try? killProcess.run()
+                    killProcess.waitUntilExit()
+                }
+            }
+        } catch {
+            print("⚠️ Could not kill process on port: \(error)")
+        }
     }
 
     private func waitForServer(timeout: TimeInterval = 30) async throws {

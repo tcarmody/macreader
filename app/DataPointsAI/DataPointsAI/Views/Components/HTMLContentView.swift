@@ -1,19 +1,26 @@
 import SwiftUI
 import WebKit
 
+/// WKWebView subclass that passes scroll events to parent
+class NonScrollingWebView: WKWebView {
+    override func scrollWheel(with event: NSEvent) {
+        // Pass scroll events to the next responder (parent ScrollView)
+        nextResponder?.scrollWheel(with: event)
+    }
+}
+
 /// A SwiftUI view that renders HTML content using WKWebView
 struct HTMLContentView: NSViewRepresentable {
     let html: String
     @Binding var dynamicHeight: CGFloat
 
     func makeNSView(context: Context) -> WKWebView {
-        let webView = WKWebView()
+        let configuration = WKWebViewConfiguration()
+        configuration.userContentController.add(context.coordinator, name: "heightHandler")
+
+        let webView = NonScrollingWebView(frame: .zero, configuration: configuration)
         webView.navigationDelegate = context.coordinator
         webView.setValue(false, forKey: "drawsBackground")
-
-        // Disable scrolling - let parent ScrollView handle it
-        webView.enclosingScrollView?.hasVerticalScroller = false
-        webView.enclosingScrollView?.hasHorizontalScroller = false
 
         return webView
     }
@@ -25,6 +32,10 @@ struct HTMLContentView: NSViewRepresentable {
 
     func makeCoordinator() -> Coordinator {
         Coordinator(self)
+    }
+
+    static func dismantleNSView(_ webView: WKWebView, coordinator: Coordinator) {
+        webView.configuration.userContentController.removeScriptMessageHandler(forName: "heightHandler")
     }
 
     private func wrapHTMLWithStyles(_ content: String) -> String {
@@ -48,6 +59,7 @@ struct HTMLContentView: NSViewRepresentable {
                     padding: 0;
                     word-wrap: break-word;
                     overflow-wrap: break-word;
+                    overflow: hidden;
                 }
                 @media (prefers-color-scheme: dark) {
                     body {
@@ -156,10 +168,7 @@ struct HTMLContentView: NSViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            // Add message handler for height updates
-            webView.configuration.userContentController.add(self, name: "heightHandler")
-
-            // Get content height
+            // Get content height after page loads
             webView.evaluateJavaScript("document.body.scrollHeight") { [weak self] result, error in
                 if let height = result as? CGFloat {
                     DispatchQueue.main.async {
