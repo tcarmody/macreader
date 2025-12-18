@@ -193,9 +193,23 @@ class AppState: ObservableObject {
 
     func summarizeArticle(articleId: Int) async throws {
         try await apiClient.summarizeArticle(articleId: articleId)
-        // Reload the article detail to get the new summary
+
+        // Poll for the summary to be ready (background task on server)
+        // Try up to 30 times with 1 second delay (30 seconds total)
+        for _ in 0..<30 {
+            try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
+
+            let detail = try await apiClient.getArticle(id: articleId)
+            if detail.summaryFull != nil {
+                self.selectedArticleDetail = detail
+                return
+            }
+        }
+
+        // If we get here, summary wasn't ready in time - reload anyway
         if let article = selectedArticle {
-            await loadArticleDetail(for: article)
+            let detail = try await apiClient.getArticle(id: article.id)
+            self.selectedArticleDetail = detail
         }
     }
 

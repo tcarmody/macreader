@@ -139,7 +139,7 @@ struct AboutView: View {
                 .font(.system(size: 64))
                 .foregroundStyle(.blue)
 
-            Text("RSS Reader")
+            Text("DataPointsAI")
                 .font(.title)
                 .fontWeight(.bold)
 

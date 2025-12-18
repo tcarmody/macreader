@@ -320,13 +320,19 @@ async def summarize_article(
     return {"success": True, "message": "Summarization started"}
 
 
-async def _summarize_article(article_id: int, content: str, url: str, title: str):
-    """Background task to summarize an article."""
+def _summarize_article(article_id: int, content: str, url: str, title: str):
+    """Background task to summarize an article (sync version for BackgroundTasks)."""
     if not state.summarizer or not state.db:
+        print(f"Summarizer not configured for article {article_id}")
+        return
+
+    if not content or len(content.strip()) < 50:
+        print(f"Article {article_id} has insufficient content for summarization")
         return
 
     try:
-        summary = await state.summarizer.summarize_async(content, url, title)
+        print(f"Starting summarization for article {article_id}")
+        summary = state.summarizer.summarize(content, url, title)
         state.db.update_summary(
             article_id=article_id,
             summary_short=summary.one_liner,
@@ -334,8 +340,11 @@ async def _summarize_article(article_id: int, content: str, url: str, title: str
             key_points=summary.key_points,
             model_used=summary.model_used.value
         )
+        print(f"Successfully summarized article {article_id}")
     except Exception as e:
         print(f"Error summarizing article {article_id}: {e}")
+        import traceback
+        traceback.print_exc()
 
 
 # ─────────────────────────────────────────────────────────────

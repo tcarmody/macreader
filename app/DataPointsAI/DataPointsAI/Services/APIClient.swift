@@ -37,7 +37,11 @@ actor APIClient {
 
         self.decoder = JSONDecoder()
         // Don't use automatic snake_case conversion - models have explicit CodingKeys
-        decoder.dateDecodingStrategy = .iso8601
+        // Use custom date formatter to handle dates without timezone (e.g., "2025-12-18T19:14:09")
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
+        dateFormatter.timeZone = TimeZone(identifier: "UTC")
+        decoder.dateDecodingStrategy = .formatted(dateFormatter)
 
         self.encoder = JSONEncoder()
         // Don't use automatic snake_case conversion - models have explicit CodingKeys

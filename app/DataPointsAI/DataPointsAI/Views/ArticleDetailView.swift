@@ -3,6 +3,7 @@ import SwiftUI
 /// Right pane: full article detail with summary
 struct ArticleDetailView: View {
     @EnvironmentObject var appState: AppState
+    @State private var isSummarizing: Bool = false
 
     var body: some View {
         Group {
@@ -63,15 +64,24 @@ struct ArticleDetailView: View {
                         } else {
                             // No summary yet
                             VStack(spacing: 12) {
-                                Text("No summary available")
-                                    .foregroundStyle(.secondary)
+                                if isSummarizing {
+                                    ProgressView()
+                                        .scaleEffect(0.8)
+                                    Text("Generating summary...")
+                                        .foregroundStyle(.secondary)
+                                } else {
+                                    Text("No summary available")
+                                        .foregroundStyle(.secondary)
 
-                                Button("Generate Summary") {
-                                    Task {
-                                        try? await appState.summarizeArticle(articleId: article.id)
+                                    Button("Generate Summary") {
+                                        Task {
+                                            isSummarizing = true
+                                            try? await appState.summarizeArticle(articleId: article.id)
+                                            isSummarizing = false
+                                        }
                                     }
+                                    .buttonStyle(.bordered)
                                 }
-                                .buttonStyle(.bordered)
                             }
                             .frame(maxWidth: .infinity)
                             .padding()

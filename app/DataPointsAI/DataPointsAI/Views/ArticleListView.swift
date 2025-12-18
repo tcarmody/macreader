@@ -50,7 +50,9 @@ struct EmptyArticlesView: View {
         } actions: {
             if appState.feeds.isEmpty {
                 Button("Add Feed") {
-                    appState.showAddFeed = true
+                    DispatchQueue.main.async {
+                        appState.showAddFeed = true
+                    }
                 }
                 .buttonStyle(.borderedProminent)
             } else {

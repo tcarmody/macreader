@@ -203,7 +203,7 @@ struct ImportOPMLView: View {
         isImporting = true
         errorMessage = nil
 
-        Task { @MainActor in
+        Task {
             do {
                 // Need to start accessing security-scoped resource
                 guard url.startAccessingSecurityScopedResource() else {

@@ -8,15 +8,19 @@ struct RSSReaderApp: App {
         WindowGroup {
             MainView()
                 .environmentObject(appState)
-                .task {
-                    await appState.startServer()
+                .onAppear {
+                    Task {
+                        await appState.startServer()
+                    }
                 }
         }
         .commands {
             // File menu
             CommandGroup(replacing: .newItem) {
                 Button("Add Feed...") {
-                    appState.showAddFeed = true
+                    DispatchQueue.main.async {
+                        appState.showAddFeed = true
+                    }
                 }
                 .keyboardShortcut("n", modifiers: .command)
 
@@ -35,17 +39,23 @@ struct RSSReaderApp: App {
                 Divider()
 
                 Button("Show All") {
-                    appState.selectedFilter = .all
+                    DispatchQueue.main.async {
+                        appState.selectedFilter = .all
+                    }
                 }
                 .keyboardShortcut("1", modifiers: .command)
 
                 Button("Show Unread") {
-                    appState.selectedFilter = .unread
+                    DispatchQueue.main.async {
+                        appState.selectedFilter = .unread
+                    }
                 }
                 .keyboardShortcut("2", modifiers: .command)
 
                 Button("Show Saved") {
-                    appState.selectedFilter = .bookmarked
+                    DispatchQueue.main.async {
+                        appState.selectedFilter = .bookmarked
+                    }
                 }
                 .keyboardShortcut("3", modifiers: .command)
             }

@@ -26,9 +26,14 @@ struct MainView: View {
         .sheet(isPresented: $appState.showImportOPML) {
             ImportOPMLView()
         }
-        .alert("Error", isPresented: .constant(appState.error != nil)) {
+        .alert("Error", isPresented: Binding(
+            get: { appState.error != nil },
+            set: { if !$0 { appState.error = nil } }
+        )) {
             Button("OK") {
-                appState.error = nil
+                DispatchQueue.main.async {
+                    appState.error = nil
+                }
             }
         } message: {
             if let error = appState.error {

@@ -40,13 +40,17 @@ struct FeedListView: View {
             ToolbarItem {
                 Menu {
                     Button {
-                        appState.showAddFeed = true
+                        DispatchQueue.main.async {
+                            appState.showAddFeed = true
+                        }
                     } label: {
                         Label("Add Feed...", systemImage: "plus")
                     }
 
                     Button {
-                        appState.showImportOPML = true
+                        DispatchQueue.main.async {
+                            appState.showImportOPML = true
+                        }
                     } label: {
                         Label("Import OPML...", systemImage: "square.and.arrow.down")
                     }
