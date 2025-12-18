@@ -10,34 +10,9 @@
 		2290A4F52EF47DC9006E1793 /* DataPointsAI.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = DataPointsAI.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
-/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		2290A5412EF47F27006E1793 /* Exceptions for "DataPointsAI" folder in "DataPointsAI" target */ = {
-			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
-			membershipExceptions = (
-				App/RSSReaderApp.swift,
-				Models/AppState.swift,
-				Models/Article.swift,
-				Models/Feed.swift,
-				Services/APIClient.swift,
-				Services/PythonServer.swift,
-				Views/ArticleDetailView.swift,
-				Views/ArticleListView.swift,
-				Views/Components/ArticleRow.swift,
-				Views/Components/SearchBar.swift,
-				Views/FeedListView.swift,
-				Views/MainView.swift,
-				Views/SettingsView.swift,
-			);
-			target = 2290A4F42EF47DC9006E1793 /* DataPointsAI */;
-		};
-/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
-
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		2290A4F72EF47DC9006E1793 /* DataPointsAI */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			exceptions = (
-				2290A5412EF47F27006E1793 /* Exceptions for "DataPointsAI" folder in "DataPointsAI" target */,
-			);
 			path = DataPointsAI;
 			sourceTree = "<group>";
 		};

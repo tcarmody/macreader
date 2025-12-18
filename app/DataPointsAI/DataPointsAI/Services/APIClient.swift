@@ -181,7 +181,8 @@ actor APIClient {
     func importOPML(content: String) async throws -> OPMLImportResponse {
         return try await post(
             path: "/feeds/import-opml",
-            body: OPMLImportRequest(opmlContent: content)
+            body: OPMLImportRequest(opmlContent: content),
+            timeout: 300  // 5 minutes for large OPML files
         )
     }
 
@@ -277,13 +278,18 @@ actor APIClient {
     private func post<T: Decodable, B: Encodable>(
         path: String,
         body: B,
-        queryItems: [URLQueryItem] = []
+        queryItems: [URLQueryItem] = [],
+        timeout: TimeInterval? = nil
     ) async throws -> T {
         let url = buildURL(path: path, queryItems: queryItems)
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("application/json", forHTTPHeaderField: "Content-Type")
         request.httpBody = try encoder.encode(body)
+
+        if let timeout = timeout {
+            request.timeoutInterval = timeout
+        }
 
         let (data, response) = try await session.data(for: request)
         try validateResponse(response, data: data)

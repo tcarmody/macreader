@@ -419,11 +419,17 @@ class Database:
             except ValueError:
                 pass
 
+        # Handle unread_count - may not be present in all queries
+        try:
+            unread_count = row["unread_count"] or 0
+        except (IndexError, KeyError):
+            unread_count = 0
+
         return DBFeed(
             id=row["id"],
             url=row["url"],
             name=row["name"],
             category=row["category"],
             last_fetched=last_fetched,
-            unread_count=row.get("unread_count", 0) or 0
+            unread_count=unread_count
         )
