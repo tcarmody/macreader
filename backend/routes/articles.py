@@ -22,7 +22,7 @@ router = APIRouter(prefix="/articles", tags=["articles"])
 
 
 # ─────────────────────────────────────────────────────────────
-# List & Detail
+# List & Grouped (static paths first)
 # ─────────────────────────────────────────────────────────────
 
 @router.get("")
@@ -48,7 +48,7 @@ async def list_articles(
 @router.get("/grouped")
 async def get_articles_grouped(
     db: Annotated[Database, Depends(get_db)],
-    group_by: str = Query(default="date", regex="^(date|feed|topic)$"),
+    group_by: str = Query(default="date", pattern="^(date|feed|topic)$"),
     unread_only: bool = False,
     limit: int = Query(default=100, le=500)
 ) -> GroupedArticlesResponse:
@@ -132,48 +132,9 @@ async def get_articles_grouped(
     return GroupedArticlesResponse(group_by=group_by, groups=groups)
 
 
-@router.get("/{article_id}")
-async def get_article(
-    article_id: int,
-    db: Annotated[Database, Depends(get_db)]
-) -> ArticleDetailResponse:
-    """Get single article with full summary."""
-    article = db.get_article(article_id)
-    if not article:
-        raise HTTPException(status_code=404, detail="Article not found")
-    return ArticleDetailResponse.from_db(article)
-
-
 # ─────────────────────────────────────────────────────────────
-# Read/Bookmark Operations
+# Bulk Operations (static paths - must come before {article_id})
 # ─────────────────────────────────────────────────────────────
-
-@router.post("/{article_id}/read")
-async def mark_read(
-    article_id: int,
-    db: Annotated[Database, Depends(get_db)],
-    is_read: bool = True
-) -> dict:
-    """Mark article as read/unread."""
-    article = db.get_article(article_id)
-    if not article:
-        raise HTTPException(status_code=404, detail="Article not found")
-    db.mark_read(article_id, is_read)
-    return {"success": True, "is_read": is_read}
-
-
-@router.post("/{article_id}/bookmark")
-async def toggle_bookmark(
-    article_id: int,
-    db: Annotated[Database, Depends(get_db)]
-) -> dict:
-    """Toggle bookmark status."""
-    article = db.get_article(article_id)
-    if not article:
-        raise HTTPException(status_code=404, detail="Article not found")
-    new_status = db.toggle_bookmark(article_id)
-    return {"success": True, "is_bookmarked": new_status}
-
 
 @router.post("/bulk/read")
 async def bulk_mark_read(
@@ -217,8 +178,47 @@ async def mark_all_read(
 
 
 # ─────────────────────────────────────────────────────────────
-# Content & Summarization
+# Single Article Operations (parameterized paths last)
 # ─────────────────────────────────────────────────────────────
+
+@router.get("/{article_id}")
+async def get_article(
+    article_id: int,
+    db: Annotated[Database, Depends(get_db)]
+) -> ArticleDetailResponse:
+    """Get single article with full summary."""
+    article = db.get_article(article_id)
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+    return ArticleDetailResponse.from_db(article)
+
+
+@router.post("/{article_id}/read")
+async def mark_read(
+    article_id: int,
+    db: Annotated[Database, Depends(get_db)],
+    is_read: bool = True
+) -> dict:
+    """Mark article as read/unread."""
+    article = db.get_article(article_id)
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+    db.mark_read(article_id, is_read)
+    return {"success": True, "is_read": is_read}
+
+
+@router.post("/{article_id}/bookmark")
+async def toggle_bookmark(
+    article_id: int,
+    db: Annotated[Database, Depends(get_db)]
+) -> dict:
+    """Toggle bookmark status."""
+    article = db.get_article(article_id)
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+    new_status = db.toggle_bookmark(article_id)
+    return {"success": True, "is_bookmarked": new_status}
+
 
 @router.post("/{article_id}/fetch-content")
 async def fetch_article_content(

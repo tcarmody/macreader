@@ -31,17 +31,18 @@ from .routes import (
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """Initialize and cleanup application resources."""
-    # Startup
-    state.db = Database(config.DB_PATH)
-    state.cache = create_cache(config.CACHE_DIR)
-    state.feed_parser = FeedParser()
-    state.fetcher = Fetcher()
+    # Startup - skip if already initialized (e.g., by tests)
+    if state.db is None:
+        state.db = Database(config.DB_PATH)
+        state.cache = create_cache(config.CACHE_DIR)
+        state.feed_parser = FeedParser()
+        state.fetcher = Fetcher()
 
-    if config.API_KEY:
-        state.summarizer = Summarizer(api_key=config.API_KEY, cache=state.cache)
-        state.clusterer = Clusterer(api_key=config.API_KEY, cache=state.cache)
-    else:
-        print("Warning: ANTHROPIC_API_KEY not set. Summarization and clustering disabled.")
+        if config.API_KEY:
+            state.summarizer = Summarizer(api_key=config.API_KEY, cache=state.cache)
+            state.clusterer = Clusterer(api_key=config.API_KEY, cache=state.cache)
+        else:
+            print("Warning: ANTHROPIC_API_KEY not set. Summarization and clustering disabled.")
 
     yield
 
