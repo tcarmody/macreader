@@ -122,9 +122,24 @@ class DiskCache(CacheBackend):
         self.cache_dir.mkdir(parents=True, exist_ok=True)
 
     def _key_to_path(self, key: str) -> Path:
-        """Convert cache key to file path."""
+        """Convert cache key to file path, using subdirectories for organization.
+
+        Keys like 'summary:http://...' go to cache_dir/summary/
+        Keys like 'clustering:abc123' go to cache_dir/clustering/
+        Keys without a prefix go to cache_dir/misc/
+        """
+        # Extract prefix from key (e.g., 'summary', 'clustering')
+        if ":" in key:
+            prefix = key.split(":", 1)[0]
+        else:
+            prefix = "misc"
+
+        # Create subdirectory for this cache type
+        subdir = self.cache_dir / prefix
+        subdir.mkdir(parents=True, exist_ok=True)
+
         hashed = hashlib.sha256(key.encode()).hexdigest()[:16]
-        return self.cache_dir / f"{hashed}.json"
+        return subdir / f"{hashed}.json"
 
     def get(self, key: str) -> Any | None:
         path = self._key_to_path(key)
@@ -169,15 +184,29 @@ class DiskCache(CacheBackend):
         path = self._key_to_path(key)
         path.unlink(missing_ok=True)
 
-    def clear(self) -> None:
-        """Clear all cached files."""
-        for file in self.cache_dir.glob("*.json"):
-            file.unlink(missing_ok=True)
+    def clear(self, cache_type: str | None = None) -> None:
+        """Clear cached files.
+
+        Args:
+            cache_type: If specified, only clear this type (e.g., 'summary', 'clustering').
+                       If None, clear all cache types.
+        """
+        if cache_type:
+            # Clear specific subdirectory
+            subdir = self.cache_dir / cache_type
+            if subdir.exists():
+                for file in subdir.glob("*.json"):
+                    file.unlink(missing_ok=True)
+        else:
+            # Clear all subdirectories and root-level files
+            for file in self.cache_dir.glob("**/*.json"):
+                file.unlink(missing_ok=True)
 
     def cleanup_expired(self) -> int:
         """Remove expired cache entries. Returns count of removed entries."""
         removed = 0
-        for file in self.cache_dir.glob("*.json"):
+        # Search all subdirectories
+        for file in self.cache_dir.glob("**/*.json"):
             try:
                 data = json.loads(file.read_text())
                 created = datetime.fromisoformat(data["created_at"])
@@ -224,9 +253,21 @@ class TieredCache(CacheBackend):
         self.memory.delete(key)
         self.disk.delete(key)
 
-    def clear(self) -> None:
-        self.memory.clear()
-        self.disk.clear()
+    def clear(self, cache_type: str | None = None) -> None:
+        """Clear cache.
+
+        Args:
+            cache_type: If specified, only clear this type (e.g., 'summary', 'clustering').
+                       If None, clear all cache types.
+        """
+        if cache_type:
+            # Clear only matching keys from memory
+            keys_to_remove = [k for k in self.memory._cache if k.startswith(f"{cache_type}:")]
+            for key in keys_to_remove:
+                self.memory.delete(key)
+        else:
+            self.memory.clear()
+        self.disk.clear(cache_type)
 
     def cleanup_expired(self) -> int:
         """Remove expired disk cache entries."""

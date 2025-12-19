@@ -37,6 +37,9 @@ class Clusterer:
     # Model to use for clustering
     MODEL = "claude-haiku-4-5-20251001"
 
+    # Max tokens for clustering response (needs to be large enough for many topics)
+    MAX_TOKENS = 4096
+
     # Cache TTL in seconds (1 hour)
     CACHE_TTL = 3600
 
@@ -108,7 +111,7 @@ class Clusterer:
         # Call Claude API
         response = self.client.messages.create(
             model=self.MODEL,
-            max_tokens=1024,
+            max_tokens=self.MAX_TOKENS,
             messages=[{
                 "role": "user",
                 "content": prompt
@@ -199,15 +202,19 @@ Rules:
         # Try to extract JSON from response
         try:
             # Handle case where response has markdown code blocks
-            if "```" in text:
-                # Extract JSON from code block
-                start = text.find("```")
-                end = text.rfind("```")
-                if start != end:
-                    json_text = text[start:end]
-                    # Remove ```json or ``` prefix
-                    json_text = json_text.split("\n", 1)[-1] if "\n" in json_text else json_text[3:]
-                    text = json_text.strip()
+            if text.startswith("```"):
+                # Remove the opening ```json or ``` line
+                lines = text.split("\n", 1)
+                if len(lines) > 1:
+                    text = lines[1]
+                else:
+                    text = text[3:]  # Just strip ``` if no newline
+
+                # Remove closing ``` if present
+                if text.rstrip().endswith("```"):
+                    text = text.rstrip()[:-3]
+
+                text = text.strip()
 
             data = json.loads(text)
         except json.JSONDecodeError:
