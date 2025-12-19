@@ -51,16 +51,16 @@ class Clusterer:
     def cluster(
         self,
         articles: list["DBArticle"],
-        min_clusters: int = 2,
-        max_clusters: int = 7
+        min_clusters: int | None = None,
+        max_clusters: int | None = None
     ) -> ClusteringResult:
         """
         Group articles into topic clusters.
 
         Args:
             articles: List of articles to cluster
-            min_clusters: Minimum number of topic clusters
-            max_clusters: Maximum number of topic clusters
+            min_clusters: Minimum number of topic clusters (auto-calculated if None)
+            max_clusters: Maximum number of topic clusters (auto-calculated if None)
 
         Returns:
             ClusteringResult with list of Topic objects
@@ -75,6 +75,14 @@ class Clusterer:
                 )],
                 cached=False
             )
+
+        # Scale cluster count based on number of articles
+        # Aim for ~3-5 articles per cluster on average
+        num_articles = len(articles)
+        if min_clusters is None:
+            min_clusters = max(2, num_articles // 5)
+        if max_clusters is None:
+            max_clusters = max(min_clusters + 2, num_articles // 3, 10)
 
         # Generate cache key from article IDs
         cache_key = self._make_cache_key(articles)
@@ -157,7 +165,7 @@ class Clusterer:
 
         articles_text = "\n".join(article_lines)
 
-        return f"""Analyze these article titles and summaries. Group them into {min_clusters}-{max_clusters} topic clusters based on their subject matter.
+        return f"""Analyze these article titles and summaries. Group them into {min_clusters}-{max_clusters} specific topic clusters.
 
 Articles:
 {articles_text}
@@ -170,9 +178,13 @@ Return your response as valid JSON with this exact structure:
 }}
 
 Rules:
+- Create SPECIFIC, NARROW topics - not broad categories
+- BAD: "Technology" or "Politics" (too broad)
+- GOOD: "OpenAI GPT Models", "EU AI Regulation", "Tesla Earnings" (specific)
+- Each topic should ideally have 2-5 articles
+- If a topic would have 6+ articles, split it into more specific subtopics
 - Every article must be assigned to exactly one topic
-- Use short, descriptive topic labels (2-4 words)
-- Group similar articles together even if not identical topics
+- Use short but specific topic labels (2-5 words)
 - If an article doesn't fit any group, put it in "Other" topic
 - Return ONLY the JSON, no other text"""
 
@@ -246,8 +258,8 @@ Rules:
     async def cluster_async(
         self,
         articles: list["DBArticle"],
-        min_clusters: int = 2,
-        max_clusters: int = 7
+        min_clusters: int | None = None,
+        max_clusters: int | None = None
     ) -> ClusteringResult:
         """
         Async version of cluster.
