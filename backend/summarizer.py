@@ -74,17 +74,16 @@ Structure:
    - Uses strong, specific verbs
    - Avoids repeating exact phrases from the summary
 
-2. SUMMARY: A focused summary of five sentences:
+2. SUMMARY: A focused summary of five sentences in paragraph form (no bullet points):
    - First sentence: State the core announcement, finding, or development
    - Following sentences: Include 2-3 of these elements as relevant:
-     • Technical specifications (model sizes, performance metrics, capabilities)
-     • Pricing, availability, and access details
-     • Key limitations or constraints
-     • Industry implications or competitive context
-     • Concrete use cases or applications
+     Technical specifications, pricing/availability, key limitations, industry context, or concrete use cases
    - Prioritize information that answers: What changed? What can it do? What does it cost? When is it available?
+   - Write as flowing prose, NOT as a list of bullet points
 
-3. KEY POINTS: 3-5 bullet points for quick scanning - these should be the most important takeaways, not a repeat of the summary
+3. KEY POINTS: 3-5 bullet points that highlight distinct, scannable takeaways.
+   - These must be different from the summary sentences - extract specific facts, numbers, or implications not fully covered in the summary
+   - Do not simply rephrase what the summary already says
 
 Style guidelines:
 - Use active voice (e.g., 'Company released product' not 'Product was released by company')
