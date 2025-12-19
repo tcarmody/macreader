@@ -346,15 +346,11 @@ Article:
         headline = headline[:200]
         key_points = key_points[:5]
 
-        # Build the full formatted summary for copy-paste
-        # Format: Headline + Summary + URL + Key Points
+        # Build the full formatted summary (without key points - those are displayed separately)
+        # Format: Headline + Summary + URL
         full_summary_parts = [headline, "", summary_text]
         if url:
             full_summary_parts.extend(["", url])
-        if key_points:
-            full_summary_parts.extend(["", "Key points:"])
-            for point in key_points:
-                full_summary_parts.append(f"• {point}")
 
         full_summary = "\n".join(full_summary_parts)
 
