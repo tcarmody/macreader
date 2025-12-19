@@ -88,12 +88,16 @@ async def update_feed(
     request: UpdateFeedRequest,
     db: Annotated[Database, Depends(get_db)]
 ) -> FeedResponse:
-    """Update a feed's name or category."""
+    """Update a feed's name or category. Set category to empty string to remove it."""
     feed = db.get_feed(feed_id)
     if not feed:
         raise HTTPException(status_code=404, detail="Feed not found")
 
-    db.update_feed(feed_id, name=request.name, category=request.category)
+    # Empty string means clear category
+    clear_category = request.category == ""
+    category = None if clear_category else request.category
+
+    db.update_feed(feed_id, name=request.name, category=category, clear_category=clear_category)
 
     updated_feed = db.get_feed(feed_id)
     if not updated_feed:

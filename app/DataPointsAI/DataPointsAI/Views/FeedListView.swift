@@ -5,6 +5,10 @@ struct FeedListView: View {
     @EnvironmentObject var appState: AppState
     @State private var showDeleteConfirmation = false
     @State private var feedsToDelete: [Int] = []
+    @State private var showNewCategorySheet = false
+    @State private var feedsForNewCategory: [Int] = []
+    @State private var categoryToRename: String?
+    @State private var categoryToDelete: String?
 
     var body: some View {
         List(selection: $appState.selectedFilter) {
@@ -34,23 +38,35 @@ struct FeedListView: View {
                 FilterRow(filter: .bookmarked, count: nil)
             }
 
-            Section("Feeds") {
-                ForEach(appState.feeds) { feed in
-                    FeedRow(feed: feed, isSelected: appState.selectedFeedIds.contains(feed.id))
-                        .tag(ArticleFilter.feed(feed.id))
-                        .contextMenu {
-                            feedContextMenu(for: feed)
+            // Group feeds by category
+            ForEach(appState.feedsByCategory, id: \.category) { group in
+                if let category = group.category {
+                    // Categorized feeds section
+                    Section {
+                        if !appState.collapsedCategories.contains(category) {
+                            ForEach(group.feeds) { feed in
+                                feedRow(for: feed)
+                            }
                         }
-                        .onTapGesture(count: 1) {
-                            handleFeedTap(feed)
-                        }
-                        .gesture(
-                            TapGesture(count: 1)
-                                .modifiers(.command)
-                                .onEnded { _ in
-                                    toggleFeedSelection(feed.id)
-                                }
+                    } header: {
+                        CategoryHeader(
+                            category: category,
+                            feedCount: group.feeds.count,
+                            unreadCount: group.feeds.reduce(0) { $0 + $1.unreadCount },
+                            isCollapsed: appState.collapsedCategories.contains(category),
+                            onToggle: { appState.toggleCategoryCollapsed(category) }
                         )
+                        .contextMenu {
+                            categoryContextMenu(for: category)
+                        }
+                    }
+                } else {
+                    // Uncategorized feeds section
+                    Section("Feeds") {
+                        ForEach(group.feeds) { feed in
+                            feedRow(for: feed)
+                        }
+                    }
                 }
             }
         }
@@ -138,6 +154,70 @@ struct FeedListView: View {
         .sheet(item: $appState.feedBeingEdited) { feed in
             EditFeedView(feed: feed)
         }
+        .sheet(isPresented: $showNewCategorySheet) {
+            NewCategorySheet(feedIds: feedsForNewCategory) {
+                feedsForNewCategory = []
+            }
+        }
+        .sheet(item: $categoryToRename) { category in
+            RenameCategorySheet(category: category)
+        }
+        .alert("Delete Folder?", isPresented: .init(
+            get: { categoryToDelete != nil },
+            set: { if !$0 { categoryToDelete = nil } }
+        )) {
+            Button("Cancel", role: .cancel) {
+                categoryToDelete = nil
+            }
+            Button("Delete", role: .destructive) {
+                if let category = categoryToDelete {
+                    Task {
+                        try? await appState.deleteCategory(category)
+                    }
+                }
+                categoryToDelete = nil
+            }
+        } message: {
+            if let category = categoryToDelete {
+                Text("Are you sure you want to delete the folder \"\(category)\"? The feeds will be moved to uncategorized.")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func feedRow(for feed: Feed) -> some View {
+        FeedRow(feed: feed, isSelected: appState.selectedFeedIds.contains(feed.id))
+            .tag(ArticleFilter.feed(feed.id))
+            .contextMenu {
+                feedContextMenu(for: feed)
+            }
+            .onTapGesture(count: 1) {
+                handleFeedTap(feed)
+            }
+            .gesture(
+                TapGesture(count: 1)
+                    .modifiers(.command)
+                    .onEnded { _ in
+                        toggleFeedSelection(feed.id)
+                    }
+            )
+    }
+
+    @ViewBuilder
+    private func categoryContextMenu(for category: String) -> some View {
+        Button {
+            categoryToRename = category
+        } label: {
+            Label("Rename Folder...", systemImage: "pencil")
+        }
+
+        Divider()
+
+        Button(role: .destructive) {
+            categoryToDelete = category
+        } label: {
+            Label("Delete Folder", systemImage: "trash")
+        }
     }
 
     private func handleFeedTap(_ feed: Feed) {
@@ -201,6 +281,48 @@ struct FeedListView: View {
             }
         } label: {
             Label("Refresh", systemImage: "arrow.clockwise")
+        }
+
+        Divider()
+
+        // Move to folder submenu
+        Menu {
+            Button {
+                Task {
+                    for feedId in effectiveIds {
+                        try? await appState.moveFeedToCategory(feedId: feedId, category: nil)
+                    }
+                }
+            } label: {
+                Label("Uncategorized", systemImage: feed.category == nil ? "checkmark" : "")
+            }
+
+            if !appState.categories.isEmpty {
+                Divider()
+
+                ForEach(appState.categories, id: \.self) { category in
+                    Button {
+                        Task {
+                            for feedId in effectiveIds {
+                                try? await appState.moveFeedToCategory(feedId: feedId, category: category)
+                            }
+                        }
+                    } label: {
+                        Label(category, systemImage: feed.category == category ? "checkmark" : "")
+                    }
+                }
+            }
+
+            Divider()
+
+            Button {
+                feedsForNewCategory = effectiveIds
+                showNewCategorySheet = true
+            } label: {
+                Label("New Folder...", systemImage: "folder.badge.plus")
+            }
+        } label: {
+            Label("Move to Folder", systemImage: "folder")
         }
 
         if count == 1 {
@@ -348,6 +470,163 @@ struct EditFeedView: View {
             } catch {
                 // Handle error - could show an alert
                 print("Failed to update feed: \(error)")
+            }
+            isSaving = false
+        }
+    }
+}
+
+/// Header for a category section with collapse toggle
+struct CategoryHeader: View {
+    let category: String
+    let feedCount: Int
+    let unreadCount: Int
+    let isCollapsed: Bool
+    let onToggle: () -> Void
+
+    var body: some View {
+        Button(action: onToggle) {
+            HStack(spacing: 6) {
+                Image(systemName: isCollapsed ? "chevron.right" : "chevron.down")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .frame(width: 12)
+
+                Image(systemName: "folder.fill")
+                    .foregroundStyle(.yellow)
+
+                Text(category)
+                    .font(.headline)
+                    .foregroundStyle(.primary)
+
+                Spacer()
+
+                if unreadCount > 0 {
+                    Text("\(unreadCount)")
+                        .font(.caption)
+                        .foregroundStyle(.white)
+                        .padding(.horizontal, 6)
+                        .padding(.vertical, 2)
+                        .background(Color.blue)
+                        .clipShape(Capsule())
+                }
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
+/// Sheet for creating a new category and moving feeds to it
+struct NewCategorySheet: View {
+    let feedIds: [Int]
+    let onDismiss: () -> Void
+    @EnvironmentObject var appState: AppState
+    @Environment(\.dismiss) private var dismiss
+    @State private var name: String = ""
+    @State private var isSaving = false
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("New Folder")
+                .font(.headline)
+
+            TextField("Folder Name", text: $name)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 300)
+
+            HStack {
+                Button("Cancel") {
+                    onDismiss()
+                    dismiss()
+                }
+                .keyboardShortcut(.escape)
+
+                Spacer()
+
+                Button("Create") {
+                    save()
+                }
+                .keyboardShortcut(.return)
+                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || isSaving)
+            }
+        }
+        .padding()
+        .frame(width: 350)
+    }
+
+    private func save() {
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmedName.isEmpty else { return }
+
+        isSaving = true
+        Task {
+            for feedId in feedIds {
+                try? await appState.moveFeedToCategory(feedId: feedId, category: trimmedName)
+            }
+            onDismiss()
+            dismiss()
+        }
+    }
+}
+
+/// Make String conform to Identifiable for sheet binding
+extension String: @retroactive Identifiable {
+    public var id: String { self }
+}
+
+/// Sheet for renaming a category
+struct RenameCategorySheet: View {
+    let category: String
+    @EnvironmentObject var appState: AppState
+    @Environment(\.dismiss) private var dismiss
+    @State private var name: String = ""
+    @State private var isSaving = false
+
+    var body: some View {
+        VStack(spacing: 20) {
+            Text("Rename Folder")
+                .font(.headline)
+
+            TextField("Folder Name", text: $name)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 300)
+
+            HStack {
+                Button("Cancel") {
+                    dismiss()
+                }
+                .keyboardShortcut(.escape)
+
+                Spacer()
+
+                Button("Save") {
+                    save()
+                }
+                .keyboardShortcut(.return)
+                .disabled(name.trimmingCharacters(in: .whitespaces).isEmpty || isSaving)
+            }
+        }
+        .padding()
+        .frame(width: 350)
+        .onAppear {
+            name = category
+        }
+    }
+
+    private func save() {
+        let trimmedName = name.trimmingCharacters(in: .whitespaces)
+        guard !trimmedName.isEmpty, trimmedName != category else {
+            dismiss()
+            return
+        }
+
+        isSaving = true
+        Task {
+            do {
+                try await appState.renameCategory(from: category, to: trimmedName)
+                dismiss()
+            } catch {
+                print("Failed to rename category: \(error)")
             }
             isSaving = false
         }

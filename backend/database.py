@@ -177,12 +177,20 @@ class Database:
             """).fetchall()
             return [self._row_to_feed(row) for row in rows]
 
-    def update_feed(self, feed_id: int, name: str | None = None, category: str | None = None):
-        """Update feed details."""
+    def update_feed(
+        self,
+        feed_id: int,
+        name: str | None = None,
+        category: str | None = None,
+        clear_category: bool = False
+    ):
+        """Update feed details. Use clear_category=True to remove category."""
         with self._conn() as conn:
             if name is not None:
                 conn.execute("UPDATE feeds SET name = ? WHERE id = ?", (name, feed_id))
-            if category is not None:
+            if clear_category:
+                conn.execute("UPDATE feeds SET category = NULL WHERE id = ?", (feed_id,))
+            elif category is not None:
                 conn.execute("UPDATE feeds SET category = ? WHERE id = ?", (category, feed_id))
 
     def update_feed_fetched(self, feed_id: int, error: str | None = None):

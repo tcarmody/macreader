@@ -38,6 +38,9 @@ class AppState: ObservableObject {
     // Edit state
     @Published var feedBeingEdited: Feed?
 
+    // Category state
+    @Published var collapsedCategories: Set<String> = []
+
     // MARK: - Dependencies
 
     private let apiClient: APIClient
@@ -95,6 +98,27 @@ class AppState: ObservableObject {
 
     var totalUnreadCount: Int {
         feeds.reduce(0) { $0 + $1.unreadCount }
+    }
+
+    /// Feeds grouped by category, with uncategorized feeds under nil key
+    var feedsByCategory: [(category: String?, feeds: [Feed])] {
+        let grouped = Dictionary(grouping: feeds) { $0.category }
+
+        // Sort: uncategorized first, then alphabetically by category name
+        let sortedKeys = grouped.keys.sorted { key1, key2 in
+            if key1 == nil { return true }
+            if key2 == nil { return false }
+            return key1! < key2!
+        }
+
+        return sortedKeys.map { key in
+            (category: key, feeds: grouped[key]!.sorted { $0.name < $1.name })
+        }
+    }
+
+    /// All unique category names
+    var categories: [String] {
+        Set(feeds.compactMap { $0.category }).sorted()
     }
 
     // MARK: - Initialization
@@ -319,12 +343,44 @@ class AppState: ObservableObject {
         await reloadArticles()
     }
 
-    func updateFeed(feedId: Int, name: String) async throws {
-        let updatedFeed = try await apiClient.updateFeed(id: feedId, name: name)
+    func updateFeed(feedId: Int, name: String? = nil, category: String? = nil) async throws {
+        let updatedFeed = try await apiClient.updateFeed(id: feedId, name: name, category: category)
 
         // Update local state
         if let index = feeds.firstIndex(where: { $0.id == feedId }) {
             feeds[index] = updatedFeed
+        }
+    }
+
+    func moveFeedToCategory(feedId: Int, category: String?) async throws {
+        try await updateFeed(feedId: feedId, category: category)
+    }
+
+    func toggleCategoryCollapsed(_ category: String) {
+        if collapsedCategories.contains(category) {
+            collapsedCategories.remove(category)
+        } else {
+            collapsedCategories.insert(category)
+        }
+    }
+
+    func renameCategory(from oldName: String, to newName: String) async throws {
+        // Update all feeds in this category
+        let feedsInCategory = feeds.filter { $0.category == oldName }
+        for feed in feedsInCategory {
+            try await updateFeed(feedId: feed.id, category: newName)
+        }
+    }
+
+    func deleteCategory(_ category: String) async throws {
+        // Move all feeds in this category to uncategorized
+        let feedsInCategory = feeds.filter { $0.category == category }
+        for feed in feedsInCategory {
+            // Pass empty string to clear category, API will convert to null
+            let updatedFeed = try await apiClient.updateFeed(id: feed.id, name: nil, category: "")
+            if let index = feeds.firstIndex(where: { $0.id == feed.id }) {
+                feeds[index] = updatedFeed
+            }
         }
     }
 
