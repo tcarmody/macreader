@@ -117,11 +117,11 @@ Style conventions:
             system=self.SYSTEM_PROMPT,
             messages=[{
                 "role": "user",
-                "content": self._build_prompt(content, title)
+                "content": self._build_prompt(content, title, url)
             }]
         )
 
-        summary = self._parse_response(response, model, title)
+        summary = self._parse_response(response, model, title, url)
 
         # Cache the result
         if self.cache:
@@ -162,7 +162,7 @@ Style conventions:
 
         return self.default_model
 
-    def _build_prompt(self, content: str, title: str = "") -> str:
+    def _build_prompt(self, content: str, title: str = "", url: str = "") -> str:
         """Build the summarization prompt using documented strategy."""
         title_context = f"Original title: {title}\n\n" if title else ""
 
@@ -179,7 +179,7 @@ Structure:
    - Uses strong, specific verbs
    - Avoids repeating exact phrases from the summary
 
-2. SUMMARY: A focused summary of three to five sentences:
+2. SUMMARY: A focused summary of five sentences:
    - First sentence: State the core announcement, finding, or development
    - Following sentences: Include 2-3 of these elements as relevant:
      • Technical specifications (model sizes, performance metrics, capabilities)
@@ -189,7 +189,7 @@ Structure:
      • Concrete use cases or applications
    - Prioritize information that answers: What changed? What can it do? What does it cost? When is it available?
 
-3. KEY POINTS: 3-5 bullet points highlighting the most important takeaways
+3. KEY POINTS: 3-5 bullet points for quick scanning - these should be the most important takeaways, not a repeat of the summary
 
 Style guidelines:
 - Use active voice (e.g., 'Company released product' not 'Product was released by company')
@@ -214,7 +214,9 @@ HEADLINE:
 [Your headline here]
 
 SUMMARY:
-[Your 3-5 sentence summary here]
+[Your five sentence summary here]
+
+URL: {url}
 
 KEY POINTS:
 - [First key point]
@@ -226,13 +228,13 @@ KEY POINTS:
 {title_context}Article:
 {truncated_content}"""
 
-    def _parse_response(self, response, model: Model, title: str = "") -> Summary:
+    def _parse_response(self, response, model: Model, title: str = "", url: str = "") -> Summary:
         """Parse Claude's response into structured Summary."""
         text = response.content[0].text
 
         # Default values
         headline = ""
-        full_summary = ""
+        summary_text = ""
         key_points: list[str] = []
 
         # Split response into sections
@@ -248,7 +250,7 @@ KEY POINTS:
             if line_lower == "headline:" or line_lower.startswith("headline:"):
                 # Save previous section if any
                 if current_section == "summary":
-                    full_summary = "\n".join(current_content).strip()
+                    summary_text = "\n".join(current_content).strip()
                 current_section = "headline"
                 current_content = []
                 # Check if headline is on same line
@@ -266,9 +268,14 @@ KEY POINTS:
                     rest = line_stripped.split(":", 1)[1].strip()
                     if rest:
                         current_content.append(rest)
+            elif line_lower.startswith("url:"):
+                # Skip URL line - we'll add our own
+                if current_section == "summary":
+                    summary_text = "\n".join(current_content).strip()
+                    current_content = []
             elif "key point" in line_lower or line_lower == "key points:":
                 if current_section == "summary":
-                    full_summary = "\n".join(current_content).strip()
+                    summary_text = "\n".join(current_content).strip()
                 elif current_section == "headline":
                     headline = " ".join(current_content).strip()
                 current_section = "points"
@@ -276,7 +283,7 @@ KEY POINTS:
             # Legacy format support
             elif "one-sentence" in line_lower or line_lower.startswith("one sentence"):
                 if current_section == "summary":
-                    full_summary = "\n".join(current_content).strip()
+                    summary_text = "\n".join(current_content).strip()
                 current_section = "headline"
                 current_content = []
             elif "full summary" in line_lower:
@@ -301,12 +308,12 @@ KEY POINTS:
         # Handle final section
         if current_section == "headline" and not headline:
             headline = " ".join(current_content).strip()
-        elif current_section == "summary" and not full_summary:
-            full_summary = "\n".join(current_content).strip()
+        elif current_section == "summary" and not summary_text:
+            summary_text = "\n".join(current_content).strip()
 
         # Fallback: if parsing failed, use entire response
-        if not full_summary:
-            full_summary = text.strip()
+        if not summary_text:
+            summary_text = text.strip()
 
         if not headline:
             # Take first sentence as headline
@@ -319,6 +326,18 @@ KEY POINTS:
         # Enforce length limits
         headline = headline[:200]
         key_points = key_points[:5]
+
+        # Build the full formatted summary for copy-paste
+        # Format: Headline + Summary + URL + Key Points
+        full_summary_parts = [headline, "", summary_text]
+        if url:
+            full_summary_parts.extend(["", url])
+        if key_points:
+            full_summary_parts.extend(["", "Key points:"])
+            for point in key_points:
+                full_summary_parts.append(f"• {point}")
+
+        full_summary = "\n".join(full_summary_parts)
 
         return Summary(
             title=title,
