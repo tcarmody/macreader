@@ -58,6 +58,23 @@ struct RSSReaderApp: App {
                     }
                 }
                 .keyboardShortcut("3", modifiers: .command)
+
+                Divider()
+
+                // Grouping options
+                Picker("Group By", selection: Binding(
+                    get: { appState.groupByMode },
+                    set: { newMode in
+                        Task {
+                            await appState.setGroupByMode(newMode)
+                        }
+                    }
+                )) {
+                    ForEach(GroupByMode.allCases, id: \.self) { mode in
+                        Text(mode.menuLabel).tag(mode)
+                    }
+                }
+                .pickerStyle(.inline)
             }
 
             // Edit menu - Selection commands

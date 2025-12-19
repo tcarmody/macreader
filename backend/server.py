@@ -26,6 +26,7 @@ from .feeds import FeedParser
 from .fetcher import Fetcher
 from .summarizer import Summarizer, Summary, Model
 from .opml import parse_opml, generate_opml, OPMLFeed
+from .clustering import Clusterer
 
 # Load environment variables
 load_dotenv()
@@ -56,6 +57,7 @@ class AppState:
     db: Database | None = None
     cache: TieredCache | None = None
     summarizer: Summarizer | None = None
+    clusterer: Clusterer | None = None
     feed_parser: FeedParser | None = None
     fetcher: Fetcher | None = None
     refresh_in_progress: bool = False
@@ -75,8 +77,9 @@ async def lifespan(app: FastAPI):
 
     if config.API_KEY:
         state.summarizer = Summarizer(api_key=config.API_KEY, cache=state.cache)
+        state.clusterer = Clusterer(api_key=config.API_KEY, cache=state.cache)
     else:
-        print("Warning: ANTHROPIC_API_KEY not set. Summarization disabled.")
+        print("Warning: ANTHROPIC_API_KEY not set. Summarization and clustering disabled.")
 
     yield
 
@@ -297,15 +300,15 @@ async def list_articles(
 @app.get("/articles/grouped")
 async def get_articles_grouped(
     db: Annotated[Database, Depends(get_db)],
-    group_by: str = Query(default="date", regex="^(date|feed)$"),
+    group_by: str = Query(default="date", regex="^(date|feed|topic)$"),
     unread_only: bool = False,
     limit: int = Query(default=100, le=500)
 ) -> GroupedArticlesResponse:
     """
-    Get articles grouped by date or feed.
+    Get articles grouped by date, feed, or topic.
 
     Args:
-        group_by: 'date' for daily groups, 'feed' for source groups
+        group_by: 'date' for daily groups, 'feed' for source groups, 'topic' for AI clustering
         unread_only: Only include unread articles
         limit: Maximum total articles to return
     """
@@ -331,6 +334,39 @@ async def get_articles_grouped(
                 label=label,
                 articles=[ArticleResponse.from_db(a) for a in articles]
             ))
+    elif group_by == "topic":
+        # Use Claude-powered clustering
+        if not state.clusterer:
+            raise HTTPException(
+                status_code=503,
+                detail="Topic clustering unavailable: API key not configured"
+            )
+
+        # Get all articles first
+        articles = db.get_articles(unread_only=unread_only, limit=limit)
+
+        if not articles:
+            return GroupedArticlesResponse(group_by=group_by, groups=[])
+
+        # Cluster the articles
+        result = await state.clusterer.cluster_async(articles)
+
+        # Build article lookup for response
+        article_map = {a.id: a for a in articles}
+
+        groups = []
+        for topic in result.topics:
+            topic_articles = [
+                article_map[aid]
+                for aid in topic.article_ids
+                if aid in article_map
+            ]
+            if topic_articles:
+                groups.append(ArticleGroupResponse(
+                    key=topic.id,
+                    label=topic.label,
+                    articles=[ArticleResponse.from_db(a) for a in topic_articles]
+                ))
     else:  # group_by == "feed"
         grouped = db.get_articles_grouped_by_feed(unread_only=unread_only, limit=limit)
         groups = []

@@ -25,6 +25,11 @@ class AppState: ObservableObject {
     @Published var showAddFeed: Bool = false
     @Published var showSettings: Bool = false
     @Published var showImportOPML: Bool = false
+    @Published var groupByMode: GroupByMode = .date
+    @Published var isClusteringLoading: Bool = false
+
+    // Server-side grouped articles (for topic/feed modes)
+    @Published private var serverGroupedArticles: [ArticleGroup] = []
 
     // Multi-selection state
     @Published var selectedFeedIds: Set<Int> = []
@@ -54,7 +59,12 @@ class AppState: ObservableObject {
     }
 
     var groupedArticles: [ArticleGroup] {
-        groupArticlesByDate(filteredArticles)
+        // For topic/feed modes, use server-side grouped data
+        if groupByMode != .date && !serverGroupedArticles.isEmpty {
+            return serverGroupedArticles
+        }
+        // For date mode, group locally
+        return groupArticlesByDate(filteredArticles)
     }
 
     var filteredArticles: [Article] {
@@ -366,6 +376,52 @@ class AppState: ObservableObject {
 
     func updateSettings(_ newSettings: AppSettings) async throws {
         settings = try await apiClient.updateSettings(newSettings)
+    }
+
+    // MARK: - Grouping
+
+    func setGroupByMode(_ mode: GroupByMode) async {
+        groupByMode = mode
+
+        if mode == .date {
+            // Clear server groups, use local grouping
+            serverGroupedArticles = []
+        } else {
+            // Fetch grouped articles from server
+            await loadGroupedArticles()
+        }
+    }
+
+    func loadGroupedArticles() async {
+        guard groupByMode != .date else { return }
+
+        isClusteringLoading = groupByMode == .topic
+        error = nil
+
+        do {
+            let unreadOnly = selectedFilter == .unread
+            let response = try await apiClient.getGroupedArticles(
+                groupBy: groupByMode.rawValue,
+                unreadOnly: unreadOnly
+            )
+
+            serverGroupedArticles = response.groups.map { group in
+                ArticleGroup(
+                    id: group.key,
+                    title: group.label,
+                    articles: group.articles
+                )
+            }
+
+            // Also update the flat articles list for consistency
+            articles = response.groups.flatMap { $0.articles }
+        } catch {
+            self.error = error.localizedDescription
+            // Fall back to date grouping on error
+            serverGroupedArticles = []
+        }
+
+        isClusteringLoading = false
     }
 
     // MARK: - Helpers

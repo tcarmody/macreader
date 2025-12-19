@@ -129,9 +129,58 @@ struct ArticleDetail: Identifiable, Codable, Sendable {
     }
 }
 
-/// Group of articles for time-based display
+/// Group of articles for display
 struct ArticleGroup: Identifiable, Sendable {
     let id: String
-    let title: String  // "Today", "Yesterday", "Last Week", etc.
+    let title: String  // "Today", "Yesterday", "AI & Technology", etc.
+    let articles: [Article]
+}
+
+/// How to group articles in the list view
+enum GroupByMode: String, CaseIterable, Sendable {
+    case date = "date"
+    case feed = "feed"
+    case topic = "topic"
+
+    var label: String {
+        switch self {
+        case .date: return "Date"
+        case .feed: return "Feed"
+        case .topic: return "Topic"
+        }
+    }
+
+    var menuLabel: String {
+        switch self {
+        case .date: return "Group by Date"
+        case .feed: return "Group by Feed"
+        case .topic: return "Group by Topic"
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .date: return "calendar"
+        case .feed: return "newspaper"
+        case .topic: return "sparkles"
+        }
+    }
+}
+
+/// Response from grouped articles API
+struct GroupedArticlesResponse: Codable, Sendable {
+    let groupBy: String
+    let groups: [ArticleGroupResponse]
+
+    enum CodingKeys: String, CodingKey {
+        case groupBy = "group_by"
+        case groups
+    }
+}
+
+/// Single group in grouped response
+struct ArticleGroupResponse: Codable, Sendable {
+    let key: String
+    let label: String
     let articles: [Article]
 }

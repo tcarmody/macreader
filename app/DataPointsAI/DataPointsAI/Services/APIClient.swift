@@ -119,6 +119,21 @@ actor APIClient {
         return try await get(path: "/articles/\(id)")
     }
 
+    func getGroupedArticles(
+        groupBy: String,
+        unreadOnly: Bool = false,
+        limit: Int = 100
+    ) async throws -> GroupedArticlesResponse {
+        var queryItems: [URLQueryItem] = [
+            URLQueryItem(name: "group_by", value: groupBy),
+            URLQueryItem(name: "limit", value: String(limit))
+        ]
+        if unreadOnly {
+            queryItems.append(URLQueryItem(name: "unread_only", value: "true"))
+        }
+        return try await get(path: "/articles/grouped", queryItems: queryItems)
+    }
+
     func fetchArticleContent(articleId: Int) async throws -> ArticleDetail {
         return try await post(path: "/articles/\(articleId)/fetch-content")
     }

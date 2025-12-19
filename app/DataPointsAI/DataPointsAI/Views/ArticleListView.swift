@@ -9,6 +9,8 @@ struct ArticleListView: View {
         Group {
             if appState.isLoading && appState.articles.isEmpty {
                 ProgressView("Loading articles...")
+            } else if appState.isClusteringLoading {
+                ProgressView("Clustering by topic...")
             } else if appState.groupedArticles.isEmpty {
                 EmptyArticlesView()
             } else {
@@ -23,6 +25,23 @@ struct ArticleListView: View {
             try? await appState.refreshFeeds()
         }
         .toolbar {
+            ToolbarItemGroup(placement: .principal) {
+                Picker("Group By", selection: Binding(
+                    get: { appState.groupByMode },
+                    set: { newMode in
+                        Task {
+                            await appState.setGroupByMode(newMode)
+                        }
+                    }
+                )) {
+                    ForEach(GroupByMode.allCases, id: \.self) { mode in
+                        Label(mode.label, systemImage: mode.iconName).tag(mode)
+                    }
+                }
+                .pickerStyle(.segmented)
+                .help("Group articles by \(appState.groupByMode.label)")
+            }
+
             ToolbarItemGroup {
                 if !appState.selectedArticleIds.isEmpty {
                     selectionToolbar
