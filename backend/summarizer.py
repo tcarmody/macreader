@@ -17,9 +17,9 @@ if TYPE_CHECKING:
 
 
 class Model(Enum):
-    """Available Claude models for summarization."""
-    SONNET = "claude-sonnet-4-5-20250514"
-    HAIKU = "claude-haiku-4-5-20251001"
+    """Available Claude models for summarization (using aliases for latest versions)."""
+    SONNET = "claude-sonnet-4-5"
+    HAIKU = "claude-haiku-4-5"
 
 
 @dataclass
