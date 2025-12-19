@@ -48,6 +48,23 @@ class Summarizer:
     # Maximum content length to send to API
     MAX_CONTENT_LENGTH = 15000
 
+    # System prompt establishing the AI persona and quality standards
+    SYSTEM_PROMPT = """You are an expert technical journalist specializing in AI and technology news. Your summaries are written for AI developers, researchers, and technology professionals who value precision, technical depth, and direct communication.
+
+Core principles:
+- Present information directly and factually in active voice
+- Avoid meta-language like 'This article explains...', 'This is important because...', or 'The author discusses...'
+- Include technical details, specifications, and industry implications
+- Use clear, straightforward language without hype, exaggeration, or marketing speak
+- Focus on what matters to technical practitioners: capabilities, limitations, pricing, availability
+
+Style conventions:
+- Use active voice and non-compound verbs (e.g., 'banned' not 'has banned')
+- Spell out numbers and 'percent' (e.g., '8 billion', not '8B' or '%')
+- Use smart quotes, not straight quotes
+- Use 'U.S.' and 'U.K.' with periods; use 'AI' without periods
+- Avoid the words 'content' and 'creator' when possible"""
+
     def __init__(
         self,
         api_key: str,
@@ -97,6 +114,7 @@ class Summarizer:
         response = self.client.messages.create(
             model=model.value,
             max_tokens=1024,
+            system=self.SYSTEM_PROMPT,
             messages=[{
                 "role": "user",
                 "content": self._build_prompt(content, title)
@@ -145,21 +163,58 @@ class Summarizer:
         return self.default_model
 
     def _build_prompt(self, content: str, title: str = "") -> str:
-        """Build the summarization prompt."""
-        title_context = f"Title: {title}\n\n" if title else ""
+        """Build the summarization prompt using documented strategy."""
+        title_context = f"Original title: {title}\n\n" if title else ""
 
         # Truncate content if too long
         truncated_content = content[:self.MAX_CONTENT_LENGTH]
         if len(content) > self.MAX_CONTENT_LENGTH:
             truncated_content += "\n\n[Content truncated...]"
 
-        return f"""Summarize this article. Provide your response in exactly this format:
+        return f"""Summarize the article below following these guidelines:
 
-ONE-SENTENCE SUMMARY:
-[A single sentence of max 150 characters summarizing the key point]
+Structure:
+1. HEADLINE: Create a headline in sentence case that:
+   - Captures the core news or development
+   - Uses strong, specific verbs
+   - Avoids repeating exact phrases from the summary
 
-FULL SUMMARY:
-[A comprehensive summary in 3-5 paragraphs covering the main points]
+2. SUMMARY: A focused summary of three to five sentences:
+   - First sentence: State the core announcement, finding, or development
+   - Following sentences: Include 2-3 of these elements as relevant:
+     • Technical specifications (model sizes, performance metrics, capabilities)
+     • Pricing, availability, and access details
+     • Key limitations or constraints
+     • Industry implications or competitive context
+     • Concrete use cases or applications
+   - Prioritize information that answers: What changed? What can it do? What does it cost? When is it available?
+
+3. KEY POINTS: 3-5 bullet points highlighting the most important takeaways
+
+Style guidelines:
+- Use active voice (e.g., 'Company released product' not 'Product was released by company')
+- Use non-compound verbs (e.g., 'banned' instead of 'has banned')
+- Avoid self-explanatory phrases like 'This article explains...', 'This is important because...', or 'The author discusses...'
+- Present information directly without meta-commentary
+- Avoid the words 'content' and 'creator'
+- Spell out numbers (e.g., '8 billion' not '8B', '100 million' not '100M')
+- Spell out 'percent' instead of using the '%' symbol
+- Use 'U.S.' and 'U.K.' with periods; use 'AI' without periods
+- Use smart quotes, not straight quotes
+
+Additional guidelines:
+- For product launches: Always include pricing and availability if mentioned
+- For research papers: Include key metrics, dataset sizes, or performance improvements
+- For company news: Focus on concrete actions, not just announcements or intentions
+- Omit background information readers likely already know (e.g., 'OpenAI is an AI company')
+
+Provide your response in exactly this format:
+
+HEADLINE:
+[Your headline here]
+
+SUMMARY:
+[Your 3-5 sentence summary here]
 
 KEY POINTS:
 - [First key point]
@@ -176,7 +231,7 @@ KEY POINTS:
         text = response.content[0].text
 
         # Default values
-        one_liner = ""
+        headline = ""
         full_summary = ""
         key_points: list[str] = []
 
@@ -189,23 +244,45 @@ KEY POINTS:
             line_stripped = line.strip()
             line_lower = line_stripped.lower()
 
-            # Detect section headers
-            if "one-sentence" in line_lower or line_lower.startswith("one sentence"):
-                if current_section == "full":
+            # Detect section headers (support both old and new formats)
+            if line_lower == "headline:" or line_lower.startswith("headline:"):
+                # Save previous section if any
+                if current_section == "summary":
                     full_summary = "\n".join(current_content).strip()
-                current_section = "one_liner"
+                current_section = "headline"
                 current_content = []
-            elif "full summary" in line_lower or line_lower == "summary:":
-                if current_section == "one_liner":
-                    one_liner = " ".join(current_content).strip()
-                current_section = "full"
+                # Check if headline is on same line
+                if ":" in line_stripped and len(line_stripped.split(":", 1)) > 1:
+                    rest = line_stripped.split(":", 1)[1].strip()
+                    if rest:
+                        current_content.append(rest)
+            elif line_lower == "summary:" or line_lower.startswith("summary:"):
+                if current_section == "headline":
+                    headline = " ".join(current_content).strip()
+                current_section = "summary"
                 current_content = []
+                # Check if summary starts on same line
+                if ":" in line_stripped and len(line_stripped.split(":", 1)) > 1:
+                    rest = line_stripped.split(":", 1)[1].strip()
+                    if rest:
+                        current_content.append(rest)
             elif "key point" in line_lower or line_lower == "key points:":
-                if current_section == "full":
+                if current_section == "summary":
                     full_summary = "\n".join(current_content).strip()
-                elif current_section == "one_liner":
-                    one_liner = " ".join(current_content).strip()
+                elif current_section == "headline":
+                    headline = " ".join(current_content).strip()
                 current_section = "points"
+                current_content = []
+            # Legacy format support
+            elif "one-sentence" in line_lower or line_lower.startswith("one sentence"):
+                if current_section == "summary":
+                    full_summary = "\n".join(current_content).strip()
+                current_section = "headline"
+                current_content = []
+            elif "full summary" in line_lower:
+                if current_section == "headline":
+                    headline = " ".join(current_content).strip()
+                current_section = "summary"
                 current_content = []
             elif current_section == "points":
                 # Extract bullet point
@@ -222,30 +299,30 @@ KEY POINTS:
                 current_content.append(line_stripped)
 
         # Handle final section
-        if current_section == "one_liner" and not one_liner:
-            one_liner = " ".join(current_content).strip()
-        elif current_section == "full" and not full_summary:
+        if current_section == "headline" and not headline:
+            headline = " ".join(current_content).strip()
+        elif current_section == "summary" and not full_summary:
             full_summary = "\n".join(current_content).strip()
 
         # Fallback: if parsing failed, use entire response
         if not full_summary:
             full_summary = text.strip()
 
-        if not one_liner:
-            # Take first sentence
+        if not headline:
+            # Take first sentence as headline
             sentences = text.split(".")
             if sentences:
-                one_liner = sentences[0].strip() + "."
+                headline = sentences[0].strip() + "."
             else:
-                one_liner = text[:150]
+                headline = text[:150]
 
         # Enforce length limits
-        one_liner = one_liner[:200]
+        headline = headline[:200]
         key_points = key_points[:5]
 
         return Summary(
             title=title,
-            one_liner=one_liner,
+            one_liner=headline,  # Use headline as the one-liner
             full_summary=full_summary,
             key_points=key_points,
             model_used=model,

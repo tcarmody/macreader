@@ -282,6 +282,6 @@ Style guidelines:
 
 ## Source
 
-These prompts are implemented in `summarization/text_processing.py`:
-- `get_system_prompt()` — returns the system prompt
-- `create_summary_prompt()` — generates the user prompt with article content
+These prompts are implemented in `backend/summarizer.py`:
+- `Summarizer.SYSTEM_PROMPT` — the system prompt as a class constant
+- `Summarizer._build_prompt()` — generates the user prompt with article content
