@@ -65,6 +65,61 @@ Style conventions:
 - Use 'U.S.' and 'U.K.' with periods; use 'AI' without periods
 - Avoid the words 'content' and 'creator' when possible"""
 
+    # Static instruction prompt (cacheable) - separated from dynamic content
+    INSTRUCTION_PROMPT = """Summarize the article below following these guidelines:
+
+Structure:
+1. HEADLINE: Create a headline in sentence case that:
+   - Captures the core news or development
+   - Uses strong, specific verbs
+   - Avoids repeating exact phrases from the summary
+
+2. SUMMARY: A focused summary of five sentences:
+   - First sentence: State the core announcement, finding, or development
+   - Following sentences: Include 2-3 of these elements as relevant:
+     • Technical specifications (model sizes, performance metrics, capabilities)
+     • Pricing, availability, and access details
+     • Key limitations or constraints
+     • Industry implications or competitive context
+     • Concrete use cases or applications
+   - Prioritize information that answers: What changed? What can it do? What does it cost? When is it available?
+
+3. KEY POINTS: 3-5 bullet points for quick scanning - these should be the most important takeaways, not a repeat of the summary
+
+Style guidelines:
+- Use active voice (e.g., 'Company released product' not 'Product was released by company')
+- Use non-compound verbs (e.g., 'banned' instead of 'has banned')
+- Avoid self-explanatory phrases like 'This article explains...', 'This is important because...', or 'The author discusses...'
+- Present information directly without meta-commentary
+- Avoid the words 'content' and 'creator'
+- Spell out numbers (e.g., '8 billion' not '8B', '100 million' not '100M')
+- Spell out 'percent' instead of using the '%' symbol
+- Use 'U.S.' and 'U.K.' with periods; use 'AI' without periods
+- Use smart quotes, not straight quotes
+
+Additional guidelines:
+- For product launches: Always include pricing and availability if mentioned
+- For research papers: Include key metrics, dataset sizes, or performance improvements
+- For company news: Focus on concrete actions, not just announcements or intentions
+- Omit background information readers likely already know (e.g., 'OpenAI is an AI company')
+
+Provide your response in exactly this format:
+
+HEADLINE:
+[Your headline here]
+
+SUMMARY:
+[Your five sentence summary here]
+
+URL: [article URL will be provided]
+
+KEY POINTS:
+- [First key point]
+- [Second key point]
+- [Third key point]
+- [Optional fourth point]
+- [Optional fifth point]"""
+
     def __init__(
         self,
         api_key: str,
@@ -110,14 +165,30 @@ Style conventions:
         # Select model based on content complexity
         model = force_model or self._select_model(content)
 
-        # Generate summary
+        # Generate summary with prompt caching
+        # Both system prompt and instruction prompt are static and cacheable
+        # This reduces costs by ~90% for the cached portions on cache hits
         response = self.client.messages.create(
             model=model.value,
             max_tokens=1024,
-            system=self.SYSTEM_PROMPT,
+            system=[{
+                "type": "text",
+                "text": self.SYSTEM_PROMPT,
+                "cache_control": {"type": "ephemeral"}
+            }],
             messages=[{
                 "role": "user",
-                "content": self._build_prompt(content, title, url)
+                "content": [
+                    {
+                        "type": "text",
+                        "text": self.INSTRUCTION_PROMPT,
+                        "cache_control": {"type": "ephemeral"}
+                    },
+                    {
+                        "type": "text",
+                        "text": self._build_article_content(content, title, url)
+                    }
+                ]
             }]
         )
 
@@ -162,70 +233,18 @@ Style conventions:
 
         return self.default_model
 
-    def _build_prompt(self, content: str, title: str = "", url: str = "") -> str:
-        """Build the summarization prompt using documented strategy."""
-        title_context = f"Original title: {title}\n\n" if title else ""
+    def _build_article_content(self, content: str, title: str = "", url: str = "") -> str:
+        """Build the dynamic article content portion of the prompt."""
+        title_line = f"Original title: {title}\n" if title else ""
+        url_line = f"URL: {url}\n" if url else ""
 
         # Truncate content if too long
         truncated_content = content[:self.MAX_CONTENT_LENGTH]
         if len(content) > self.MAX_CONTENT_LENGTH:
             truncated_content += "\n\n[Content truncated...]"
 
-        return f"""Summarize the article below following these guidelines:
-
-Structure:
-1. HEADLINE: Create a headline in sentence case that:
-   - Captures the core news or development
-   - Uses strong, specific verbs
-   - Avoids repeating exact phrases from the summary
-
-2. SUMMARY: A focused summary of five sentences:
-   - First sentence: State the core announcement, finding, or development
-   - Following sentences: Include 2-3 of these elements as relevant:
-     • Technical specifications (model sizes, performance metrics, capabilities)
-     • Pricing, availability, and access details
-     • Key limitations or constraints
-     • Industry implications or competitive context
-     • Concrete use cases or applications
-   - Prioritize information that answers: What changed? What can it do? What does it cost? When is it available?
-
-3. KEY POINTS: 3-5 bullet points for quick scanning - these should be the most important takeaways, not a repeat of the summary
-
-Style guidelines:
-- Use active voice (e.g., 'Company released product' not 'Product was released by company')
-- Use non-compound verbs (e.g., 'banned' instead of 'has banned')
-- Avoid self-explanatory phrases like 'This article explains...', 'This is important because...', or 'The author discusses...'
-- Present information directly without meta-commentary
-- Avoid the words 'content' and 'creator'
-- Spell out numbers (e.g., '8 billion' not '8B', '100 million' not '100M')
-- Spell out 'percent' instead of using the '%' symbol
-- Use 'U.S.' and 'U.K.' with periods; use 'AI' without periods
-- Use smart quotes, not straight quotes
-
-Additional guidelines:
-- For product launches: Always include pricing and availability if mentioned
-- For research papers: Include key metrics, dataset sizes, or performance improvements
-- For company news: Focus on concrete actions, not just announcements or intentions
-- Omit background information readers likely already know (e.g., 'OpenAI is an AI company')
-
-Provide your response in exactly this format:
-
-HEADLINE:
-[Your headline here]
-
-SUMMARY:
-[Your five sentence summary here]
-
-URL: {url}
-
-KEY POINTS:
-- [First key point]
-- [Second key point]
-- [Third key point]
-- [Optional fourth point]
-- [Optional fifth point]
-
-{title_context}Article:
+        return f"""{title_line}{url_line}
+Article:
 {truncated_content}"""
 
     def _parse_response(self, response, model: Model, title: str = "", url: str = "") -> Summary:
