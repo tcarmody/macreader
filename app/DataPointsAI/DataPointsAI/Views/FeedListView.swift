@@ -499,7 +499,7 @@ struct CategoryHeader: View {
                     .font(.headline)
                     .foregroundStyle(.primary)
 
-                Spacer()
+                Spacer(minLength: 4)
 
                 if unreadCount > 0 {
                     Text("\(unreadCount)")
@@ -507,10 +507,12 @@ struct CategoryHeader: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color.blue)
+                        .background(Color.purple)
                         .clipShape(Capsule())
                 }
             }
+            // Offset to align with feed row badges (section headers are wider than rows)
+            .padding(.trailing, 12)
         }
         .buttonStyle(.plain)
     }
