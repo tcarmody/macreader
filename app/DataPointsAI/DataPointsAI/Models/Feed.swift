@@ -52,18 +52,23 @@ struct AppSettings: Codable, Sendable {
     var markReadOnOpen: Bool
     var defaultModel: String
 
+    // Client-side only settings (not synced with backend)
+    var notificationsEnabled: Bool = true
+
     enum CodingKeys: String, CodingKey {
         case refreshIntervalMinutes = "refresh_interval_minutes"
         case autoSummarize = "auto_summarize"
         case markReadOnOpen = "mark_read_on_open"
         case defaultModel = "default_model"
+        // notificationsEnabled is not sent to/from API
     }
 
     static let `default` = AppSettings(
         refreshIntervalMinutes: 30,
         autoSummarize: false,
         markReadOnOpen: true,
-        defaultModel: "haiku"
+        defaultModel: "haiku",
+        notificationsEnabled: true
     )
 }
 

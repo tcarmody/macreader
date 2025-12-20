@@ -8,13 +8,15 @@ struct SettingsView: View {
     @State private var autoSummarize: Bool = true
     @State private var markReadOnOpen: Bool = true
     @State private var defaultModel: String = "haiku"
+    @State private var notificationsEnabled: Bool = true
 
     var body: some View {
         TabView {
             GeneralSettingsView(
                 refreshInterval: $refreshInterval,
                 autoSummarize: $autoSummarize,
-                markReadOnOpen: $markReadOnOpen
+                markReadOnOpen: $markReadOnOpen,
+                notificationsEnabled: $notificationsEnabled
             )
             .tabItem {
                 Label("General", systemImage: "gear")
@@ -39,6 +41,7 @@ struct SettingsView: View {
         .onChange(of: autoSummarize) { _, _ in saveSettings() }
         .onChange(of: markReadOnOpen) { _, _ in saveSettings() }
         .onChange(of: defaultModel) { _, _ in saveSettings() }
+        .onChange(of: notificationsEnabled) { _, _ in saveSettings() }
     }
 
     private func loadSettings() {
@@ -46,15 +49,17 @@ struct SettingsView: View {
         autoSummarize = appState.settings.autoSummarize
         markReadOnOpen = appState.settings.markReadOnOpen
         defaultModel = appState.settings.defaultModel
+        notificationsEnabled = appState.settings.notificationsEnabled
     }
 
     private func saveSettings() {
-        let newSettings = AppSettings(
+        var newSettings = AppSettings(
             refreshIntervalMinutes: refreshInterval,
             autoSummarize: autoSummarize,
             markReadOnOpen: markReadOnOpen,
             defaultModel: defaultModel
         )
+        newSettings.notificationsEnabled = notificationsEnabled
 
         Task {
             try? await appState.updateSettings(newSettings)
@@ -67,6 +72,9 @@ struct GeneralSettingsView: View {
     @Binding var refreshInterval: Int
     @Binding var autoSummarize: Bool
     @Binding var markReadOnOpen: Bool
+    @Binding var notificationsEnabled: Bool
+
+    @StateObject private var notificationService = NotificationService.shared
 
     let refreshOptions = [15, 30, 60, 120, 240]
 
@@ -93,8 +101,35 @@ struct GeneralSettingsView: View {
             } header: {
                 Text("Summarization")
             }
+
+            Section {
+                Toggle("Show notifications for new articles", isOn: $notificationsEnabled)
+                    .disabled(!notificationService.isAuthorized)
+
+                if !notificationService.isAuthorized {
+                    HStack {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.yellow)
+                        Text("Notifications are disabled in System Settings")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Button("Open Settings") {
+                            if let url = URL(string: "x-apple.systempreferences:com.apple.preference.notifications") {
+                                NSWorkspace.shared.open(url)
+                            }
+                        }
+                        .font(.caption)
+                    }
+                }
+            } header: {
+                Text("Notifications")
+            }
         }
         .formStyle(.grouped)
+        .task {
+            await notificationService.checkAuthorizationStatus()
+        }
     }
 
     private func formatInterval(_ minutes: Int) -> String {

@@ -1,8 +1,11 @@
 import SwiftUI
+import CoreSpotlight
+import UserNotifications
 
 @main
 struct RSSReaderApp: App {
     @StateObject private var appState = AppState()
+    @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
 
     var body: some Scene {
         WindowGroup {
@@ -11,8 +14,11 @@ struct RSSReaderApp: App {
                 .onAppear {
                     Task {
                         await appState.startServer()
+                        // Setup notification categories
+                        NotificationService.shared.setupNotificationCategories()
                     }
                 }
+                .onContinueUserActivity(CSSearchableItemActionType, perform: handleSpotlightActivity)
         }
         .commands {
             // File menu
@@ -223,4 +229,88 @@ struct RSSReaderApp: App {
             try await appState.markFeedRead(feedId: feedId)
         }
     }
+
+    // MARK: - Spotlight Integration
+
+    private func handleSpotlightActivity(_ userActivity: NSUserActivity) {
+        if let articleId = SpotlightService.articleId(from: userActivity) {
+            Task {
+                await appState.openArticleFromSpotlight(articleId: articleId)
+            }
+        }
+    }
+}
+
+// MARK: - App Delegate
+
+class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDelegate {
+    func applicationDidFinishLaunching(_ notification: Notification) {
+        // Set ourselves as the notification delegate
+        UNUserNotificationCenter.current().delegate = self
+    }
+
+    func applicationWillTerminate(_ notification: Notification) {
+        // Clear dock badge on quit
+        NSApplication.shared.dockTile.badgeLabel = nil
+    }
+
+    // MARK: - UNUserNotificationCenterDelegate
+
+    /// Handle notification when app is in foreground
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        willPresent notification: UNNotification
+    ) async -> UNNotificationPresentationOptions {
+        // Show banner and play sound even when app is active
+        return [.banner, .sound]
+    }
+
+    /// Handle notification tap/action
+    func userNotificationCenter(
+        _ center: UNUserNotificationCenter,
+        didReceive response: UNNotificationResponse
+    ) async {
+        let userInfo = response.notification.request.content.userInfo
+
+        switch response.actionIdentifier {
+        case UNNotificationDefaultActionIdentifier:
+            // User tapped the notification - open the article if there's an ID
+            if let articleId = userInfo["articleId"] as? Int {
+                await MainActor.run {
+                    // Post notification to open article
+                    NotificationCenter.default.post(
+                        name: .openArticleFromNotification,
+                        object: nil,
+                        userInfo: ["articleId": articleId]
+                    )
+                }
+            }
+
+        case "MARK_READ":
+            // Mark articles as read (would need to pass article IDs through userInfo)
+            break
+
+        case "BOOKMARK":
+            // Bookmark the article
+            if let articleId = userInfo["articleId"] as? Int {
+                await MainActor.run {
+                    NotificationCenter.default.post(
+                        name: .bookmarkArticleFromNotification,
+                        object: nil,
+                        userInfo: ["articleId": articleId]
+                    )
+                }
+            }
+
+        default:
+            break
+        }
+    }
+}
+
+// MARK: - Notification Names
+
+extension Notification.Name {
+    static let openArticleFromNotification = Notification.Name("openArticleFromNotification")
+    static let bookmarkArticleFromNotification = Notification.Name("bookmarkArticleFromNotification")
 }

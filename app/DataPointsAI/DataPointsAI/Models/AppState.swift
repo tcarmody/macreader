@@ -1,6 +1,7 @@
 import Foundation
 import SwiftUI
 import Combine
+import CoreSpotlight
 
 /// Main application state manager
 @MainActor
@@ -45,6 +46,11 @@ class AppState: ObservableObject {
 
     private let apiClient: APIClient
     private let pythonServer: PythonServer
+
+    // Native macOS services
+    private let notificationService = NotificationService.shared
+    private let spotlightService = SpotlightService.shared
+    private let dockBadgeService = DockBadgeService.shared
 
     // MARK: - Computed Properties
 
@@ -162,6 +168,12 @@ class AppState: ObservableObject {
             feeds = try await feedsTask
             articles = try await articlesTask
             settings = try await settingsTask
+
+            // Update dock badge with unread count
+            updateDockBadge()
+
+            // Index articles for Spotlight search
+            indexArticlesForSpotlight()
         } catch {
             self.error = error.localizedDescription
         }
@@ -218,6 +230,9 @@ class AppState: ObservableObject {
 
         // Refresh feeds to update unread counts
         feeds = try await apiClient.getFeeds()
+
+        // Update dock badge
+        updateDockBadge()
     }
 
     func toggleBookmark(articleId: Int) async throws {
@@ -278,6 +293,9 @@ class AppState: ObservableObject {
 
         // Refresh feeds to update unread counts
         feeds = try await apiClient.getFeeds()
+
+        // Update dock badge
+        updateDockBadge()
     }
 
     func markFeedRead(feedId: Int, isRead: Bool = true) async throws {
@@ -293,6 +311,9 @@ class AppState: ObservableObject {
 
         // Refresh feeds to update unread counts
         feeds = try await apiClient.getFeeds()
+
+        // Update dock badge
+        updateDockBadge()
     }
 
     func markAllRead(isRead: Bool = true) async throws {
@@ -306,6 +327,9 @@ class AppState: ObservableObject {
 
         // Refresh feeds to update unread counts
         feeds = try await apiClient.getFeeds()
+
+        // Update dock badge
+        updateDockBadge()
     }
 
     // MARK: - Feed Actions
@@ -385,10 +409,19 @@ class AppState: ObservableObject {
     }
 
     func refreshFeeds() async throws {
+        // Track current unread count to detect new articles
+        let previousUnreadCount = totalUnreadCount
+
         try await apiClient.refreshFeeds()
         // Wait a moment for background refresh to start
         try? await Task.sleep(nanoseconds: 500_000_000)
         await refresh()
+
+        // Notify about new articles if count increased
+        let newArticleCount = totalUnreadCount - previousUnreadCount
+        if newArticleCount > 0 && settings.notificationsEnabled {
+            await notificationService.notifyNewArticles(count: newArticleCount)
+        }
     }
 
     // MARK: - OPML Import/Export
@@ -524,5 +557,55 @@ class AppState: ObservableObject {
         }
 
         return groups
+    }
+
+    // MARK: - Native macOS Integration
+
+    /// Update dock badge with current unread count
+    private func updateDockBadge() {
+        dockBadgeService.updateBadge(unreadCount: totalUnreadCount)
+    }
+
+    /// Index articles for Spotlight search
+    private func indexArticlesForSpotlight() {
+        // Build feed name lookup
+        let feedNames = Dictionary(uniqueKeysWithValues: feeds.map { ($0.id, $0.name) })
+        spotlightService.indexArticles(articles, feedNames: feedNames)
+    }
+
+    /// Handle opening an article from Spotlight
+    /// - Parameter articleId: The article ID from Spotlight
+    func openArticleFromSpotlight(articleId: Int) async {
+        // Find the article
+        if let article = articles.first(where: { $0.id == articleId }) {
+            selectedArticle = article
+            await loadArticleDetail(for: article)
+        } else {
+            // Article not in current list, fetch it directly
+            do {
+                let detail = try await apiClient.getArticle(id: articleId)
+                // Create a minimal Article from the detail for selection
+                let article = Article(
+                    id: detail.id,
+                    feedId: detail.feedId,
+                    url: detail.url,
+                    title: detail.title,
+                    summaryShort: detail.summaryShort,
+                    isRead: detail.isRead,
+                    isBookmarked: detail.isBookmarked,
+                    publishedAt: detail.publishedAt,
+                    createdAt: detail.createdAt
+                )
+                selectedArticle = article
+                selectedArticleDetail = detail
+            } catch {
+                self.error = "Could not open article: \(error.localizedDescription)"
+            }
+        }
+    }
+
+    /// Request notification permission
+    func requestNotificationPermission() async -> Bool {
+        return await notificationService.requestAuthorization()
     }
 }
