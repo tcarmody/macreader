@@ -15,8 +15,10 @@ from ..schemas import (
     ArticleGroupResponse,
     GroupedArticlesResponse,
     BulkMarkReadRequest,
+    ExtractSourceResponse,
 )
 from ..tasks import summarize_article
+from ..source_extractor import SourceExtractor
 
 router = APIRouter(prefix="/articles", tags=["articles"])
 
@@ -304,3 +306,59 @@ async def summarize_article_endpoint(
     )
 
     return {"success": True, "message": "Summarization started"}
+
+
+@router.post("/{article_id}/extract-source")
+async def extract_source_url(
+    article_id: int,
+    db: Annotated[Database, Depends(get_db)],
+    force: bool = Query(default=False, description="Re-extract even if source_url exists")
+) -> ExtractSourceResponse:
+    """
+    Extract original source URL for an aggregator article.
+
+    This is useful for articles from aggregators like Google News or Reddit
+    where the RSS link points to the aggregator rather than the source article.
+
+    For Hacker News and Techmeme, source URLs are extracted during feed refresh.
+    This endpoint handles cases that require HTTP requests (Google News, Reddit)
+    or re-extraction if the initial extraction failed.
+    """
+    article = db.get_article(article_id)
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+
+    # Return existing source_url if available and not forcing re-extraction
+    if article.source_url and not force:
+        extractor = SourceExtractor()
+        aggregator = extractor.identify_aggregator(article.url)
+        return ExtractSourceResponse(
+            success=True,
+            source_url=article.source_url,
+            aggregator=aggregator,
+            confidence=1.0
+        )
+
+    # Try to extract source URL
+    extractor = SourceExtractor()
+
+    # Check if this is even an aggregator URL
+    if not extractor.is_aggregator(article.url):
+        return ExtractSourceResponse(
+            success=False,
+            error="Not an aggregator URL"
+        )
+
+    result = await extractor.extract(article.url, article.content or "")
+
+    # Update database if extraction succeeded
+    if result.source_url:
+        db.update_article_source_url(article_id, result.source_url)
+
+    return ExtractSourceResponse(
+        success=result.source_url is not None,
+        source_url=result.source_url,
+        aggregator=result.aggregator,
+        confidence=result.confidence,
+        error=result.error
+    )

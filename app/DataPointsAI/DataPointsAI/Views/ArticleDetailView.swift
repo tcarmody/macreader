@@ -116,7 +116,7 @@ struct ArticleDetailView: View {
                         // Actions
                         HStack(spacing: 16) {
                             Button {
-                                NSWorkspace.shared.open(article.url)
+                                NSWorkspace.shared.open(article.originalUrl)
                             } label: {
                                 Label("Read Original", systemImage: "safari")
                             }
@@ -137,7 +137,7 @@ struct ArticleDetailView: View {
                             Spacer()
 
                             // Share button
-                            ShareLink(item: article.url) {
+                            ShareLink(item: article.originalUrl) {
                                 Label("Share", systemImage: "square.and.arrow.up")
                             }
                             .buttonStyle(.bordered)

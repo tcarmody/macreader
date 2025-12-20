@@ -197,6 +197,7 @@ struct ArticleRow: View {
         id: 1,
         feedId: 1,
         url: URL(string: "https://example.com")!,
+        sourceUrl: nil,
         title: "OpenAI Announces GPT-5 with Revolutionary Capabilities",
         summaryShort: "OpenAI has unveiled GPT-5, the latest iteration of its large language model with significant improvements in reasoning and multimodal capabilities.",
         isRead: false,
@@ -205,7 +206,7 @@ struct ArticleRow: View {
         createdAt: Date()
     )
 
-    return ArticleRow(article: article)
+    ArticleRow(article: article)
         .environmentObject(AppState())
         .padding()
         .frame(width: 350)

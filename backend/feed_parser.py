@@ -26,6 +26,7 @@ class FeedItem:
     author: str | None
     published: datetime | None
     content: str
+    source_url: str | None = None  # Original URL for aggregator articles
 
 
 @dataclass
@@ -123,12 +124,16 @@ class FeedParser:
                         item_url = link.get("href", "")
                         break
 
+            # Extract source URL for aggregators (inline, no HTTP requests)
+            source_url = self._extract_inline_source_url(url, item_url, content_text)
+
             items.append(FeedItem(
                 url=item_url,
                 title=entry.get("title", "Untitled"),
                 author=entry.get("author"),
                 published=published,
-                content=content_text
+                content=content_text,
+                source_url=source_url
             ))
 
         # Get feed metadata
@@ -151,6 +156,49 @@ class FeedParser:
             if elapsed < self._min_interval:
                 await asyncio.sleep(self._min_interval - elapsed)
         self._domain_last_fetch[domain] = time.time()
+
+    def _extract_inline_source_url(
+        self,
+        feed_url: str,
+        item_url: str,
+        content: str
+    ) -> str | None:
+        """
+        Extract source URL from aggregator feeds without making HTTP requests.
+
+        This handles cases where the source URL is embedded in the RSS content:
+        - Hacker News: <link> already points to source
+        - Techmeme: Source link is in <description> HTML
+
+        For feeds requiring HTTP requests (Google News, Reddit), returns None.
+        The full SourceExtractor can be used later for those cases.
+        """
+        feed_domain = urlparse(feed_url).netloc.lower()
+
+        # Hacker News: RSS <link> already points to source URL
+        if "news.ycombinator.com" in feed_domain:
+            # If item_url is external (not HN), it's already the source
+            if "news.ycombinator.com" not in item_url:
+                return item_url
+            # If it's an HN URL, it's a Show HN / Ask HN (no external source)
+            return None
+
+        # Techmeme: Source URL is the first external link in description
+        if "techmeme.com" in feed_domain:
+            if content:
+                soup = BeautifulSoup(content, "html.parser")
+                for link in soup.find_all("a", href=True):
+                    href = link["href"]
+                    if href.startswith("http") and "techmeme.com" not in href.lower():
+                        return href
+            return None
+
+        # Google News, Reddit: Require HTTP requests, handle separately
+        # Return None here; use SourceExtractor for full extraction
+        if "news.google.com" in feed_domain or "reddit.com" in feed_domain:
+            return None
+
+        return None
 
     async def discover_feed(self, url: str) -> str | None:
         """

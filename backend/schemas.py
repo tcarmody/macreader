@@ -16,6 +16,7 @@ class ArticleResponse(BaseModel):
     id: int
     feed_id: int
     url: str
+    source_url: str | None = None  # Original URL for aggregator articles
     title: str
     summary_short: str | None
     is_read: bool
@@ -29,6 +30,7 @@ class ArticleResponse(BaseModel):
             id=article.id,
             feed_id=article.feed_id,
             url=article.url,
+            source_url=article.source_url,
             title=article.title,
             summary_short=article.summary_short,
             is_read=article.is_read,
@@ -43,6 +45,7 @@ class ArticleDetailResponse(BaseModel):
     id: int
     feed_id: int
     url: str
+    source_url: str | None = None  # Original URL for aggregator articles
     title: str
     content: str | None
     summary_short: str | None
@@ -59,6 +62,7 @@ class ArticleDetailResponse(BaseModel):
             id=article.id,
             feed_id=article.feed_id,
             url=article.url,
+            source_url=article.source_url,
             title=article.title,
             content=article.content,
             summary_short=article.summary_short,
@@ -88,6 +92,15 @@ class BulkMarkReadRequest(BaseModel):
     """Request to mark multiple articles as read/unread."""
     article_ids: list[int]
     is_read: bool = True
+
+
+class ExtractSourceResponse(BaseModel):
+    """Response from source URL extraction."""
+    success: bool
+    source_url: str | None = None
+    aggregator: str | None = None
+    confidence: float = 0.0
+    error: str | None = None
 
 
 # ─────────────────────────────────────────────────────────────

@@ -83,14 +83,15 @@ async def fetch_feed_articles(feed_id: int, feed):
             except Exception:
                 pass  # Use feed content as fallback
 
-        # Add article
+        # Add article (with source_url if available from aggregator)
         article_id = state.db.add_article(
             feed_id=feed_id,
             url=item.url,
             title=item.title,
             content=content,
             author=item.author,
-            published_at=item.published
+            published_at=item.published,
+            source_url=item.source_url
         )
 
         # Auto-summarize only if setting is enabled and API key configured

@@ -28,6 +28,7 @@ class DBArticle:
     is_bookmarked: bool
     published_at: datetime | None
     created_at: datetime
+    source_url: str | None = None  # Original URL for aggregator articles
 
 
 @dataclass
@@ -76,6 +77,7 @@ class Database:
                     id INTEGER PRIMARY KEY AUTOINCREMENT,
                     feed_id INTEGER NOT NULL REFERENCES feeds(id) ON DELETE CASCADE,
                     url TEXT UNIQUE NOT NULL,
+                    source_url TEXT,
                     title TEXT NOT NULL,
                     author TEXT,
                     content TEXT,
@@ -138,6 +140,9 @@ class Database:
                         VALUES ('delete', old.id, old.title, old.content, old.summary_full);
                     END;
                 """)
+
+            # Migration: Add source_url column if it doesn't exist
+            self._migrate_add_column(conn, "articles", "source_url", "TEXT")
 
     # ─────────────────────────────────────────────────────────────
     # Feed operations
@@ -218,18 +223,19 @@ class Database:
         content: str | None = None,
         author: str | None = None,
         published_at: datetime | None = None,
-        content_hash: str | None = None
+        content_hash: str | None = None,
+        source_url: str | None = None
     ) -> int | None:
         """Add a new article. Returns article ID or None if duplicate."""
         with self._conn() as conn:
             try:
                 cursor = conn.execute(
                     """INSERT INTO articles
-                       (feed_id, url, title, content, author, published_at, content_hash)
-                       VALUES (?, ?, ?, ?, ?, ?, ?)""",
+                       (feed_id, url, title, content, author, published_at, content_hash, source_url)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
                     (feed_id, url, title, content, author,
                      published_at.isoformat() if published_at else None,
-                     content_hash)
+                     content_hash, source_url)
                 )
                 return cursor.lastrowid
             except sqlite3.IntegrityError:
@@ -285,6 +291,14 @@ class Database:
             conn.execute(
                 "UPDATE articles SET content = ? WHERE id = ?",
                 (content, article_id)
+            )
+
+    def update_article_source_url(self, article_id: int, source_url: str):
+        """Update article source URL (for aggregator articles)."""
+        with self._conn() as conn:
+            conn.execute(
+                "UPDATE articles SET source_url = ? WHERE id = ?",
+                (source_url, article_id)
             )
 
     def update_summary(
@@ -459,6 +473,19 @@ class Database:
     # Helpers
     # ─────────────────────────────────────────────────────────────
 
+    def _migrate_add_column(
+        self,
+        conn: sqlite3.Connection,
+        table: str,
+        column: str,
+        column_type: str
+    ):
+        """Add a column to a table if it doesn't exist."""
+        cursor = conn.execute(f"PRAGMA table_info({table})")
+        columns = [row[1] for row in cursor.fetchall()]
+        if column not in columns:
+            conn.execute(f"ALTER TABLE {table} ADD COLUMN {column} {column_type}")
+
     def _row_to_article(self, row: sqlite3.Row) -> DBArticle:
         key_points = None
         if row["key_points"]:
@@ -481,6 +508,12 @@ class Database:
             except ValueError:
                 pass
 
+        # Handle source_url - may not exist in older databases during migration
+        try:
+            source_url = row["source_url"]
+        except (IndexError, KeyError):
+            source_url = None
+
         return DBArticle(
             id=row["id"],
             feed_id=row["feed_id"],
@@ -493,7 +526,8 @@ class Database:
             is_read=bool(row["is_read"]),
             is_bookmarked=bool(row["is_bookmarked"]),
             published_at=published_at,
-            created_at=created_at
+            created_at=created_at,
+            source_url=source_url
         )
 
     def _row_to_feed(self, row: sqlite3.Row) -> DBFeed:

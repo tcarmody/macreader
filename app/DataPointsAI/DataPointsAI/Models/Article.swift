@@ -5,6 +5,7 @@ struct Article: Identifiable, Codable, Hashable, Sendable {
     let id: Int
     let feedId: Int
     let url: URL
+    let sourceUrl: URL?  // Original URL for aggregator articles
     let title: String
     let summaryShort: String?
     var isRead: Bool
@@ -16,6 +17,7 @@ struct Article: Identifiable, Codable, Hashable, Sendable {
         case id
         case feedId = "feed_id"
         case url
+        case sourceUrl = "source_url"
         case title
         case summaryShort = "summary_short"
         case isRead = "is_read"
@@ -23,6 +25,9 @@ struct Article: Identifiable, Codable, Hashable, Sendable {
         case publishedAt = "published_at"
         case createdAt = "created_at"
     }
+
+    /// The best URL to open - prefers source URL over aggregator URL
+    var originalUrl: URL { sourceUrl ?? url }
 
     /// Preview text for article list
     var summaryPreview: String? { summaryShort }
@@ -68,6 +73,7 @@ struct ArticleDetail: Identifiable, Codable, Sendable {
     let id: Int
     let feedId: Int
     let url: URL
+    let sourceUrl: URL?  // Original URL for aggregator articles
     let title: String
     let content: String?
     let summaryShort: String?
@@ -82,6 +88,7 @@ struct ArticleDetail: Identifiable, Codable, Sendable {
         case id
         case feedId = "feed_id"
         case url
+        case sourceUrl = "source_url"
         case title
         case content
         case summaryShort = "summary_short"
@@ -92,6 +99,9 @@ struct ArticleDetail: Identifiable, Codable, Sendable {
         case publishedAt = "published_at"
         case createdAt = "created_at"
     }
+
+    /// The best URL to open - prefers source URL over aggregator URL
+    var originalUrl: URL { sourceUrl ?? url }
 
     /// Human-readable time since published
     var timeAgo: String {

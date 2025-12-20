@@ -589,6 +589,7 @@ class AppState: ObservableObject {
                     id: detail.id,
                     feedId: detail.feedId,
                     url: detail.url,
+                    sourceUrl: detail.sourceUrl,
                     title: detail.title,
                     summaryShort: detail.summaryShort,
                     isRead: detail.isRead,
