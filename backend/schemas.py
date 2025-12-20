@@ -187,7 +187,7 @@ class BatchSummarizeResponse(BaseModel):
 class SettingsResponse(BaseModel):
     """Application settings."""
     refresh_interval_minutes: int = 30
-    auto_summarize: bool = True
+    auto_summarize: bool = False
     mark_read_on_open: bool = True
     default_model: str = "haiku"
 

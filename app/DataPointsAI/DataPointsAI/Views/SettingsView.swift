@@ -5,7 +5,7 @@ struct SettingsView: View {
     @EnvironmentObject var appState: AppState
 
     @State private var refreshInterval: Int = 30
-    @State private var autoSummarize: Bool = true
+    @State private var autoSummarize: Bool = false
     @State private var markReadOnOpen: Bool = true
     @State private var defaultModel: String = "haiku"
     @State private var notificationsEnabled: Bool = true
@@ -98,6 +98,20 @@ struct GeneralSettingsView: View {
 
             Section {
                 Toggle("Auto-summarize new articles", isOn: $autoSummarize)
+
+                if autoSummarize {
+                    HStack(alignment: .top, spacing: 8) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.orange)
+                        Text("Summaries will be generated for every new article during feed refresh. This increases API costs and slows down refreshes.")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                } else {
+                    Text("Summaries are generated on demand when you view an article.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             } header: {
                 Text("Summarization")
             }
