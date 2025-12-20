@@ -13,6 +13,10 @@ lxml>=6.0.0
 # AI
 anthropic>=0.75.0
 
+# Advanced Features (optional)
+# Install Playwright for JS rendering: pip install playwright && playwright install chromium
+playwright>=1.49.0
+
 # Development
 pytest>=9.0.0
 pytest-asyncio>=1.3.0

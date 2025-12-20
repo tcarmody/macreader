@@ -223,27 +223,61 @@ async def toggle_bookmark(
 @router.post("/{article_id}/fetch-content")
 async def fetch_article_content(
     article_id: int,
-    db: Annotated[Database, Depends(get_db)]
+    db: Annotated[Database, Depends(get_db)],
+    force_archive: bool = Query(default=False, description="Force archive lookup for paywalled content"),
+    force_js: bool = Query(default=False, description="Force JavaScript rendering"),
 ) -> ArticleDetailResponse:
-    """Fetch full content for an article from its URL."""
-    if not state.fetcher:
-        raise HTTPException(status_code=503, detail="Fetcher not configured")
+    """
+    Fetch full content for an article from its URL.
 
+    Uses intelligent fallback:
+    1. Try simple HTTP fetch
+    2. If content is paywalled and archive enabled, try archive services
+    3. If content is dynamic and JS render enabled, use Playwright
+
+    Query params:
+        force_archive: Skip simple fetch and go straight to archives
+        force_js: Skip simple fetch and use JavaScript rendering
+    """
     article = db.get_article(article_id)
     if not article:
         raise HTTPException(status_code=404, detail="Article not found")
 
     try:
-        result = await state.fetcher.fetch(article.url)
+        # Use enhanced fetcher if available, otherwise fall back to simple fetcher
+        if state.enhanced_fetcher:
+            result = await state.enhanced_fetcher.fetch(
+                article.url,
+                force_archive=force_archive,
+                force_js=force_js
+            )
+            source = result.source
+            if hasattr(result, 'fallback_used') and result.fallback_used:
+                source = result.fallback_used
+        elif state.fetcher:
+            result = await state.fetcher.fetch(article.url)
+            source = result.source
+        else:
+            raise HTTPException(status_code=503, detail="Fetcher not configured")
+
         if result.content:
             db.update_article_content(article_id, result.content)
             article = db.get_article(article_id)
             if not article:
                 raise HTTPException(status_code=500, detail="Failed to retrieve article")
+
+            return ArticleDetailResponse.from_db(article)
+        else:
+            # No content fetched
+            error_msg = "No content extracted"
+            if hasattr(result, 'original_error') and result.original_error:
+                error_msg = result.original_error
+            raise HTTPException(status_code=400, detail=f"Failed to fetch content: {error_msg}")
+
+    except HTTPException:
+        raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to fetch content: {e}")
-
-    return ArticleDetailResponse.from_db(article)
 
 
 @router.post("/{article_id}/summarize")

@@ -21,6 +21,13 @@ if TYPE_CHECKING:
 load_dotenv()
 
 
+def _parse_bool(value: str | None, default: bool = False) -> bool:
+    """Parse boolean from environment variable."""
+    if value is None:
+        return default
+    return value.lower() in ("true", "1", "yes", "on")
+
+
 class Config:
     """Application configuration from environment."""
     API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")
@@ -28,6 +35,12 @@ class Config:
     CACHE_DIR: Path = Path(os.getenv("CACHE_DIR", "./data/cache"))
     PORT: int = int(os.getenv("PORT", "5005"))
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
+
+    # Advanced fetching features
+    ENABLE_JS_RENDER: bool = _parse_bool(os.getenv("ENABLE_JS_RENDER"), default=True)
+    ENABLE_ARCHIVE: bool = _parse_bool(os.getenv("ENABLE_ARCHIVE"), default=True)
+    JS_RENDER_TIMEOUT: int = int(os.getenv("JS_RENDER_TIMEOUT", "30000"))  # ms
+    ARCHIVE_MAX_AGE_DAYS: int = int(os.getenv("ARCHIVE_MAX_AGE_DAYS", "30"))
 
 
 config = Config()
@@ -41,6 +54,7 @@ class AppState:
     clusterer: "Clusterer | None" = None
     feed_parser: "FeedParser | None" = None
     fetcher: "Fetcher | None" = None
+    enhanced_fetcher: "object | None" = None  # EnhancedFetcher from advanced module
     refresh_in_progress: bool = False
 
 

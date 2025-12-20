@@ -9,6 +9,7 @@ FastAPI application providing endpoints for:
 - Settings
 """
 
+import logging
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
@@ -27,6 +28,8 @@ from .routes import (
     misc_router,
 )
 
+logger = logging.getLogger(__name__)
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -38,6 +41,26 @@ async def lifespan(app: FastAPI):
         state.feed_parser = FeedParser()
         state.fetcher = Fetcher()
 
+        # Initialize enhanced fetcher if advanced features are enabled
+        if config.ENABLE_JS_RENDER or config.ENABLE_ARCHIVE:
+            try:
+                from .advanced import EnhancedFetcher
+                state.enhanced_fetcher = EnhancedFetcher(
+                    enable_js_render=config.ENABLE_JS_RENDER,
+                    enable_archive=config.ENABLE_ARCHIVE,
+                    js_render_timeout=config.JS_RENDER_TIMEOUT,
+                    archive_max_age_days=config.ARCHIVE_MAX_AGE_DAYS,
+                )
+                await state.enhanced_fetcher.start()
+                logger.info(
+                    f"Enhanced fetcher initialized (JS render: {config.ENABLE_JS_RENDER}, "
+                    f"Archive: {config.ENABLE_ARCHIVE})"
+                )
+            except ImportError as e:
+                logger.warning(f"Could not initialize enhanced fetcher: {e}")
+            except Exception as e:
+                logger.warning(f"Enhanced fetcher initialization failed: {e}")
+
         if config.API_KEY:
             state.summarizer = Summarizer(api_key=config.API_KEY, cache=state.cache)
             state.clusterer = Clusterer(api_key=config.API_KEY, cache=state.cache)
@@ -47,7 +70,11 @@ async def lifespan(app: FastAPI):
     yield
 
     # Shutdown
-    # Nothing to cleanup for now
+    if state.enhanced_fetcher:
+        try:
+            await state.enhanced_fetcher.stop()
+        except Exception as e:
+            logger.warning(f"Error stopping enhanced fetcher: {e}")
 
 
 app = FastAPI(
