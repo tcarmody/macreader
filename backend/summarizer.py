@@ -255,6 +255,27 @@ Article:
         summary_text = ""
         key_points: list[str] = []
 
+        def strip_markdown(s: str) -> str:
+            """Remove markdown formatting like **bold** and #headers."""
+            s = s.strip()
+            # Remove leading # for headers
+            while s.startswith("#"):
+                s = s[1:].strip()
+            # Remove ** bold markers
+            s = s.replace("**", "")
+            return s.strip()
+
+        def is_section_header(line: str, section: str) -> bool:
+            """Check if line is a section header (with or without markdown)."""
+            cleaned = strip_markdown(line).lower()
+            return cleaned == f"{section}:" or cleaned.startswith(f"{section}:")
+
+        def extract_after_colon(line: str) -> str:
+            """Extract content after the colon in a header line."""
+            if ":" in line:
+                return strip_markdown(line.split(":", 1)[1])
+            return ""
+
         # Split response into sections
         lines = text.strip().split("\n")
         current_section: str | None = None
@@ -262,66 +283,62 @@ Article:
 
         for line in lines:
             line_stripped = line.strip()
-            line_lower = line_stripped.lower()
 
-            # Detect section headers (support both old and new formats)
-            if line_lower == "headline:" or line_lower.startswith("headline:"):
-                # Save previous section if any
+            # Skip empty lines
+            if not line_stripped:
+                continue
+
+            # Skip lines that are just the article title repeated
+            if line_stripped.startswith("#") and title and strip_markdown(line_stripped) == title:
+                continue
+
+            # Detect section headers
+            if is_section_header(line_stripped, "headline"):
                 if current_section == "summary":
                     summary_text = "\n".join(current_content).strip()
                 current_section = "headline"
                 current_content = []
-                # Check if headline is on same line
-                if ":" in line_stripped and len(line_stripped.split(":", 1)) > 1:
-                    rest = line_stripped.split(":", 1)[1].strip()
-                    if rest:
-                        current_content.append(rest)
-            elif line_lower == "summary:" or line_lower.startswith("summary:"):
+                rest = extract_after_colon(line_stripped)
+                if rest:
+                    current_content.append(rest)
+            elif is_section_header(line_stripped, "summary"):
                 if current_section == "headline":
                     headline = " ".join(current_content).strip()
                 current_section = "summary"
                 current_content = []
-                # Check if summary starts on same line
-                if ":" in line_stripped and len(line_stripped.split(":", 1)) > 1:
-                    rest = line_stripped.split(":", 1)[1].strip()
-                    if rest:
-                        current_content.append(rest)
-            elif line_lower.startswith("url:"):
-                # Skip URL line - we'll add our own
+                rest = extract_after_colon(line_stripped)
+                if rest:
+                    current_content.append(rest)
+            elif is_section_header(line_stripped, "url"):
+                # Skip URL line - we don't need it
                 if current_section == "summary":
                     summary_text = "\n".join(current_content).strip()
                     current_content = []
-            elif "key point" in line_lower or line_lower == "key points:":
+                current_section = "url"
+            elif is_section_header(line_stripped, "key points") or "key point" in strip_markdown(line_stripped).lower():
                 if current_section == "summary":
                     summary_text = "\n".join(current_content).strip()
                 elif current_section == "headline":
                     headline = " ".join(current_content).strip()
                 current_section = "points"
                 current_content = []
-            # Legacy format support
-            elif "one-sentence" in line_lower or line_lower.startswith("one sentence"):
-                if current_section == "summary":
-                    summary_text = "\n".join(current_content).strip()
-                current_section = "headline"
-                current_content = []
-            elif "full summary" in line_lower:
-                if current_section == "headline":
-                    headline = " ".join(current_content).strip()
-                current_section = "summary"
-                current_content = []
             elif current_section == "points":
                 # Extract bullet point
-                if line_stripped.startswith(("•", "-", "*", "·")):
-                    point = line_stripped.lstrip("•-*·").strip()
+                cleaned = strip_markdown(line_stripped)
+                if cleaned.startswith(("•", "-", "·")):
+                    point = cleaned.lstrip("•-·").strip()
                     if point:
                         key_points.append(point)
-                elif line_stripped and line_stripped[0].isdigit():
-                    # Numbered list (1., 2., etc.)
-                    point = line_stripped.lstrip("0123456789.)").strip()
+                elif cleaned and cleaned[0].isdigit():
+                    point = cleaned.lstrip("0123456789.)").strip()
                     if point:
                         key_points.append(point)
+            elif current_section == "url":
+                # Skip URL content
+                pass
             elif current_section and line_stripped:
-                current_content.append(line_stripped)
+                # Add content to current section (strip markdown from content too)
+                current_content.append(strip_markdown(line_stripped))
 
         # Handle final section
         if current_section == "headline" and not headline:
@@ -331,27 +348,22 @@ Article:
 
         # Fallback: if parsing failed, use entire response
         if not summary_text:
-            summary_text = text.strip()
+            summary_text = strip_markdown(text)
 
         if not headline:
             # Take first sentence as headline
             sentences = text.split(".")
             if sentences:
-                headline = sentences[0].strip() + "."
+                headline = strip_markdown(sentences[0]) + "."
             else:
-                headline = text[:150]
+                headline = strip_markdown(text[:150])
 
         # Enforce length limits
         headline = headline[:200]
         key_points = key_points[:5]
 
-        # Build the full formatted summary (without key points - those are displayed separately)
-        # Format: Headline + Summary + URL
-        full_summary_parts = [headline, "", summary_text]
-        if url:
-            full_summary_parts.extend(["", url])
-
-        full_summary = "\n".join(full_summary_parts)
+        # Build clean full summary (just the summary text - headline and key points displayed separately by UI)
+        full_summary = summary_text
 
         return Summary(
             title=title,

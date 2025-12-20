@@ -54,13 +54,22 @@ class Fetcher:
         self.user_agent = user_agent or (
             "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
             "AppleWebKit/537.36 (KHTML, like Gecko) "
-            "RSS Reader/2.0"
+            "Chrome/120.0.0.0 Safari/537.36"
         )
         self.min_content_length = min_content_length
         self.headers = {
             "User-Agent": self.user_agent,
-            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8",
-            "Accept-Language": "en-US,en;q=0.5",
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,image/apng,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+            "DNT": "1",
+            "Connection": "keep-alive",
+            "Upgrade-Insecure-Requests": "1",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Cache-Control": "max-age=0",
         }
 
     async def fetch(self, url: str, force_js: bool = False) -> FetchResult:
@@ -206,6 +215,10 @@ class Fetcher:
         - Domain is known to be paywalled, or
         - Content contains paywall indicators and is short
         """
+        # First check for bot detection / CAPTCHA pages
+        if self._looks_blocked(content):
+            return True
+
         # Check known paywalled domains
         for domain in self.PAYWALLED_DOMAINS:
             if domain in url.lower():
@@ -234,6 +247,54 @@ class Fetcher:
                 # Short content + paywall phrase = likely paywalled
                 if len(content) < 2000:
                     return True
+
+        return False
+
+    def _looks_blocked(self, content: str) -> bool:
+        """
+        Check if content looks like a bot detection / CAPTCHA page.
+
+        Returns True if the content appears to be a block page rather than article content.
+        """
+        content_lower = content.lower()
+
+        # Bot detection / CAPTCHA indicators
+        block_phrases = [
+            "unusual activity",
+            "detected unusual",
+            "you're not a robot",
+            "not a robot",
+            "captcha",
+            "verify you are human",
+            "human verification",
+            "security check",
+            "please verify",
+            "access denied",
+            "blocked",
+            "cloudflare",
+            "just a moment",
+            "checking your browser",
+            "enable javascript and cookies",
+            "browser supports javascript",
+            "ray id",
+            "reference id",
+            "why did this happen",
+            "click the box below",
+            "complete the security check",
+            "pardon our interruption",
+            "we need to verify",
+        ]
+
+        matches = sum(1 for phrase in block_phrases if phrase in content_lower)
+
+        # If multiple block indicators and short content, it's likely a block page
+        if matches >= 2 and len(content) < 3000:
+            return True
+
+        # Single strong indicator with very short content
+        strong_indicators = ["captcha", "not a robot", "unusual activity", "access denied"]
+        if any(ind in content_lower for ind in strong_indicators) and len(content) < 2000:
+            return True
 
         return False
 
