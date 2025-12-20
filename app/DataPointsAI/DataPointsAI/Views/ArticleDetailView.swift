@@ -146,8 +146,30 @@ struct ArticleDetailView: View {
                         // Original content (rendered HTML)
                         if let content = article.content, !content.isEmpty {
                             VStack(alignment: .leading, spacing: 12) {
-                                Text("Original Content")
-                                    .font(.headline)
+                                HStack {
+                                    Text("Original Content")
+                                        .font(.headline)
+
+                                    Spacer()
+
+                                    // For aggregator articles, offer to fetch full source content
+                                    if article.sourceUrl != nil {
+                                        if isFetchingContent {
+                                            ProgressView()
+                                                .scaleEffect(0.7)
+                                        } else {
+                                            Button("Fetch Source Article") {
+                                                Task {
+                                                    isFetchingContent = true
+                                                    try? await appState.fetchArticleContent(articleId: article.id)
+                                                    isFetchingContent = false
+                                                }
+                                            }
+                                            .buttonStyle(.bordered)
+                                            .controlSize(.small)
+                                        }
+                                    }
+                                }
 
                                 HTMLContentView(html: content, dynamicHeight: $contentHeight)
                                     .frame(height: contentHeight)

@@ -228,9 +228,13 @@ async def fetch_article_content(
     db: Annotated[Database, Depends(get_db)],
     force_archive: bool = Query(default=False, description="Force archive lookup for paywalled content"),
     force_js: bool = Query(default=False, description="Force JavaScript rendering"),
+    use_aggregator_url: bool = Query(default=False, description="Use aggregator URL instead of source URL"),
 ) -> ArticleDetailResponse:
     """
     Fetch full content for an article from its URL.
+
+    For aggregator articles (Techmeme, Google News, etc.), this fetches from
+    the original source URL by default, not the aggregator page.
 
     Uses intelligent fallback:
     1. Try simple HTTP fetch
@@ -240,16 +244,22 @@ async def fetch_article_content(
     Query params:
         force_archive: Skip simple fetch and go straight to archives
         force_js: Skip simple fetch and use JavaScript rendering
+        use_aggregator_url: Fetch from aggregator URL instead of source (default: False)
     """
     article = db.get_article(article_id)
     if not article:
         raise HTTPException(status_code=404, detail="Article not found")
 
+    # Prefer source_url for aggregator articles (fetch the actual source content)
+    fetch_url = article.url
+    if article.source_url and not use_aggregator_url:
+        fetch_url = article.source_url
+
     try:
         # Use enhanced fetcher if available, otherwise fall back to simple fetcher
         if state.enhanced_fetcher:
             result = await state.enhanced_fetcher.fetch(
-                article.url,
+                fetch_url,
                 force_archive=force_archive,
                 force_js=force_js
             )
@@ -257,7 +267,7 @@ async def fetch_article_content(
             if hasattr(result, 'fallback_used') and result.fallback_used:
                 source = result.fallback_used
         elif state.fetcher:
-            result = await state.fetcher.fetch(article.url)
+            result = await state.fetcher.fetch(fetch_url)
             source = result.source
         else:
             raise HTTPException(status_code=503, detail="Fetcher not configured")
@@ -296,12 +306,15 @@ async def summarize_article_endpoint(
     if not article:
         raise HTTPException(status_code=404, detail="Article not found")
 
+    # Use source_url for aggregator articles (more accurate context for summarization)
+    url_for_summary = article.source_url or article.url
+
     # Run summarization in background
     background_tasks.add_task(
         summarize_article,
         article_id,
         article.content or "",
-        article.url,
+        url_for_summary,
         article.title
     )
 
