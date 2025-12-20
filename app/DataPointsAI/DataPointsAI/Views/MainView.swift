@@ -4,6 +4,8 @@ import SwiftUI
 struct MainView: View {
     @EnvironmentObject var appState: AppState
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
+    @FocusState private var isSearchFocused: Bool
+    @StateObject private var keyboardManager = KeyboardShortcutManager.shared
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -14,7 +16,8 @@ struct MainView: View {
             ArticleDetailView()
         }
         .navigationSplitViewStyle(.balanced)
-        .searchable(text: $appState.searchQuery, prompt: "Search articles")
+        .searchable(text: $appState.searchQuery, prompt: "Search articles (press / to focus)")
+        .focused($isSearchFocused)
         .onChange(of: appState.searchQuery) { _, newValue in
             Task {
                 await appState.search(query: newValue)
@@ -44,6 +47,176 @@ struct MainView: View {
             if !appState.serverRunning {
                 ServerStatusView()
             }
+        }
+        .overlay(alignment: .bottom) {
+            // Show pending key indicator for multi-key sequences
+            if keyboardManager.pendingKey != nil {
+                PendingKeyIndicator(pendingKey: keyboardManager.pendingKey)
+            }
+        }
+        .onAppear {
+            setupKeyboardMonitor()
+        }
+    }
+
+    private func setupKeyboardMonitor() {
+        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            // Don't intercept if a text field is focused
+            if let window = NSApp.keyWindow,
+               let firstResponder = window.firstResponder,
+               firstResponder is NSTextView {
+                // Check if this is the search field
+                if event.charactersIgnoringModifiers == "\u{1B}" {
+                    // Escape pressed - blur search
+                    Task { @MainActor in
+                        isSearchFocused = false
+                        appState.searchQuery = ""
+                    }
+                    return nil
+                }
+                return event
+            }
+
+            if let action = keyboardManager.processKeyEvent(event) {
+                Task { @MainActor in
+                    await handleKeyboardAction(action)
+                }
+                return nil // Consume the event
+            }
+            return event
+        }
+    }
+
+    @MainActor
+    private func handleKeyboardAction(_ action: KeyboardAction) async {
+        switch action {
+        case .nextArticle:
+            navigateToArticle(direction: .next)
+
+        case .previousArticle:
+            navigateToArticle(direction: .previous)
+
+        case .openArticle:
+            if let article = appState.selectedArticle {
+                await appState.loadArticleDetail(for: article)
+            }
+
+        case .openInBrowser:
+            if let article = appState.selectedArticle {
+                NSWorkspace.shared.open(article.url)
+            }
+
+        case .toggleRead:
+            if let article = appState.selectedArticle {
+                let newStatus = !article.isRead
+                try? await appState.markRead(articleId: article.id, isRead: newStatus)
+            }
+
+        case .toggleBookmark:
+            if let article = appState.selectedArticle {
+                try? await appState.toggleBookmark(articleId: article.id)
+            }
+
+        case .goToTop:
+            navigateToFirst()
+
+        case .goToBottom:
+            navigateToLast()
+
+        case .focusSearch:
+            isSearchFocused = true
+
+        case .markAllRead:
+            try? await appState.markAllRead()
+
+        case .refresh:
+            try? await appState.refreshFeeds()
+
+        case .escape:
+            isSearchFocused = false
+            appState.searchQuery = ""
+            appState.selectedArticleIds.removeAll()
+        }
+    }
+
+    private enum NavigationDirection {
+        case next, previous
+    }
+
+    private func navigateToArticle(direction: NavigationDirection) {
+        let allArticles = appState.groupedArticles.flatMap { $0.articles }
+        guard !allArticles.isEmpty else { return }
+
+        let currentId = appState.selectedArticle?.id
+
+        let newIndex: Int
+        if let currentId = currentId,
+           let currentIndex = allArticles.firstIndex(where: { $0.id == currentId }) {
+            switch direction {
+            case .next:
+                newIndex = min(currentIndex + 1, allArticles.count - 1)
+            case .previous:
+                newIndex = max(currentIndex - 1, 0)
+            }
+        } else {
+            // No current selection, start at first or last
+            newIndex = direction == .next ? 0 : allArticles.count - 1
+        }
+
+        let article = allArticles[newIndex]
+        appState.selectedArticle = article
+        appState.selectedArticleIds = [article.id]
+
+        // Also load the article detail
+        Task {
+            await appState.loadArticleDetail(for: article)
+        }
+    }
+
+    private func navigateToFirst() {
+        let allArticles = appState.groupedArticles.flatMap { $0.articles }
+        guard let first = allArticles.first else { return }
+        appState.selectedArticle = first
+        appState.selectedArticleIds = [first.id]
+        Task {
+            await appState.loadArticleDetail(for: first)
+        }
+    }
+
+    private func navigateToLast() {
+        let allArticles = appState.groupedArticles.flatMap { $0.articles }
+        guard let last = allArticles.last else { return }
+        appState.selectedArticle = last
+        appState.selectedArticleIds = [last.id]
+        Task {
+            await appState.loadArticleDetail(for: last)
+        }
+    }
+}
+
+/// Visual indicator for pending multi-key sequences
+struct PendingKeyIndicator: View {
+    let pendingKey: Character?
+
+    var body: some View {
+        if let key = pendingKey {
+            HStack(spacing: 4) {
+                Text("Waiting for next key:")
+                    .foregroundStyle(.secondary)
+                Text(String(key))
+                    .fontWeight(.bold)
+                    .padding(.horizontal, 6)
+                    .padding(.vertical, 2)
+                    .background(Color.accentColor.opacity(0.2))
+                    .clipShape(RoundedRectangle(cornerRadius: 4))
+            }
+            .font(.caption)
+            .padding(.horizontal, 12)
+            .padding(.vertical, 8)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 8))
+            .padding(.bottom, 8)
+            .transition(.move(edge: .bottom).combined(with: .opacity))
+            .animation(.easeInOut(duration: 0.2), value: key)
         }
     }
 }

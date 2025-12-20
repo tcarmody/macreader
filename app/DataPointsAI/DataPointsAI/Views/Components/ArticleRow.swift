@@ -6,6 +6,11 @@ struct ArticleRow: View {
     var isMultiSelected: Bool = false
     @EnvironmentObject var appState: AppState
 
+    /// Whether this article is the current keyboard navigation target
+    private var isKeyboardFocused: Bool {
+        appState.selectedArticle?.id == article.id
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: 4) {
             // Title row with unread indicator
@@ -63,8 +68,16 @@ struct ArticleRow: View {
             }
         }
         .padding(.vertical, 6)
-        .padding(.horizontal, isMultiSelected ? 4 : 0)
-        .background(isMultiSelected ? Color.accentColor.opacity(0.1) : Color.clear)
+        .padding(.horizontal, isMultiSelected || isKeyboardFocused ? 4 : 0)
+        .background(
+            isMultiSelected ? Color.accentColor.opacity(0.1) :
+            isKeyboardFocused ? Color.accentColor.opacity(0.05) : Color.clear
+        )
+        .overlay(
+            // Keyboard focus indicator
+            RoundedRectangle(cornerRadius: 6)
+                .stroke(Color.accentColor.opacity(isKeyboardFocused && !isMultiSelected ? 0.5 : 0), lineWidth: 1)
+        )
         .cornerRadius(6)
         .contentShape(Rectangle())
         .contextMenu {
