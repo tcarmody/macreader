@@ -145,14 +145,39 @@ struct HTMLContentView: NSViewRepresentable {
             <script>
                 // Report height after content loads
                 function reportHeight() {
-                    const height = document.body.scrollHeight;
-                    window.webkit.messageHandlers.heightHandler.postMessage(height);
+                    // Use a small delay to ensure rendering is complete
+                    setTimeout(function() {
+                        const height = Math.max(
+                            document.body.scrollHeight,
+                            document.body.offsetHeight,
+                            document.documentElement.scrollHeight,
+                            document.documentElement.offsetHeight
+                        );
+                        window.webkit.messageHandlers.heightHandler.postMessage(height);
+                    }, 50);
                 }
+
+                // Initial report
                 window.onload = reportHeight;
-                // Also report after images load
+
+                // Report after images load
                 document.querySelectorAll('img').forEach(img => {
                     img.onload = reportHeight;
                 });
+
+                // Use ResizeObserver for dynamic content changes
+                if (typeof ResizeObserver !== 'undefined') {
+                    const resizeObserver = new ResizeObserver(reportHeight);
+                    resizeObserver.observe(document.body);
+                }
+
+                // Fallback: report height periodically for first second
+                let checks = 0;
+                const interval = setInterval(function() {
+                    reportHeight();
+                    checks++;
+                    if (checks >= 5) clearInterval(interval);
+                }, 200);
             </script>
         </body>
         </html>
@@ -168,14 +193,30 @@ struct HTMLContentView: NSViewRepresentable {
         }
 
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
-            // Get content height after page loads
-            webView.evaluateJavaScript("document.body.scrollHeight") { [weak self] result, error in
-                if let height = result as? CGFloat {
-                    DispatchQueue.main.async {
-                        self?.parent.dynamicHeight = max(height, 100)
+            // Get content height after page loads with multiple attempts
+            func checkHeight(attempt: Int = 0) {
+                let js = """
+                    Math.max(
+                        document.body.scrollHeight,
+                        document.body.offsetHeight,
+                        document.documentElement.scrollHeight,
+                        document.documentElement.offsetHeight
+                    )
+                """
+                webView.evaluateJavaScript(js) { [weak self] result, error in
+                    if let height = result as? CGFloat, height > 100 {
+                        DispatchQueue.main.async {
+                            self?.parent.dynamicHeight = height
+                        }
+                    } else if attempt < 3 {
+                        // Retry after a short delay
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 0.2) {
+                            checkHeight(attempt: attempt + 1)
+                        }
                     }
                 }
             }
+            checkHeight()
         }
 
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
