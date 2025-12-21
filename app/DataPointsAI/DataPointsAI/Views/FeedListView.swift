@@ -12,6 +12,15 @@ struct FeedListView: View {
 
     var body: some View {
         List(selection: $appState.selectedFilter) {
+            // Library section
+            Section {
+                LibrarySidebarRow(isSelected: appState.showLibrary, count: appState.libraryItemCount)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        appState.selectLibrary()
+                    }
+            }
+
             Section("Filters") {
                 FilterRow(filter: .all, count: nil)
                     .contextMenu {
@@ -135,6 +144,8 @@ struct FeedListView: View {
             }
         }
         .onChange(of: appState.selectedFilter) { _, _ in
+            // When a filter is selected, deselect library
+            appState.deselectLibrary()
             Task {
                 await appState.reloadArticles()
             }
@@ -361,6 +372,35 @@ struct FeedListView: View {
         } label: {
             Label(count == 1 ? "Delete" : "Delete \(count) Feeds", systemImage: "trash")
         }
+    }
+}
+
+/// Row for Library in the sidebar
+struct LibrarySidebarRow: View {
+    let isSelected: Bool
+    let count: Int
+
+    var body: some View {
+        Label {
+            HStack {
+                Text("Library")
+                Spacer()
+                if count > 0 {
+                    Text("\(count)")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .padding(.horizontal, 8)
+                        .padding(.vertical, 2)
+                        .background(Color.secondary.opacity(0.2))
+                        .clipShape(Capsule())
+                }
+            }
+        } icon: {
+            Image(systemName: "books.vertical")
+                .foregroundStyle(isSelected ? .blue : .secondary)
+        }
+        .background(isSelected ? Color.accentColor.opacity(0.1) : Color.clear)
+        .cornerRadius(4)
     }
 }
 

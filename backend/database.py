@@ -29,6 +29,9 @@ class DBArticle:
     published_at: datetime | None
     created_at: datetime
     source_url: str | None = None  # Original URL for aggregator articles
+    content_type: str | None = None  # url, pdf, docx, txt, md, html
+    file_name: str | None = None  # Original filename for uploads
+    file_path: str | None = None  # Local storage path for files
 
 
 @dataclass
@@ -144,6 +147,11 @@ class Database:
             # Migration: Add source_url column if it doesn't exist
             self._migrate_add_column(conn, "articles", "source_url", "TEXT")
 
+            # Migration: Add standalone item columns
+            self._migrate_add_column(conn, "articles", "content_type", "TEXT")
+            self._migrate_add_column(conn, "articles", "file_name", "TEXT")
+            self._migrate_add_column(conn, "articles", "file_path", "TEXT")
+
     # ─────────────────────────────────────────────────────────────
     # Feed operations
     # ─────────────────────────────────────────────────────────────
@@ -210,6 +218,104 @@ class Database:
         """Delete feed and its articles."""
         with self._conn() as conn:
             conn.execute("DELETE FROM feeds WHERE id = ?", (feed_id,))
+
+    # ─────────────────────────────────────────────────────────────
+    # Standalone (Library) operations
+    # ─────────────────────────────────────────────────────────────
+
+    STANDALONE_FEED_URL = "local://standalone"
+    STANDALONE_FEED_NAME = "Library"
+
+    def get_or_create_standalone_feed(self) -> int:
+        """Get or create the system feed for standalone items. Returns feed ID."""
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT id FROM feeds WHERE url = ?",
+                (self.STANDALONE_FEED_URL,)
+            ).fetchone()
+            if row:
+                return row["id"]
+
+            cursor = conn.execute(
+                "INSERT INTO feeds (url, name, category) VALUES (?, ?, ?)",
+                (self.STANDALONE_FEED_URL, self.STANDALONE_FEED_NAME, "Library")
+            )
+            return cursor.lastrowid
+
+    def add_standalone_item(
+        self,
+        url: str,
+        title: str,
+        content: str | None = None,
+        content_type: str = "url",
+        file_name: str | None = None,
+        file_path: str | None = None
+    ) -> int | None:
+        """Add a standalone item to the library. Returns item ID or None if duplicate."""
+        feed_id = self.get_or_create_standalone_feed()
+        with self._conn() as conn:
+            try:
+                cursor = conn.execute(
+                    """INSERT INTO articles
+                       (feed_id, url, title, content, content_type, file_name, file_path, published_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                    (feed_id, url, title, content, content_type, file_name, file_path,
+                     datetime.now().isoformat())
+                )
+                return cursor.lastrowid
+            except sqlite3.IntegrityError:
+                # Duplicate URL
+                return None
+
+    def get_standalone_items(
+        self,
+        content_type: str | None = None,
+        bookmarked_only: bool = False,
+        limit: int = 100,
+        offset: int = 0
+    ) -> list[DBArticle]:
+        """Get all standalone library items."""
+        feed_id = self.get_or_create_standalone_feed()
+        query = "SELECT * FROM articles WHERE feed_id = ?"
+        params: list = [feed_id]
+
+        if content_type:
+            query += " AND content_type = ?"
+            params.append(content_type)
+        if bookmarked_only:
+            query += " AND is_bookmarked = 1"
+
+        query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+        params.extend([limit, offset])
+
+        with self._conn() as conn:
+            rows = conn.execute(query, params).fetchall()
+            return [self._row_to_article(row) for row in rows]
+
+    def get_standalone_count(self) -> int:
+        """Get count of standalone items."""
+        feed_id = self.get_or_create_standalone_feed()
+        with self._conn() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) as count FROM articles WHERE feed_id = ?",
+                (feed_id,)
+            ).fetchone()
+            return row["count"] if row else 0
+
+    def delete_standalone_item(self, article_id: int) -> bool:
+        """Delete a standalone item. Returns True if deleted."""
+        feed_id = self.get_or_create_standalone_feed()
+        with self._conn() as conn:
+            cursor = conn.execute(
+                "DELETE FROM articles WHERE id = ? AND feed_id = ?",
+                (article_id, feed_id)
+            )
+            return cursor.rowcount > 0
+
+    def is_standalone_feed(self, feed_id: int) -> bool:
+        """Check if a feed ID is the standalone feed."""
+        standalone_id = self.get_or_create_standalone_feed()
+        return feed_id == standalone_id
 
     # ─────────────────────────────────────────────────────────────
     # Article operations
@@ -519,11 +625,12 @@ class Database:
             except ValueError:
                 pass
 
-        # Handle source_url - may not exist in older databases during migration
-        try:
-            source_url = row["source_url"]
-        except (IndexError, KeyError):
-            source_url = None
+        # Handle optional columns - may not exist in older databases during migration
+        def safe_get(col: str) -> str | None:
+            try:
+                return row[col]
+            except (IndexError, KeyError):
+                return None
 
         return DBArticle(
             id=row["id"],
@@ -538,7 +645,10 @@ class Database:
             is_bookmarked=bool(row["is_bookmarked"]),
             published_at=published_at,
             created_at=created_at,
-            source_url=source_url
+            source_url=safe_get("source_url"),
+            content_type=safe_get("content_type"),
+            file_name=safe_get("file_name"),
+            file_path=safe_get("file_path")
         )
 
     def _row_to_feed(self, row: sqlite3.Row) -> DBFeed:

@@ -227,3 +227,85 @@ class OPMLImportResponse(BaseModel):
     skipped: int
     failed: int
     results: list[OPMLImportResult]
+
+
+# ─────────────────────────────────────────────────────────────
+# Standalone (Library) Schemas
+# ─────────────────────────────────────────────────────────────
+
+class AddStandaloneURLRequest(BaseModel):
+    """Request to add a URL to the library."""
+    url: str
+    title: str | None = None
+
+
+class StandaloneItemResponse(BaseModel):
+    """Standalone item for list view."""
+    id: int
+    url: str
+    title: str
+    summary_short: str | None
+    is_read: bool
+    is_bookmarked: bool
+    content_type: str | None  # url, pdf, docx, txt, md, html
+    file_name: str | None
+    created_at: str
+
+    @classmethod
+    def from_db(cls, article: DBArticle) -> "StandaloneItemResponse":
+        return cls(
+            id=article.id,
+            url=article.url,
+            title=article.title,
+            summary_short=article.summary_short,
+            is_read=article.is_read,
+            is_bookmarked=article.is_bookmarked,
+            content_type=article.content_type,
+            file_name=article.file_name,
+            created_at=article.created_at.isoformat()
+        )
+
+
+class StandaloneItemDetailResponse(BaseModel):
+    """Standalone item with full content for detail view."""
+    id: int
+    url: str
+    title: str
+    content: str | None
+    summary_short: str | None
+    summary_full: str | None
+    key_points: list[str] | None
+    is_read: bool
+    is_bookmarked: bool
+    content_type: str | None
+    file_name: str | None
+    created_at: str
+
+    @classmethod
+    def from_db(cls, article: DBArticle) -> "StandaloneItemDetailResponse":
+        return cls(
+            id=article.id,
+            url=article.url,
+            title=article.title,
+            content=article.content,
+            summary_short=article.summary_short,
+            summary_full=article.summary_full,
+            key_points=article.key_points,
+            is_read=article.is_read,
+            is_bookmarked=article.is_bookmarked,
+            content_type=article.content_type,
+            file_name=article.file_name,
+            created_at=article.created_at.isoformat()
+        )
+
+
+class StandaloneListResponse(BaseModel):
+    """Response for list of standalone items."""
+    items: list[StandaloneItemResponse]
+    total: int
+
+
+class LibraryStatsResponse(BaseModel):
+    """Library statistics."""
+    total_items: int
+    by_type: dict[str, int]  # count by content_type

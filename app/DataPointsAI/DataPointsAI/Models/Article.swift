@@ -223,3 +223,161 @@ struct ArticleGroupResponse: Codable, Sendable {
     let label: String
     let articles: [Article]
 }
+
+
+// MARK: - Library (Standalone Items)
+
+/// Content type for library items
+enum LibraryContentType: String, Codable, CaseIterable, Sendable {
+    case url = "url"
+    case pdf = "pdf"
+    case docx = "docx"
+    case txt = "txt"
+    case md = "md"
+    case html = "html"
+
+    var label: String {
+        switch self {
+        case .url: return "URL"
+        case .pdf: return "PDF"
+        case .docx: return "Document"
+        case .txt: return "Text"
+        case .md: return "Markdown"
+        case .html: return "HTML"
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .url: return "link"
+        case .pdf: return "doc.richtext"
+        case .docx: return "doc.text"
+        case .txt: return "doc.plaintext"
+        case .md: return "text.quote"
+        case .html: return "chevron.left.forwardslash.chevron.right"
+        }
+    }
+}
+
+/// Library item for list view (matches StandaloneItemResponse from API)
+struct LibraryItem: Identifiable, Codable, Hashable, Sendable {
+    let id: Int
+    let url: URL
+    let title: String
+    let summaryShort: String?
+    var isRead: Bool
+    var isBookmarked: Bool
+    let contentType: String?
+    let fileName: String?
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case url
+        case title
+        case summaryShort = "summary_short"
+        case isRead = "is_read"
+        case isBookmarked = "is_bookmarked"
+        case contentType = "content_type"
+        case fileName = "file_name"
+        case createdAt = "created_at"
+    }
+
+    /// Parsed content type enum
+    var type: LibraryContentType {
+        guard let contentType = contentType else { return .url }
+        return LibraryContentType(rawValue: contentType) ?? .url
+    }
+
+    /// Display name - use filename for uploads, title for URLs
+    var displayName: String {
+        fileName ?? title
+    }
+
+    /// Human-readable time since created
+    var timeAgo: String {
+        formatTimeAgo(createdAt)
+    }
+
+    private func formatTimeAgo(_ date: Date) -> String {
+        let now = Date()
+        let interval = now.timeIntervalSince(date)
+
+        if interval < 60 {
+            return "Just now"
+        } else if interval < 3600 {
+            let minutes = Int(interval / 60)
+            return "\(minutes)m ago"
+        } else if interval < 86400 {
+            let hours = Int(interval / 3600)
+            return "\(hours)h ago"
+        } else if interval < 604800 {
+            let days = Int(interval / 86400)
+            return "\(days)d ago"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .medium
+            formatter.timeStyle = .none
+            return formatter.string(from: date)
+        }
+    }
+}
+
+/// Library item with full content for detail view (matches StandaloneItemDetailResponse from API)
+struct LibraryItemDetail: Identifiable, Codable, Sendable {
+    let id: Int
+    let url: URL
+    let title: String
+    let content: String?
+    let summaryShort: String?
+    let summaryFull: String?
+    let keyPoints: [String]?
+    var isRead: Bool
+    var isBookmarked: Bool
+    let contentType: String?
+    let fileName: String?
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case url
+        case title
+        case content
+        case summaryShort = "summary_short"
+        case summaryFull = "summary_full"
+        case keyPoints = "key_points"
+        case isRead = "is_read"
+        case isBookmarked = "is_bookmarked"
+        case contentType = "content_type"
+        case fileName = "file_name"
+        case createdAt = "created_at"
+    }
+
+    /// Parsed content type enum
+    var type: LibraryContentType {
+        guard let contentType = contentType else { return .url }
+        return LibraryContentType(rawValue: contentType) ?? .url
+    }
+
+    /// Display name - use filename for uploads, title for URLs
+    var displayName: String {
+        fileName ?? title
+    }
+}
+
+/// Response from library list API
+struct LibraryListResponse: Codable, Sendable {
+    let items: [LibraryItem]
+    let total: Int
+}
+
+/// Library statistics
+struct LibraryStats: Codable, Sendable {
+    let totalItems: Int
+    let byType: [String: Int]
+
+    enum CodingKeys: String, CodingKey {
+        case totalItems = "total_items"
+        case byType = "by_type"
+    }
+}

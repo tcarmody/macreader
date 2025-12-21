@@ -27,6 +27,7 @@ from .routes import (
     feeds_router,
     summarization_router,
     misc_router,
+    standalone_router,
 )
 
 logger = logging.getLogger(__name__)
@@ -102,3 +103,4 @@ app.include_router(misc_router)
 app.include_router(articles_router)
 app.include_router(feeds_router)
 app.include_router(summarization_router)
+app.include_router(standalone_router)

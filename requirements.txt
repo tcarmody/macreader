@@ -10,6 +10,11 @@ feedparser>=6.0.12
 beautifulsoup4>=4.14.0
 lxml>=6.0.0
 
+# Document Extraction
+pymupdf>=1.25.0       # PDF text extraction
+python-docx>=1.1.0    # DOCX text extraction
+python-multipart>=0.0.20  # File uploads
+
 # AI Providers (install at least one)
 anthropic>=0.75.0       # Recommended - supports prompt caching
 openai>=1.60.0          # Alternative provider

@@ -12,9 +12,17 @@ struct MainView: View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             FeedListView()
         } content: {
-            ArticleListView()
+            if appState.showLibrary {
+                LibraryView()
+            } else {
+                ArticleListView()
+            }
         } detail: {
-            ArticleDetailView(scrollState: articleScrollState)
+            if appState.showLibrary {
+                LibraryItemDetailView()
+            } else {
+                ArticleDetailView(scrollState: articleScrollState)
+            }
         }
         .navigationSplitViewStyle(.balanced)
         .searchable(text: $appState.searchQuery, prompt: "Search articles (press / to focus)")
@@ -29,6 +37,9 @@ struct MainView: View {
         }
         .sheet(isPresented: $appState.showImportOPML) {
             ImportOPMLView()
+        }
+        .sheet(isPresented: $appState.showAddToLibrary) {
+            AddToLibraryView()
         }
         .alert("Error", isPresented: Binding(
             get: { appState.error != nil },

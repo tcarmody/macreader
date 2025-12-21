@@ -467,6 +467,110 @@ final class APIClient {
         return try await get(path: "/articles/grouped", queryItems: queryItems)
     }
 
+    // MARK: - Library (Standalone Items)
+
+    func getLibraryItems(
+        contentType: String? = nil,
+        bookmarkedOnly: Bool = false,
+        limit: Int = 100
+    ) async throws -> LibraryListResponse {
+        var queryItems: [URLQueryItem] = [
+            URLQueryItem(name: "limit", value: String(limit))
+        ]
+
+        if let contentType = contentType {
+            queryItems.append(URLQueryItem(name: "content_type", value: contentType))
+        }
+        if bookmarkedOnly {
+            queryItems.append(URLQueryItem(name: "bookmarked_only", value: "true"))
+        }
+
+        return try await get(path: "/standalone", queryItems: queryItems)
+    }
+
+    func getLibraryItem(id: Int) async throws -> LibraryItemDetail {
+        return try await get(path: "/standalone/\(id)")
+    }
+
+    func getLibraryStats() async throws -> LibraryStats {
+        return try await get(path: "/standalone/stats")
+    }
+
+    struct AddLibraryURLRequest: Encodable {
+        let url: String
+        let title: String?
+    }
+
+    func addURLToLibrary(url: String, title: String? = nil, autoSummarize: Bool = false) async throws -> LibraryItemDetail {
+        var queryItems: [URLQueryItem] = []
+        if autoSummarize {
+            queryItems.append(URLQueryItem(name: "auto_summarize", value: "true"))
+        }
+        return try await post(
+            path: "/standalone/url",
+            body: AddLibraryURLRequest(url: url, title: title),
+            queryItems: queryItems,
+            timeout: 60  // URL fetching can take time
+        )
+    }
+
+    func uploadFileToLibrary(data: Data, filename: String, title: String? = nil, autoSummarize: Bool = false) async throws -> LibraryItemDetail {
+        // Build multipart form data
+        let boundary = UUID().uuidString
+        var body = Data()
+
+        // Add file
+        body.append("--\(boundary)\r\n".data(using: .utf8)!)
+        body.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(filename)\"\r\n".data(using: .utf8)!)
+        body.append("Content-Type: application/octet-stream\r\n\r\n".data(using: .utf8)!)
+        body.append(data)
+        body.append("\r\n".data(using: .utf8)!)
+
+        // Close boundary
+        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+
+        // Build URL with query params
+        var queryItems: [URLQueryItem] = []
+        if let title = title {
+            queryItems.append(URLQueryItem(name: "title", value: title))
+        }
+        if autoSummarize {
+            queryItems.append(URLQueryItem(name: "auto_summarize", value: "true"))
+        }
+
+        let url = buildURL(path: "/standalone/upload", queryItems: queryItems)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.httpBody = body
+        request.timeoutInterval = 120  // File upload can take time
+
+        let (responseData, response) = try await session.data(for: request)
+        try validateResponse(response, data: responseData)
+        return try JSONHelper.decode(LibraryItemDetail.self, from: responseData)
+    }
+
+    func deleteLibraryItem(id: Int) async throws {
+        let _: EmptyResponse = try await delete(path: "/standalone/\(id)")
+    }
+
+    func markLibraryItemRead(id: Int, isRead: Bool = true) async throws {
+        var queryItems: [URLQueryItem] = []
+        queryItems.append(URLQueryItem(name: "is_read", value: String(isRead)))
+        let _: EmptyResponse = try await post(
+            path: "/standalone/\(id)/read",
+            queryItems: queryItems
+        )
+    }
+
+    func toggleLibraryItemBookmark(id: Int) async throws -> BookmarkResponse {
+        return try await post(path: "/standalone/\(id)/bookmark")
+    }
+
+    func summarizeLibraryItem(id: Int) async throws {
+        let _: EmptyResponse = try await post(path: "/standalone/\(id)/summarize")
+    }
+
     // MARK: - HTTP Methods
 
     private func get<T: Decodable>(
