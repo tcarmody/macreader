@@ -164,12 +164,18 @@ KEY POINTS:
         if self.cache:
             if cached := self.cache.get(f"summary:{url}"):
                 if isinstance(cached, dict):
+                    # Handle legacy model names in cache (e.g., "claude-haiku-4-5")
+                    # Convert to tier values ("fast", "standard")
+                    cached_model = cached.get("model_used", self.default_model.value)
+                    if cached_model not in [m.value for m in Model]:
+                        cached_model = self._map_legacy_model_to_tier(cached_model)
+
                     return Summary(
                         title=cached.get("title", title),
                         one_liner=cached.get("one_liner", ""),
                         full_summary=cached.get("full_summary", ""),
                         key_points=cached.get("key_points", []),
-                        model_used=Model(cached.get("model_used", self.default_model.value)),
+                        model_used=Model(cached_model),
                         cached=True
                     )
 
@@ -213,6 +219,39 @@ KEY POINTS:
             })
 
         return summary
+
+    def _map_legacy_model_to_tier(self, model_name: str) -> str:
+        """
+        Map legacy model names to tier values.
+
+        Handles cached summaries from before the multi-provider update
+        that stored actual model names instead of tier values.
+
+        Args:
+            model_name: Legacy model name (e.g., "claude-haiku-4-5", "gpt-5.2-mini")
+
+        Returns:
+            Tier value ("fast" or "standard")
+        """
+        model_lower = model_name.lower()
+
+        # Fast tier models - check for specific patterns
+        # Anthropic: claude-haiku-4-5, claude-3-haiku, etc.
+        if "haiku" in model_lower:
+            return Model.HAIKU.value
+
+        # Google: gemini-3.0-flash, gemini-2.0-flash, etc.
+        if "flash" in model_lower:
+            return Model.HAIKU.value
+
+        # OpenAI: gpt-5.2-mini, gpt-4o-mini, etc.
+        # Must check for "-mini" to avoid matching "gemini"
+        if "-mini" in model_lower:
+            return Model.HAIKU.value
+
+        # Everything else maps to standard tier
+        # (sonnet, opus, gpt-5.2, gpt-4o, gemini-pro, etc.)
+        return Model.SONNET.value
 
     def _select_model(self, content: str) -> Model:
         """
