@@ -322,12 +322,17 @@ struct ArticleDetailView: View {
         Task {
             do {
                 try await appState.summarizeArticle(articleId: articleId)
-                // Check if summary was actually generated
-                if appState.selectedArticleDetail?.summaryFull == nil {
+                // Check if summary was actually generated for THIS article
+                // (user may have navigated away during summarization)
+                if appState.selectedArticleDetail?.id == articleId,
+                   appState.selectedArticleDetail?.summaryFull == nil {
                     summarizationError = "Summary generation timed out. The server may be busy."
                 }
             } catch {
-                summarizationError = error.localizedDescription
+                // Only show error if still viewing the same article
+                if appState.selectedArticleDetail?.id == articleId {
+                    summarizationError = error.localizedDescription
+                }
             }
 
             summarizationTimer?.invalidate()

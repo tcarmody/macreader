@@ -339,14 +339,18 @@ class AppState: ObservableObject {
 
             let detail = try await apiClient.getArticle(id: articleId)
             if detail.summaryFull != nil {
-                self.selectedArticleDetail = detail
+                // Only update if still viewing this article
+                if selectedArticleDetail?.id == articleId {
+                    self.selectedArticleDetail = detail
+                }
                 return
             }
         }
 
         // If we get here, summary wasn't ready in time - reload anyway
-        if let article = selectedArticle {
-            let detail = try await apiClient.getArticle(id: article.id)
+        // Always use the articleId we were asked to summarize, not selectedArticle
+        let detail = try await apiClient.getArticle(id: articleId)
+        if selectedArticleDetail?.id == articleId {
             self.selectedArticleDetail = detail
         }
     }
