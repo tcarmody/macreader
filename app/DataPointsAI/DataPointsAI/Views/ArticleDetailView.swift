@@ -262,34 +262,44 @@ struct ArticleDetailView: View {
             }
         }
         .toolbar {
-            if appState.selectedArticleDetail != nil {
+            if let article = appState.selectedArticleDetail {
                 ToolbarItemGroup {
                     Button {
-                        if let article = appState.selectedArticle {
+                        if let selectedArticle = appState.selectedArticle {
                             Task {
                                 let newStatus = !(appState.selectedArticleDetail?.isRead ?? false)
-                                try? await appState.markRead(articleId: article.id, isRead: newStatus)
+                                try? await appState.markRead(articleId: selectedArticle.id, isRead: newStatus)
                             }
                         }
                     } label: {
-                        Image(systemName: appState.selectedArticleDetail?.isRead == true
-                              ? "envelope.open" : "envelope.badge")
+                        Image(systemName: article.isRead ? "envelope.open" : "envelope.badge")
                     }
-                    .help(appState.selectedArticleDetail?.isRead == true
-                          ? "Mark as Unread" : "Mark as Read")
+                    .help(article.isRead ? "Mark as Unread" : "Mark as Read")
 
                     Button {
-                        if let article = appState.selectedArticle {
+                        if let selectedArticle = appState.selectedArticle {
                             Task {
-                                try? await appState.toggleBookmark(articleId: article.id)
+                                try? await appState.toggleBookmark(articleId: selectedArticle.id)
                             }
                         }
                     } label: {
-                        Image(systemName: appState.selectedArticleDetail?.isBookmarked == true
-                              ? "star.fill" : "star")
+                        Image(systemName: article.isBookmarked ? "star.fill" : "star")
                     }
-                    .help(appState.selectedArticleDetail?.isBookmarked == true
-                          ? "Remove Bookmark" : "Bookmark")
+                    .help(article.isBookmarked ? "Remove Bookmark" : "Bookmark")
+
+                    Button {
+                        startSummarization(articleId: article.id)
+                    } label: {
+                        if isSummarizing {
+                            ProgressView()
+                                .scaleEffect(0.5)
+                                .frame(width: 16, height: 16)
+                        } else {
+                            Image(systemName: article.summaryFull != nil ? "sparkles" : "sparkles.rectangle.stack")
+                        }
+                    }
+                    .disabled(isSummarizing)
+                    .help(article.summaryFull != nil ? "Regenerate Summary" : "Generate Summary")
                 }
             }
         }
