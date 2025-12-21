@@ -21,9 +21,9 @@ class PythonServer: ObservableObject {
 
         // Always kill any existing server to ensure we run with latest code
         // This prevents stale code issues when the backend is modified
-        if isPortInUse() {
+        if await isPortInUse() {
             print("🔄 Killing existing server on port \(port) to ensure fresh code...")
-            killProcessOnPort()
+            await killProcessOnPort()
             // Give the OS time to release the port
             try? await Task.sleep(nanoseconds: 500_000_000)
         }
@@ -116,7 +116,7 @@ class PythonServer: ObservableObject {
         print("🔄 Restarting Python server...")
         stop()
         // Kill any lingering processes
-        killProcessOnPort()
+        await killProcessOnPort()
         try await Task.sleep(nanoseconds: 500_000_000)
         try await start()
     }
@@ -132,56 +132,67 @@ class PythonServer: ObservableObject {
     }
 
     /// Check if something is using the port (even if not responding to health checks)
-    private func isPortInUse() -> Bool {
-        let process = Process()
-        process.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
-        process.arguments = ["-ti", ":\(port)"]
+    private func isPortInUse() async -> Bool {
+        let portNumber = port
+        return await withCheckedContinuation { continuation in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let process = Process()
+                process.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
+                process.arguments = ["-ti", ":\(portNumber)"]
 
-        let pipe = Pipe()
-        process.standardOutput = pipe
-        process.standardError = FileHandle.nullDevice
+                let pipe = Pipe()
+                process.standardOutput = pipe
+                process.standardError = FileHandle.nullDevice
 
-        do {
-            try process.run()
-            process.waitUntilExit()
+                do {
+                    try process.run()
+                    process.waitUntilExit()
 
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
-            return !output.isEmpty
-        } catch {
-            return false
+                    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                    let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines) ?? ""
+                    continuation.resume(returning: !output.isEmpty)
+                } catch {
+                    continuation.resume(returning: false)
+                }
+            }
         }
     }
 
     /// Kill any process using the configured port
-    private func killProcessOnPort() {
-        let findProcess = Process()
-        findProcess.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
-        findProcess.arguments = ["-ti", ":\(port)"]
+    private func killProcessOnPort() async {
+        let portNumber = port
+        await withCheckedContinuation { (continuation: CheckedContinuation<Void, Never>) in
+            DispatchQueue.global(qos: .userInitiated).async {
+                let findProcess = Process()
+                findProcess.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
+                findProcess.arguments = ["-ti", ":\(portNumber)"]
 
-        let pipe = Pipe()
-        findProcess.standardOutput = pipe
-        findProcess.standardError = FileHandle.nullDevice
+                let pipe = Pipe()
+                findProcess.standardOutput = pipe
+                findProcess.standardError = FileHandle.nullDevice
 
-        do {
-            try findProcess.run()
-            findProcess.waitUntilExit()
+                do {
+                    try findProcess.run()
+                    findProcess.waitUntilExit()
 
-            let data = pipe.fileHandleForReading.readDataToEndOfFile()
-            if let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
-               !output.isEmpty {
-                let pids = output.components(separatedBy: .newlines)
-                for pid in pids where !pid.isEmpty {
-                    print("🔪 Killing process on port \(port): PID \(pid)")
-                    let killProcess = Process()
-                    killProcess.executableURL = URL(fileURLWithPath: "/bin/kill")
-                    killProcess.arguments = ["-9", pid]
-                    try? killProcess.run()
-                    killProcess.waitUntilExit()
+                    let data = pipe.fileHandleForReading.readDataToEndOfFile()
+                    if let output = String(data: data, encoding: .utf8)?.trimmingCharacters(in: .whitespacesAndNewlines),
+                       !output.isEmpty {
+                        let pids = output.components(separatedBy: .newlines)
+                        for pid in pids where !pid.isEmpty {
+                            print("🔪 Killing process on port \(portNumber): PID \(pid)")
+                            let killProcess = Process()
+                            killProcess.executableURL = URL(fileURLWithPath: "/bin/kill")
+                            killProcess.arguments = ["-9", pid]
+                            try? killProcess.run()
+                            killProcess.waitUntilExit()
+                        }
+                    }
+                } catch {
+                    print("⚠️ Could not kill process on port: \(error)")
                 }
+                continuation.resume()
             }
-        } catch {
-            print("⚠️ Could not kill process on port: \(error)")
         }
     }
 
