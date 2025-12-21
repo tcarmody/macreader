@@ -55,9 +55,22 @@ class PythonServer: ObservableObject {
         ]
         process.currentDirectoryURL = projectPath  // Run from project root, not backend dir
 
-        // Set up environment
+        // Set up environment with API keys from Keychain
         var env = ProcessInfo.processInfo.environment
         env["PYTHONUNBUFFERED"] = "1"
+
+        // Inject API keys from Keychain
+        let apiKeys = KeychainService.shared.getEnvironmentVariables()
+        for (key, value) in apiKeys {
+            env[key] = value
+        }
+
+        if apiKeys.isEmpty {
+            print("⚠️ No API keys configured in Keychain")
+        } else {
+            print("🔑 Loaded \(apiKeys.count) API key(s) from Keychain")
+        }
+
         process.environment = env
 
         print("🐍 Starting Python server...")

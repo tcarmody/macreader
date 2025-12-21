@@ -23,7 +23,8 @@ async def health_check() -> dict:
     return {
         "status": "ok",
         "version": "2.0.0",
-        "summarization_enabled": state.summarizer is not None
+        "summarization_enabled": state.summarizer is not None,
+        "provider": state.provider.name if state.provider else None
     }
 
 

@@ -49,8 +49,8 @@ class AppState: ObservableObject {
 
     // MARK: - Dependencies
 
-    private let apiClient: APIClient
-    private let pythonServer: PythonServer
+    let apiClient: APIClient
+    let server: PythonServer
 
     // Native macOS services
     private let notificationService = NotificationService.shared
@@ -188,7 +188,7 @@ class AppState: ObservableObject {
 
     init() {
         self.apiClient = APIClient()
-        self.pythonServer = PythonServer()
+        self.server = PythonServer()
 
         // Load client-side settings from UserDefaults
         loadLocalSettings()
@@ -199,7 +199,7 @@ class AppState: ObservableObject {
     func startServer() async {
         serverError = nil
         do {
-            try await pythonServer.start()
+            try await server.start()
             serverRunning = true
             // Start periodic health checks
             startHealthChecks()
@@ -217,7 +217,7 @@ class AppState: ObservableObject {
     func stopServer() {
         healthCheckTask?.cancel()
         healthCheckTask = nil
-        pythonServer.stop()
+        server.stop()
         serverRunning = false
         serverStatus = .unknown
     }
@@ -226,7 +226,7 @@ class AppState: ObservableObject {
     func restartServer() async {
         serverStatus = .checking
         do {
-            try await pythonServer.restart()
+            try await server.restart()
             serverRunning = true
             await checkServerHealth()
         } catch {

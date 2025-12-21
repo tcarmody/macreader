@@ -392,11 +392,13 @@ struct APIStatus: Codable, Sendable {
     let status: String
     let version: String
     let summarizationEnabled: Bool
+    let provider: String?
 
     enum CodingKeys: String, CodingKey {
         case status
         case version
         case summarizationEnabled = "summarization_enabled"
+        case provider
     }
 
     var isHealthy: Bool { status == "ok" }

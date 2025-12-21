@@ -8,6 +8,8 @@ struct RSSReaderApp: App {
     @StateObject private var appState = AppState()
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
     @State private var isExporting = false
+    @State private var showSetupWizard = false
+    @State private var hasCheckedForAPIKey = false
 
     var body: some Scene {
         WindowGroup {
@@ -18,9 +20,22 @@ struct RSSReaderApp: App {
                         await appState.startServer()
                         // Setup notification categories
                         NotificationService.shared.setupNotificationCategories()
+
+                        // Check if we need to show the setup wizard (no API keys configured)
+                        if !hasCheckedForAPIKey {
+                            hasCheckedForAPIKey = true
+                            await checkForSetupWizard()
+                        }
                     }
                 }
                 .onContinueUserActivity(CSSearchableItemActionType, perform: handleSpotlightActivity)
+                .sheet(isPresented: $showSetupWizard) {
+                    SetupWizardView {
+                        // Wizard completed - server will already have been restarted
+                        showSetupWizard = false
+                    }
+                    .environmentObject(appState)
+                }
         }
         .commands {
             // File menu
@@ -206,6 +221,13 @@ struct RSSReaderApp: App {
                 }
                 .disabled(!isCurrentlyViewingFeed)
             }
+
+            // Help menu
+            CommandGroup(replacing: .help) {
+                Button("AI Setup Wizard...") {
+                    showSetupWizard = true
+                }
+            }
         }
 
         #if os(macOS)
@@ -255,6 +277,20 @@ struct RSSReaderApp: App {
             try await appState.bulkMarkRead(articleIds: ids)
         case .feed(let feedId):
             try await appState.markFeedRead(feedId: feedId)
+        }
+    }
+
+    // MARK: - Setup Wizard
+
+    private func checkForSetupWizard() async {
+        // Check if any API key is configured in Keychain
+        let hasAPIKey = KeychainService.shared.hasAnyAPIKey()
+
+        if !hasAPIKey {
+            // Show setup wizard on first launch
+            await MainActor.run {
+                showSetupWizard = true
+            }
         }
     }
 
