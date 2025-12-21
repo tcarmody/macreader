@@ -264,7 +264,7 @@ async def export_opml(
         for f in feeds
     ]
 
-    opml_content = generate_opml(opml_feeds, title="DataPointsAI Feeds")
+    opml_content = generate_opml(opml_feeds, title="Data Points AI Feeds")
 
     return {
         "opml": opml_content,

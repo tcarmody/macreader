@@ -470,7 +470,7 @@ struct AboutView: View {
                 .font(.system(size: 64))
                 .foregroundStyle(.blue)
 
-            Text("DataPointsAI")
+            Text("Data Points AI")
                 .font(.title)
                 .fontWeight(.bold)
 

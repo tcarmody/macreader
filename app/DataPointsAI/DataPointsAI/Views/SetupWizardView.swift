@@ -92,11 +92,11 @@ struct SetupWizardView: View {
                 .font(.system(size: 60))
                 .foregroundStyle(.blue)
 
-            Text("Welcome to DataPointsAI")
+            Text("Welcome to Data Points AI")
                 .font(.title)
                 .fontWeight(.bold)
 
-            Text("DataPointsAI uses AI to summarize articles and extract key points. To get started, you'll need an API key from an AI provider.")
+            Text("Data Points AI uses AI to summarize articles and extract key points. To get started, you'll need an API key from an AI provider.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 40)
@@ -213,7 +213,7 @@ struct SetupWizardView: View {
                 .font(.title)
                 .fontWeight(.bold)
 
-            Text("DataPointsAI is now configured to use \(selectedProvider.label) for AI-powered summaries.")
+            Text("Data Points AI is now configured to use \(selectedProvider.label) for AI-powered summaries.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .padding(.horizontal, 40)
