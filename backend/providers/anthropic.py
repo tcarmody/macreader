@@ -17,27 +17,28 @@ class AnthropicProvider(LLMProvider):
     """
 
     # Model mappings for each tier
+    # Using aliases which point to latest snapshots
     TIER_MODELS = {
-        ModelTier.FAST: "claude-haiku-4-5-20251001",
-        ModelTier.STANDARD: "claude-sonnet-4-5-20250514",
-        ModelTier.ADVANCED: "claude-opus-4-5-20251218",
+        ModelTier.FAST: "claude-haiku-4-5",
+        ModelTier.STANDARD: "claude-sonnet-4-5",
+        ModelTier.ADVANCED: "claude-opus-4-5",
     }
 
     # Model aliases for convenience
     MODEL_ALIASES = {
-        "haiku": "claude-haiku-4-5-20251001",
-        "sonnet": "claude-sonnet-4-5-20250514",
-        "opus": "claude-opus-4-5-20251218",
-        # Legacy aliases
-        "claude-haiku-4-5": "claude-haiku-4-5-20251001",
-        "claude-sonnet-4-5": "claude-sonnet-4-5-20250514",
-        "claude-opus-4-5": "claude-opus-4-5-20251218",
+        "haiku": "claude-haiku-4-5",
+        "sonnet": "claude-sonnet-4-5",
+        "opus": "claude-opus-4-5",
+        # Versioned aliases (for explicit version pinning)
+        "claude-haiku-4-5-20251001": "claude-haiku-4-5-20251001",
+        "claude-sonnet-4-5-20250929": "claude-sonnet-4-5-20250929",
+        "claude-opus-4-5-20251101": "claude-opus-4-5-20251101",
     }
 
     def __init__(
         self,
         api_key: str,
-        default_model: str = "claude-haiku-4-5-20251001",
+        default_model: str = "claude-haiku-4-5",
     ):
         """
         Initialize Anthropic provider.

@@ -54,7 +54,7 @@ def create_provider(
     if provider_type == ProviderType.ANTHROPIC:
         return AnthropicProvider(
             api_key=api_key,
-            default_model=default_model or "claude-haiku-4-5-20251001",
+            default_model=default_model or "claude-haiku-4-5",
         )
     elif provider_type == ProviderType.OPENAI:
         return OpenAIProvider(
