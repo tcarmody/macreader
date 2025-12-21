@@ -8,6 +8,7 @@ struct SettingsView: View {
     @State private var autoSummarize: Bool = false
     @State private var markReadOnOpen: Bool = true
     @State private var defaultModel: String = "haiku"
+    @State private var llmProvider: LLMProvider = .anthropic
     @State private var notificationsEnabled: Bool = true
 
     // Appearance settings
@@ -40,12 +41,15 @@ struct SettingsView: View {
                 Label("Appearance", systemImage: "textformat.size")
             }
 
-            AISettingsView(defaultModel: $defaultModel)
-                .tabItem {
-                    Label("AI", systemImage: "sparkles")
-                }
+            AISettingsView(
+                llmProvider: $llmProvider,
+                defaultModel: $defaultModel
+            )
+            .tabItem {
+                Label("AI", systemImage: "sparkles")
+            }
 
-            AboutView()
+            AboutView(llmProvider: llmProvider)
                 .tabItem {
                     Label("About", systemImage: "info.circle")
                 }
@@ -59,6 +63,11 @@ struct SettingsView: View {
         .onChange(of: autoSummarize) { _, _ in saveSettings() }
         .onChange(of: markReadOnOpen) { _, _ in saveSettings() }
         .onChange(of: defaultModel) { _, _ in saveSettings() }
+        .onChange(of: llmProvider) { _, newProvider in
+            // Reset model to first option when provider changes
+            defaultModel = newProvider.modelOptions.first?.value ?? "haiku"
+            saveSettings()
+        }
         .onChange(of: notificationsEnabled) { _, _ in saveSettings() }
         .onChange(of: articleFontSize) { _, _ in saveSettings() }
         .onChange(of: articleLineSpacing) { _, _ in saveSettings() }
@@ -72,6 +81,7 @@ struct SettingsView: View {
         autoSummarize = appState.settings.autoSummarize
         markReadOnOpen = appState.settings.markReadOnOpen
         defaultModel = appState.settings.defaultModel
+        llmProvider = appState.settings.llmProvider
         notificationsEnabled = appState.settings.notificationsEnabled
         articleFontSize = appState.settings.articleFontSize
         articleLineSpacing = appState.settings.articleLineSpacing
@@ -85,7 +95,8 @@ struct SettingsView: View {
             refreshIntervalMinutes: refreshInterval,
             autoSummarize: autoSummarize,
             markReadOnOpen: markReadOnOpen,
-            defaultModel: defaultModel
+            defaultModel: defaultModel,
+            llmProvider: llmProvider
         )
         newSettings.notificationsEnabled = notificationsEnabled
         newSettings.articleFontSize = articleFontSize
@@ -285,22 +296,40 @@ struct AppearanceSettingsView: View {
 
 /// AI settings tab
 struct AISettingsView: View {
+    @Binding var llmProvider: LLMProvider
     @Binding var defaultModel: String
 
     var body: some View {
         Form {
             Section {
-                Picker("Default model", selection: $defaultModel) {
-                    Text("Haiku (Faster)").tag("haiku")
-                    Text("Sonnet (Smarter)").tag("sonnet")
+                Picker("Provider", selection: $llmProvider) {
+                    ForEach(LLMProvider.allCases, id: \.self) { provider in
+                        Text(provider.label).tag(provider)
+                    }
                 }
-                .pickerStyle(.radioGroup)
 
-                Text("Haiku is faster and cheaper. Sonnet produces higher quality summaries for complex articles.")
+                Text(llmProvider.description)
                     .font(.caption)
                     .foregroundStyle(.secondary)
             } header: {
-                Text("Claude Model")
+                Text("AI Provider")
+            }
+
+            Section {
+                Picker("Default model", selection: $defaultModel) {
+                    ForEach(llmProvider.modelOptions, id: \.value) { option in
+                        Text(option.label).tag(option.value)
+                    }
+                }
+                .pickerStyle(.radioGroup)
+
+                if let selectedOption = llmProvider.modelOptions.first(where: { $0.value == defaultModel }) {
+                    Text(selectedOption.description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("Model")
             }
         }
         .formStyle(.grouped)
@@ -309,6 +338,8 @@ struct AISettingsView: View {
 
 /// About tab
 struct AboutView: View {
+    var llmProvider: LLMProvider
+
     var body: some View {
         VStack(spacing: 16) {
             Image(systemName: "newspaper.fill")
@@ -329,7 +360,7 @@ struct AboutView: View {
             Text("An AI-powered RSS reader for macOS.")
                 .multilineTextAlignment(.center)
 
-            Text("Summaries powered by Claude")
+            Text("Summaries powered by \(llmProvider.label)")
                 .font(.caption)
                 .foregroundStyle(.secondary)
 

@@ -59,7 +59,8 @@ async def get_settings(
         refresh_interval_minutes=int(settings.get("refresh_interval_minutes", "30")),
         auto_summarize=settings.get("auto_summarize", "false").lower() == "true",
         mark_read_on_open=settings.get("mark_read_on_open", "true").lower() == "true",
-        default_model=settings.get("default_model", "haiku")
+        default_model=settings.get("default_model", "haiku"),
+        llm_provider=settings.get("llm_provider", "anthropic")
     )
 
 
@@ -77,6 +78,8 @@ async def update_settings(
         db.set_setting("mark_read_on_open", str(request.mark_read_on_open).lower())
     if request.default_model is not None:
         db.set_setting("default_model", request.default_model)
+    if request.llm_provider is not None:
+        db.set_setting("llm_provider", request.llm_provider)
 
     return await get_settings(db)
 

@@ -190,6 +190,7 @@ class SettingsResponse(BaseModel):
     auto_summarize: bool = False
     mark_read_on_open: bool = True
     default_model: str = "haiku"
+    llm_provider: str = "anthropic"  # anthropic, openai, or google
 
 
 class SettingsUpdateRequest(BaseModel):
@@ -198,6 +199,7 @@ class SettingsUpdateRequest(BaseModel):
     auto_summarize: bool | None = None
     mark_read_on_open: bool | None = None
     default_model: str | None = None
+    llm_provider: str | None = None
 
 
 # ─────────────────────────────────────────────────────────────

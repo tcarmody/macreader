@@ -56,12 +56,57 @@ enum ArticleFilter: Hashable {
     }
 }
 
+/// LLM provider options
+enum LLMProvider: String, Codable, CaseIterable, Sendable {
+    case anthropic = "anthropic"
+    case openai = "openai"
+    case google = "google"
+
+    var label: String {
+        switch self {
+        case .anthropic: return "Anthropic Claude"
+        case .openai: return "OpenAI GPT"
+        case .google: return "Google Gemini"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .anthropic: return "Claude models with prompt caching for lower costs"
+        case .openai: return "GPT models from OpenAI"
+        case .google: return "Gemini models with large context windows"
+        }
+    }
+
+    /// Available model tiers for this provider
+    var modelOptions: [(value: String, label: String, description: String)] {
+        switch self {
+        case .anthropic:
+            return [
+                ("haiku", "Haiku (Faster)", "Fast and cost-effective for simple articles"),
+                ("sonnet", "Sonnet (Smarter)", "Better quality for complex content")
+            ]
+        case .openai:
+            return [
+                ("fast", "GPT-5.2 Mini (Faster)", "Fast and cost-effective"),
+                ("standard", "GPT-5.2 (Smarter)", "Higher quality summaries")
+            ]
+        case .google:
+            return [
+                ("flash", "Gemini Flash (Faster)", "Fast with large context"),
+                ("pro", "Gemini Pro (Smarter)", "Best quality from Google")
+            ]
+        }
+    }
+}
+
 /// Application settings (matches SettingsResponse from API)
 struct AppSettings: Codable, Sendable {
     var refreshIntervalMinutes: Int
     var autoSummarize: Bool
     var markReadOnOpen: Bool
     var defaultModel: String
+    var llmProvider: LLMProvider
 
     // Client-side only settings (not synced with backend)
     var notificationsEnabled: Bool = true
@@ -78,6 +123,7 @@ struct AppSettings: Codable, Sendable {
         case autoSummarize = "auto_summarize"
         case markReadOnOpen = "mark_read_on_open"
         case defaultModel = "default_model"
+        case llmProvider = "llm_provider"
         // Client-side settings are not sent to/from API
     }
 
@@ -86,6 +132,7 @@ struct AppSettings: Codable, Sendable {
         autoSummarize: false,
         markReadOnOpen: true,
         defaultModel: "haiku",
+        llmProvider: .anthropic,
         notificationsEnabled: true,
         articleFontSize: .medium,
         articleLineSpacing: .normal,
