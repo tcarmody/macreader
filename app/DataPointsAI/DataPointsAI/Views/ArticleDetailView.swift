@@ -1,15 +1,44 @@
 import SwiftUI
 import WebKit
+import Combine
+
+/// Manages scroll state for the article detail view
+@MainActor
+class ArticleScrollState: ObservableObject {
+    @Published var scrollPosition: CGFloat = 0
+    @Published var contentHeight: CGFloat = 0
+    @Published var viewHeight: CGFloat = 0
+    @Published var scrollProxy: ScrollViewProxy?
+
+    /// Whether we're at or near the bottom of the content
+    var isAtBottom: Bool {
+        guard contentHeight > viewHeight else { return true }
+        let bottomThreshold: CGFloat = 50
+        return scrollPosition >= (contentHeight - viewHeight - bottomThreshold)
+    }
+
+    /// Scroll down by approximately one screen
+    func scrollDown() {
+        // We'll use the scroll proxy to scroll to a marker
+    }
+
+    /// Reset scroll position when article changes
+    func reset() {
+        scrollPosition = 0
+    }
+}
 
 /// Right pane: full article detail with summary
 struct ArticleDetailView: View {
     @EnvironmentObject var appState: AppState
+    @Binding var scrollState: ArticleScrollState
     @State private var isSummarizing: Bool = false
     @State private var isFetchingContent: Bool = false
     @State private var contentHeight: CGFloat = 200
     @State private var summarizationError: String?
     @State private var summarizationElapsed: Int = 0
     @State private var summarizationTimer: Timer?
+    @Namespace private var scrollNamespace
 
     /// Current font size setting
     private var fontSize: ArticleFontSize {
@@ -34,14 +63,21 @@ struct ArticleDetailView: View {
     var body: some View {
         Group {
             if let article = appState.selectedArticleDetail {
-                ScrollView {
-                    VStack(alignment: .leading, spacing: 16) {
-                        // Header
-                        VStack(alignment: .leading, spacing: 8) {
-                            Text(article.title)
-                                .font(appTypeface.font(size: fontSize.titleFontSize, weight: .bold))
-                                .lineSpacing(fontSize.titleFontSize * (lineSpacing.multiplier - 1))
-                                .textSelection(.enabled)
+                GeometryReader { outerGeometry in
+                    ScrollViewReader { proxy in
+                        ScrollView {
+                            VStack(alignment: .leading, spacing: 16) {
+                                // Invisible anchor at top for scroll tracking
+                                Color.clear
+                                    .frame(height: 0)
+                                    .id("top")
+
+                                // Header
+                                VStack(alignment: .leading, spacing: 8) {
+                                    Text(article.title)
+                                        .font(appTypeface.font(size: fontSize.titleFontSize, weight: .bold))
+                                        .lineSpacing(fontSize.titleFontSize * (lineSpacing.multiplier - 1))
+                                        .textSelection(.enabled)
 
                             HStack(spacing: 8) {
                                 if let feedName = feedName(for: article.feedId) {
@@ -250,8 +286,46 @@ struct ArticleDetailView: View {
                             .background(Color.secondary.opacity(0.1))
                             .clipShape(RoundedRectangle(cornerRadius: 8))
                         }
+
+                                // Invisible anchor at bottom for scroll tracking
+                                Color.clear
+                                    .frame(height: 0)
+                                    .id("bottom")
+                            }
+                            .padding()
+                            .background(
+                                GeometryReader { contentGeometry in
+                                    Color.clear
+                                        .preference(
+                                            key: ScrollOffsetPreferenceKey.self,
+                                            value: -contentGeometry.frame(in: .named("scroll")).origin.y
+                                        )
+                                        .preference(
+                                            key: ContentHeightPreferenceKey.self,
+                                            value: contentGeometry.size.height
+                                        )
+                                }
+                            )
+                        }
+                        .coordinateSpace(name: "scroll")
+                        .onPreferenceChange(ScrollOffsetPreferenceKey.self) { value in
+                            scrollState.scrollPosition = value
+                        }
+                        .onPreferenceChange(ContentHeightPreferenceKey.self) { value in
+                            scrollState.contentHeight = value
+                        }
+                        .onAppear {
+                            scrollState.scrollProxy = proxy
+                            scrollState.viewHeight = outerGeometry.size.height
+                        }
+                        .onChange(of: outerGeometry.size.height) { _, newValue in
+                            scrollState.viewHeight = newValue
+                        }
+                        .onChange(of: article.id) { _, _ in
+                            scrollState.reset()
+                            proxy.scrollTo("top", anchor: .top)
+                        }
                     }
-                    .padding()
                 }
             } else {
                 ContentUnavailableView(
@@ -263,7 +337,7 @@ struct ArticleDetailView: View {
         }
         .toolbar {
             if let article = appState.selectedArticleDetail {
-                ToolbarItemGroup {
+                ToolbarItem {
                     Button {
                         if let selectedArticle = appState.selectedArticle {
                             Task {
@@ -272,10 +346,15 @@ struct ArticleDetailView: View {
                             }
                         }
                     } label: {
-                        Image(systemName: article.isRead ? "envelope.open" : "envelope.badge")
+                        Label(
+                            article.isRead ? "Mark as Unread" : "Mark as Read",
+                            systemImage: article.isRead ? "envelope.open" : "envelope.badge"
+                        )
                     }
                     .help(article.isRead ? "Mark as Unread" : "Mark as Read")
+                }
 
+                ToolbarItem {
                     Button {
                         if let selectedArticle = appState.selectedArticle {
                             Task {
@@ -283,10 +362,15 @@ struct ArticleDetailView: View {
                             }
                         }
                     } label: {
-                        Image(systemName: article.isBookmarked ? "star.fill" : "star")
+                        Label(
+                            article.isBookmarked ? "Remove Bookmark" : "Bookmark",
+                            systemImage: article.isBookmarked ? "star.fill" : "star"
+                        )
                     }
                     .help(article.isBookmarked ? "Remove Bookmark" : "Bookmark")
+                }
 
+                ToolbarItem {
                     Button {
                         startSummarization(articleId: article.id)
                     } label: {
@@ -295,7 +379,10 @@ struct ArticleDetailView: View {
                                 .scaleEffect(0.5)
                                 .frame(width: 16, height: 16)
                         } else {
-                            Image(systemName: article.summaryFull != nil ? "sparkles" : "sparkles.rectangle.stack")
+                            Label(
+                                article.summaryFull != nil ? "Regenerate Summary" : "Generate Summary",
+                                systemImage: article.summaryFull != nil ? "sparkles" : "sparkles.rectangle.stack"
+                            )
                         }
                     }
                     .disabled(isSummarizing)
@@ -342,8 +429,25 @@ struct ArticleDetailView: View {
     }
 }
 
+// MARK: - Preference Keys for Scroll Tracking
+
+private struct ScrollOffsetPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
+private struct ContentHeightPreferenceKey: PreferenceKey {
+    static var defaultValue: CGFloat = 0
+    static func reduce(value: inout CGFloat, nextValue: () -> CGFloat) {
+        value = nextValue()
+    }
+}
+
 #Preview {
-    ArticleDetailView()
+    @Previewable @State var scrollState = ArticleScrollState()
+    ArticleDetailView(scrollState: $scrollState)
         .environmentObject(AppState())
         .frame(width: 500, height: 600)
 }

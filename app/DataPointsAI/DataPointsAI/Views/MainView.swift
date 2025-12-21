@@ -6,6 +6,7 @@ struct MainView: View {
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @FocusState private var isSearchFocused: Bool
     @StateObject private var keyboardManager = KeyboardShortcutManager.shared
+    @State private var articleScrollState = ArticleScrollState()
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -13,7 +14,7 @@ struct MainView: View {
         } content: {
             ArticleListView()
         } detail: {
-            ArticleDetailView()
+            ArticleDetailView(scrollState: $articleScrollState)
         }
         .navigationSplitViewStyle(.balanced)
         .searchable(text: $appState.searchQuery, prompt: "Search articles (press / to focus)")
@@ -78,6 +79,24 @@ struct MainView: View {
             }
 
             if let action = keyboardManager.processKeyEvent(event) {
+                // Special handling for scroll actions - only consume if we're navigating
+                if action == .scrollDown {
+                    if appState.selectedArticleDetail == nil || articleScrollState.isAtBottom {
+                        // Navigate to next article
+                        Task { @MainActor in
+                            await handleKeyboardAction(.nextArticle)
+                        }
+                        return nil // Consume the event
+                    }
+                    // Let the scroll view handle the space key
+                    return event
+                }
+
+                if action == .scrollUp {
+                    // Let the scroll view handle shift+space
+                    return event
+                }
+
                 Task { @MainActor in
                     await handleKeyboardAction(action)
                 }
@@ -143,8 +162,7 @@ struct MainView: View {
             appState.selectedArticleIds.removeAll()
 
         case .scrollDown, .scrollUp:
-            // These are handled by the scroll view naturally when focused
-            // Could implement programmatic scrolling if needed
+            // Handled in setupKeyboardMonitor for proper event consumption
             break
         }
     }

@@ -35,7 +35,7 @@ enum KeyboardAction: Equatable {
 /// - `G` (shift+g) / `End` - Go to last article
 /// - `/` - Focus search field
 /// - `A` (shift+a) - Mark all as read
-/// - `Space` - Scroll article content down
+/// - `Space` - Scroll article down, or go to next article when at bottom
 /// - `Shift+Space` - Scroll article content up
 /// - `Escape` - Clear search/selection
 @MainActor
