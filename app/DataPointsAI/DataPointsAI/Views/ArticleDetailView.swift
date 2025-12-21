@@ -205,14 +205,42 @@ struct ArticleDetailView: View {
     private func summarySection(article: ArticleDetail, fontSize: ArticleFontSize, lineSpacing: ArticleLineSpacing, appTypeface: AppTypeface) -> some View {
         if let summary = article.summaryFull {
             VStack(alignment: .leading, spacing: 12) {
-                Label("AI Summary", systemImage: "sparkles")
-                    .font(appTypeface.font(size: fontSize.bodyFontSize + 2, weight: .semibold))
-                    .foregroundStyle(.blue)
+                HStack {
+                    Label("AI Summary", systemImage: "sparkles")
+                        .font(appTypeface.font(size: fontSize.bodyFontSize + 2, weight: .semibold))
+                        .foregroundStyle(.blue)
+
+                    Spacer()
+
+                    Button {
+                        copySummaryToClipboard(article: article, summary: summary)
+                    } label: {
+                        Label("Copy", systemImage: "doc.on.doc")
+                            .labelStyle(.iconOnly)
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Copy summary, source, and URL")
+                }
 
                 Text(summary)
                     .font(appTypeface.font(size: fontSize.bodyFontSize))
                     .lineSpacing(fontSize.bodyFontSize * (lineSpacing.multiplier - 1))
                     .textSelection(.enabled)
+
+                // Source info
+                VStack(alignment: .leading, spacing: 4) {
+                    if let feedName = feedName(for: article.feedId) {
+                        Text(feedName)
+                            .font(appTypeface.font(size: fontSize.bodyFontSize - 1))
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Link(article.originalUrl.absoluteString, destination: article.originalUrl)
+                        .font(appTypeface.font(size: fontSize.bodyFontSize - 1))
+                        .lineLimit(1)
+                        .truncationMode(.middle)
+                }
+                .padding(.top, 4)
             }
             .padding()
             .background(Color.blue.opacity(0.05))
@@ -220,6 +248,17 @@ struct ArticleDetailView: View {
         } else {
             generateSummaryView(article: article, fontSize: fontSize, lineSpacing: lineSpacing, appTypeface: appTypeface)
         }
+    }
+
+    private func copySummaryToClipboard(article: ArticleDetail, summary: String) {
+        var text = summary + "\n\n"
+        if let feedName = feedName(for: article.feedId) {
+            text += "\(feedName)\n"
+        }
+        text += article.originalUrl.absoluteString
+
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 
     @ViewBuilder

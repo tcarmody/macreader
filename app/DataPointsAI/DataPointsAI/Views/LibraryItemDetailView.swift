@@ -120,14 +120,46 @@ struct LibraryItemDetailView: View {
     private func summarySection(item: LibraryItemDetail, fontSize: ArticleFontSize, lineSpacing: ArticleLineSpacing, appTypeface: AppTypeface) -> some View {
         if let summary = item.summaryFull {
             VStack(alignment: .leading, spacing: 12) {
-                Label("AI Summary", systemImage: "sparkles")
-                    .font(appTypeface.font(size: fontSize.bodyFontSize + 2, weight: .semibold))
-                    .foregroundStyle(.blue)
+                HStack {
+                    Label("AI Summary", systemImage: "sparkles")
+                        .font(appTypeface.font(size: fontSize.bodyFontSize + 2, weight: .semibold))
+                        .foregroundStyle(.blue)
+
+                    Spacer()
+
+                    Button {
+                        copySummaryToClipboard(item: item, summary: summary)
+                    } label: {
+                        Label("Copy", systemImage: "doc.on.doc")
+                            .labelStyle(.iconOnly)
+                    }
+                    .buttonStyle(.borderless)
+                    .help("Copy summary and source info")
+                }
 
                 Text(summary)
                     .font(appTypeface.font(size: fontSize.bodyFontSize))
                     .lineSpacing(fontSize.bodyFontSize * (lineSpacing.multiplier - 1))
                     .textSelection(.enabled)
+
+                // Source info
+                VStack(alignment: .leading, spacing: 4) {
+                    Text(item.type.label)
+                        .font(appTypeface.font(size: fontSize.bodyFontSize - 1))
+                        .foregroundStyle(.secondary)
+
+                    if item.type == .url {
+                        Link(item.url.absoluteString, destination: item.url)
+                            .font(appTypeface.font(size: fontSize.bodyFontSize - 1))
+                            .lineLimit(1)
+                            .truncationMode(.middle)
+                    } else if let fileName = item.fileName {
+                        Text(fileName)
+                            .font(appTypeface.font(size: fontSize.bodyFontSize - 1))
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .padding(.top, 4)
             }
             .padding()
             .background(Color.blue.opacity(0.05))
@@ -135,6 +167,19 @@ struct LibraryItemDetailView: View {
         } else {
             generateSummaryView(item: item, fontSize: fontSize, lineSpacing: lineSpacing, appTypeface: appTypeface)
         }
+    }
+
+    private func copySummaryToClipboard(item: LibraryItemDetail, summary: String) {
+        var text = summary + "\n\n"
+        text += "\(item.type.label)\n"
+        if item.type == .url {
+            text += item.url.absoluteString
+        } else if let fileName = item.fileName {
+            text += fileName
+        }
+
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(text, forType: .string)
     }
 
     @ViewBuilder
