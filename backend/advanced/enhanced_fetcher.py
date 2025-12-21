@@ -158,11 +158,16 @@ class EnhancedFetcher:
         if self.enable_js_render and self._should_try_js_render(result, url):
             js_result = await self._fetch_with_js(url)
             if js_result.fallback_used:  # Means it succeeded
-                js_result.original_error = original_error
-                return js_result
+                # Check if JS render result is still a bot detection page
+                if not self._is_bot_detection_page(js_result.content):
+                    js_result.original_error = original_error
+                    return js_result
+                else:
+                    logger.info(f"JS render returned bot detection page for {url}, trying archive")
+                    original_error = "JS render blocked by bot detection"
 
-        # Strategy 5: Try archive if content is paywalled
-        if self.enable_archive and self._should_try_archive(result, url):
+        # Strategy 5: Try archive if content is paywalled or blocked
+        if self.enable_archive and (self._should_try_archive(result, url) or self._is_bot_detection_page(result.content if result else "")):
             archive_result = await self._fetch_from_archive(url)
             if archive_result.fallback_used:  # Means it succeeded
                 archive_result.original_error = original_error
@@ -333,3 +338,9 @@ class EnhancedFetcher:
                 return True
 
         return False
+
+    def _is_bot_detection_page(self, content: str) -> bool:
+        """Check if content is a bot detection/CAPTCHA page."""
+        if not content:
+            return False
+        return self._fetcher._looks_blocked(content)
