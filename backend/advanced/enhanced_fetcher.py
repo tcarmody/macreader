@@ -128,6 +128,7 @@ class EnhancedFetcher:
             return await self._fetch_with_js(url)
 
         # Strategy 3: Try simple fetch first
+        primary_fetch_failed = False
         try:
             result = await self._fetcher.fetch(url)
 
@@ -152,10 +153,12 @@ class EnhancedFetcher:
         except Exception as e:
             original_error = str(e)
             result = None
+            primary_fetch_failed = True
             logger.warning(f"Primary fetch failed for {url}: {e}")
 
         # Strategy 4: Try JS rendering if content looks like it needs it
-        if self.enable_js_render and self._should_try_js_render(result, url):
+        # Also try if primary fetch failed completely (403, connection error, etc.)
+        if self.enable_js_render and (primary_fetch_failed or self._should_try_js_render(result, url)):
             js_result = await self._fetch_with_js(url)
             if js_result.fallback_used:  # Means it succeeded
                 # Check if JS render result is still a bot detection page
@@ -166,8 +169,8 @@ class EnhancedFetcher:
                     logger.info(f"JS render returned bot detection page for {url}, trying archive")
                     original_error = "JS render blocked by bot detection"
 
-        # Strategy 5: Try archive if content is paywalled or blocked
-        if self.enable_archive and (self._should_try_archive(result, url) or self._is_bot_detection_page(result.content if result else "")):
+        # Strategy 5: Try archive if content is paywalled, blocked, or primary fetch failed
+        if self.enable_archive and (primary_fetch_failed or self._should_try_archive(result, url) or self._is_bot_detection_page(result.content if result else "")):
             archive_result = await self._fetch_from_archive(url)
             if archive_result.fallback_used:  # Means it succeeded
                 archive_result.original_error = original_error
@@ -226,6 +229,17 @@ class EnhancedFetcher:
                 render_result.html
             )
 
+            # Validate the extracted content is useful
+            if not self._is_good_content(fetch_result):
+                logger.info(f"JS render returned insufficient content for {url}")
+                return EnhancedFetchResult(
+                    url=url,
+                    title="",
+                    content="",
+                    source="error",
+                    original_error="JS render returned insufficient content"
+                )
+
             return EnhancedFetchResult(
                 url=fetch_result.url,
                 title=fetch_result.title,
@@ -275,6 +289,17 @@ class EnhancedFetcher:
                 archive_result.url,
                 archive_result.html
             )
+
+            # Validate the extracted content is useful
+            if not self._is_good_content(fetch_result) or self._is_bot_detection_page(fetch_result.content):
+                logger.info(f"Archive {archive_result.source} returned insufficient content for {url}")
+                return EnhancedFetchResult(
+                    url=url,
+                    title="",
+                    content="",
+                    source="error",
+                    original_error=f"Archive {archive_result.source} returned insufficient content"
+                )
 
             return EnhancedFetchResult(
                 url=fetch_result.url,

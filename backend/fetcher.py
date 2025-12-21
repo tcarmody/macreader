@@ -283,6 +283,10 @@ class Fetcher:
             "complete the security check",
             "pardon our interruption",
             "we need to verify",
+            "please enable javascript",
+            "javascript is required",
+            "enablejs",
+            "retry/enablejs",
         ]
 
         matches = sum(1 for phrase in block_phrases if phrase in content_lower)
