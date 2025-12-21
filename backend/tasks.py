@@ -2,7 +2,90 @@
 Background tasks for feed fetching and article summarization.
 """
 
+import asyncio
+import re
+from bs4 import BeautifulSoup
+
 from .config import state
+from .source_extractor import SourceExtractor
+
+
+def _is_usable_content(content: str) -> bool:
+    """
+    Check if content is usable for summarization.
+
+    Returns False if content is just aggregator redirect links or
+    other non-article content.
+    """
+    if not content or len(content.strip()) < 50:
+        return False
+
+    # Parse HTML to extract text
+    soup = BeautifulSoup(content, "html.parser")
+    text = soup.get_text(separator=" ", strip=True)
+
+    # Check if mostly just links (common with Google News aggregator content)
+    links = soup.find_all("a")
+    if links:
+        # Calculate ratio of link text to total text
+        link_text = " ".join(a.get_text(strip=True) for a in links)
+        if len(link_text) > len(text) * 0.8:
+            return False
+
+    # Check for very short text content after stripping HTML
+    if len(text) < 100:
+        return False
+
+    # Check if content looks like a news aggregator list (numbered headlines)
+    # Pattern: lots of short lines that look like headlines
+    lines = [line.strip() for line in text.split("\n") if line.strip()]
+    if len(lines) > 3:
+        short_lines = sum(1 for line in lines if len(line) < 100)
+        if short_lines > len(lines) * 0.8:
+            # Most lines are short, check if they're numbered/bulleted
+            numbered = sum(1 for line in lines if re.match(r"^\d+[\.\)]\s", line))
+            if numbered > len(lines) * 0.5:
+                return False
+
+    return True
+
+
+def _fetch_content_sync(url: str) -> str | None:
+    """Synchronously fetch content from a URL using the configured fetcher."""
+    if not state.fetcher:
+        return None
+
+    try:
+        # Run async fetch in a new event loop
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            result = loop.run_until_complete(state.fetcher.fetch(url))
+            return result.content if result.content else None
+        finally:
+            loop.close()
+    except Exception as e:
+        print(f"Failed to fetch content from {url}: {e}")
+        return None
+
+
+def _extract_source_sync(url: str, content: str) -> str | None:
+    """Synchronously extract source URL from aggregator content."""
+    extractor = SourceExtractor()
+    if not extractor.is_aggregator(url):
+        return None
+
+    try:
+        loop = asyncio.new_event_loop()
+        asyncio.set_event_loop(loop)
+        try:
+            result = loop.run_until_complete(extractor.extract(url, content))
+            return result.source_url
+        finally:
+            loop.close()
+    except Exception as e:
+        print(f"Failed to extract source URL from {url}: {e}")
+        return None
 
 
 def summarize_article(article_id: int, content: str, url: str, title: str):
@@ -11,13 +94,44 @@ def summarize_article(article_id: int, content: str, url: str, title: str):
         print(f"Summarizer not configured for article {article_id}")
         return
 
+    # First check: basic content existence
     if not content or len(content.strip()) < 50:
         print(f"Article {article_id} has insufficient content for summarization")
         return
 
+    # Second check: is the content actually usable (not just aggregator links)?
+    working_content = content
+    if not _is_usable_content(content):
+        print(f"Article {article_id} content appears to be aggregator links, trying to fetch real content")
+
+        # Try to get source URL and fetch real content
+        source_url = _extract_source_sync(url, content)
+        if source_url:
+            print(f"Article {article_id}: Found source URL {source_url}")
+            fetched = _fetch_content_sync(source_url)
+            if fetched and _is_usable_content(fetched):
+                working_content = fetched
+                # Update the article with fetched content
+                state.db.update_article_content(article_id, fetched)
+                state.db.update_article_source_url(article_id, source_url)
+                print(f"Article {article_id}: Fetched content from source URL")
+            else:
+                print(f"Article {article_id}: Could not fetch usable content from source URL")
+                return
+        else:
+            # Try fetching directly from the original URL
+            fetched = _fetch_content_sync(url)
+            if fetched and _is_usable_content(fetched):
+                working_content = fetched
+                state.db.update_article_content(article_id, fetched)
+                print(f"Article {article_id}: Fetched content from original URL")
+            else:
+                print(f"Article {article_id}: Content is not suitable for summarization (aggregator links only)")
+                return
+
     try:
         print(f"Starting summarization for article {article_id}")
-        summary = state.summarizer.summarize(content, url, title)
+        summary = state.summarizer.summarize(working_content, url, title)
         state.db.update_summary(
             article_id=article_id,
             summary_short=summary.one_liner,

@@ -314,14 +314,24 @@ async def summarize_article_endpoint(
     if not article:
         raise HTTPException(status_code=404, detail="Article not found")
 
+    content = article.content or ""
+
+    # Check if we have any content at all
+    if not content or len(content.strip()) < 50:
+        raise HTTPException(
+            status_code=400,
+            detail="Article has insufficient content. Try using 'Fetch Source Article' first."
+        )
+
     # Use source_url for aggregator articles (more accurate context for summarization)
     url_for_summary = article.source_url or article.url
 
     # Run summarization in background
+    # The background task will handle content quality checks and fetch if needed
     background_tasks.add_task(
         summarize_article,
         article_id,
-        article.content or "",
+        content,
         url_for_summary,
         article.title
     )
