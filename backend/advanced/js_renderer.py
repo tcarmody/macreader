@@ -89,6 +89,11 @@ class JSRenderer:
                         "--disable-dev-shm-usage",
                         "--disable-setuid-sandbox",
                         "--no-sandbox",
+                        # Stealth args to avoid detection
+                        "--disable-blink-features=AutomationControlled",
+                        "--disable-infobars",
+                        "--window-size=1920,1080",
+                        "--start-maximized",
                     ]
                 )
                 logger.info("Started Playwright browser")
@@ -129,18 +134,75 @@ class JSRenderer:
 
         page: Optional["Page"] = None
         try:
-            # Create a new page/context for this request
+            # Create a new page/context for this request with stealth settings
             context = await self._browser.new_context(
                 user_agent=(
                     "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
                     "AppleWebKit/537.36 (KHTML, like Gecko) "
-                    "Chrome/120.0.0.0 Safari/537.36"
+                    "Chrome/122.0.0.0 Safari/537.36"
                 ),
-                viewport={"width": 1280, "height": 800},
+                viewport={"width": 1920, "height": 1080},
                 java_script_enabled=True,
+                locale="en-US",
+                timezone_id="America/New_York",
+                # Add realistic browser properties
+                extra_http_headers={
+                    "Accept-Language": "en-US,en;q=0.9",
+                    "Accept-Encoding": "gzip, deflate, br",
+                    "Sec-Ch-Ua": '"Chromium";v="122", "Not(A:Brand";v="24", "Google Chrome";v="122"',
+                    "Sec-Ch-Ua-Mobile": "?0",
+                    "Sec-Ch-Ua-Platform": '"macOS"',
+                },
             )
 
             page = await context.new_page()
+
+            # Inject stealth scripts to hide automation indicators
+            await page.add_init_script("""
+                // Override navigator.webdriver
+                Object.defineProperty(navigator, 'webdriver', {
+                    get: () => undefined
+                });
+
+                // Override navigator.plugins to look like a real browser
+                Object.defineProperty(navigator, 'plugins', {
+                    get: () => [
+                        { name: 'Chrome PDF Plugin', filename: 'internal-pdf-viewer' },
+                        { name: 'Chrome PDF Viewer', filename: 'mhjfbmdgcfjbbpaeojofohoefgiehjai' },
+                        { name: 'Native Client', filename: 'internal-nacl-plugin' }
+                    ]
+                });
+
+                // Override navigator.languages
+                Object.defineProperty(navigator, 'languages', {
+                    get: () => ['en-US', 'en']
+                });
+
+                // Override permissions query
+                const originalQuery = window.navigator.permissions.query;
+                window.navigator.permissions.query = (parameters) => (
+                    parameters.name === 'notifications' ?
+                        Promise.resolve({ state: Notification.permission }) :
+                        originalQuery(parameters)
+                );
+
+                // Hide automation-related Chrome properties
+                window.chrome = {
+                    runtime: {},
+                    loadTimes: function() {},
+                    csi: function() {},
+                    app: {}
+                };
+
+                // Override console.debug to prevent detection via console
+                const originalDebug = console.debug;
+                console.debug = function(...args) {
+                    if (args[0] && typeof args[0] === 'string' && args[0].includes('puppeteer')) {
+                        return;
+                    }
+                    return originalDebug.apply(console, args);
+                };
+            """)
 
             # Block unnecessary resources to speed up loading
             await page.route("**/*.{png,jpg,jpeg,gif,webp,svg,ico}", lambda route: route.abort())
