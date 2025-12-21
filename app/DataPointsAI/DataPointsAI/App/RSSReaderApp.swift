@@ -1,11 +1,13 @@
 import SwiftUI
 import CoreSpotlight
 import UserNotifications
+import UniformTypeIdentifiers
 
 @main
 struct RSSReaderApp: App {
     @StateObject private var appState = AppState()
     @NSApplicationDelegateAdaptor(AppDelegate.self) var appDelegate
+    @State private var isExporting = false
 
     var body: some Scene {
         WindowGroup {
@@ -29,6 +31,21 @@ struct RSSReaderApp: App {
                     }
                 }
                 .keyboardShortcut("n", modifiers: .command)
+
+                Divider()
+
+                Button("Import OPML...") {
+                    DispatchQueue.main.async {
+                        appState.showImportOPML = true
+                    }
+                }
+                .keyboardShortcut("i", modifiers: [.command, .shift])
+
+                Button("Export OPML...") {
+                    exportOPML()
+                }
+                .keyboardShortcut("e", modifiers: [.command, .shift])
+                .disabled(appState.feeds.isEmpty)
 
                 Divider()
 
@@ -236,6 +253,44 @@ struct RSSReaderApp: App {
         if let articleId = SpotlightService.articleId(from: userActivity) {
             Task {
                 await appState.openArticleFromSpotlight(articleId: articleId)
+            }
+        }
+    }
+
+    // MARK: - OPML Export
+
+    private func exportOPML() {
+        Task {
+            do {
+                let opmlContent = try await appState.exportOPML()
+
+                // Show save panel
+                await MainActor.run {
+                    let savePanel = NSSavePanel()
+                    savePanel.title = "Export OPML"
+                    savePanel.nameFieldLabel = "Export As:"
+                    savePanel.nameFieldStringValue = "feeds.opml"
+                    savePanel.allowedContentTypes = [
+                        UTType(filenameExtension: "opml") ?? .xml
+                    ]
+                    savePanel.canCreateDirectories = true
+
+                    savePanel.begin { response in
+                        if response == .OK, let url = savePanel.url {
+                            do {
+                                try opmlContent.write(to: url, atomically: true, encoding: .utf8)
+                            } catch {
+                                DispatchQueue.main.async {
+                                    self.appState.error = "Failed to save OPML: \(error.localizedDescription)"
+                                }
+                            }
+                        }
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    appState.error = "Failed to export OPML: \(error.localizedDescription)"
+                }
             }
         }
     }
