@@ -187,6 +187,8 @@ class AppState: ObservableObject {
             startHealthChecks()
             // Load initial data after server starts
             await refresh()
+            // Refresh feeds to fetch new articles on launch
+            try? await refreshFeeds()
         } catch {
             serverError = error.localizedDescription
             serverRunning = false
@@ -512,8 +514,25 @@ class AppState: ObservableObject {
         let previousUnreadCount = totalUnreadCount
 
         try await apiClient.refreshFeeds()
-        // Wait a moment for background refresh to start
-        try? await Task.sleep(nanoseconds: 500_000_000)
+
+        // Poll until refresh completes (or timeout after 60 seconds)
+        let maxAttempts = 60
+        for attempt in 0..<maxAttempts {
+            try? await Task.sleep(nanoseconds: 1_000_000_000)  // 1 second
+
+            let stats = try? await apiClient.getStats()
+            if stats?.refreshInProgress == false {
+                break
+            }
+
+            // Reload articles periodically while refresh is in progress
+            // so user sees new articles as they come in
+            if attempt % 5 == 4 {
+                await refresh()
+            }
+        }
+
+        // Final refresh to get all new articles
         await refresh()
 
         // Notify about new articles if count increased
