@@ -21,6 +21,7 @@ from .feed_parser import FeedParser
 from .fetcher import Fetcher
 from .summarizer import Summarizer
 from .clustering import Clusterer
+from .providers import get_provider_from_env
 from .routes import (
     articles_router,
     feeds_router,
@@ -61,11 +62,24 @@ async def lifespan(app: FastAPI):
             except Exception as e:
                 logger.warning(f"Enhanced fetcher initialization failed: {e}")
 
-        if config.API_KEY:
-            state.summarizer = Summarizer(api_key=config.API_KEY, cache=state.cache)
-            state.clusterer = Clusterer(api_key=config.API_KEY, cache=state.cache)
+        # Initialize LLM provider (supports Anthropic, OpenAI, Google)
+        state.provider = get_provider_from_env(
+            anthropic_key=config.ANTHROPIC_API_KEY or None,
+            openai_key=config.OPENAI_API_KEY or None,
+            google_key=config.GOOGLE_API_KEY or None,
+            preferred_provider=config.LLM_PROVIDER or None,
+            default_model=config.LLM_MODEL or None,
+        )
+
+        if state.provider:
+            state.summarizer = Summarizer(provider=state.provider, cache=state.cache)
+            state.clusterer = Clusterer(provider=state.provider, cache=state.cache)
+            logger.info(f"LLM provider initialized: {state.provider.name}")
         else:
-            print("Warning: ANTHROPIC_API_KEY not set. Summarization and clustering disabled.")
+            logger.warning(
+                "No LLM API key configured. Set ANTHROPIC_API_KEY, OPENAI_API_KEY, "
+                "or GOOGLE_API_KEY. Summarization and clustering disabled."
+            )
 
     yield
 

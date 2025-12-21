@@ -1,25 +1,29 @@
 """
-Summarizer - Claude API integration for article summarization.
+Summarizer - LLM-powered article summarization.
 
 Features:
-- Automatic model selection (Sonnet for complex, Haiku for simple)
+- Multi-provider support (Anthropic, OpenAI, Google)
+- Automatic model selection (advanced for complex, fast for simple)
 - Structured summary output (one-liner, full summary, key points)
 - Cache integration
+- Prompt caching for Anthropic (90% cost reduction)
 """
 
-import anthropic
 from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
+
+from .providers import LLMProvider, AnthropicProvider
+from .providers.base import ModelTier
 
 if TYPE_CHECKING:
     from .cache import TieredCache
 
 
 class Model(Enum):
-    """Available Claude models for summarization (using aliases for latest versions)."""
-    SONNET = "claude-sonnet-4-5"
-    HAIKU = "claude-haiku-4-5"
+    """Model tier selection for summarization."""
+    SONNET = "standard"  # Balanced model
+    HAIKU = "fast"       # Quick, cheap model
 
 
 @dataclass
@@ -34,7 +38,7 @@ class Summary:
 
 
 class Summarizer:
-    """Claude-powered article summarizer."""
+    """LLM-powered article summarizer with multi-provider support."""
 
     # Technical terms that suggest complex content
     TECHNICAL_TERMS = [
@@ -121,11 +125,19 @@ KEY POINTS:
 
     def __init__(
         self,
-        api_key: str,
+        provider: LLMProvider,
         cache: "TieredCache | None" = None,
         default_model: Model = Model.HAIKU
     ):
-        self.client = anthropic.Anthropic(api_key=api_key)
+        """
+        Initialize summarizer with an LLM provider.
+
+        Args:
+            provider: LLM provider instance (Anthropic, OpenAI, or Google)
+            cache: Optional cache for storing summaries
+            default_model: Default model tier for simple content
+        """
+        self.provider = provider
         self.cache = cache
         self.default_model = default_model
 
@@ -163,35 +175,32 @@ KEY POINTS:
 
         # Select model based on content complexity
         model = force_model or self._select_model(content)
+        model_tier = ModelTier.STANDARD if model == Model.SONNET else ModelTier.FAST
 
-        # Generate summary with prompt caching
-        # Both system prompt and instruction prompt are static and cacheable
-        # This reduces costs by ~90% for the cached portions on cache hits
-        response = self.client.messages.create(
-            model=model.value,
-            max_tokens=1024,
-            system=[{
-                "type": "text",
-                "text": self.SYSTEM_PROMPT,
-                "cache_control": {"type": "ephemeral"}
-            }],
-            messages=[{
-                "role": "user",
-                "content": [
-                    {
-                        "type": "text",
-                        "text": self.INSTRUCTION_PROMPT,
-                        "cache_control": {"type": "ephemeral"}
-                    },
-                    {
-                        "type": "text",
-                        "text": self._build_article_content(content, title, url)
-                    }
-                ]
-            }]
-        )
+        # Build article content
+        article_content = self._build_article_content(content, title, url)
 
-        summary = self._parse_response(response, model, title, url)
+        # Generate summary using provider
+        # Use cacheable prefix for Anthropic (90% cost savings)
+        if isinstance(self.provider, AnthropicProvider):
+            response = self.provider.complete_with_cacheable_prefix(
+                system_prompt=self.SYSTEM_PROMPT,
+                instruction_prompt=self.INSTRUCTION_PROMPT,
+                dynamic_content=article_content,
+                model=self.provider.get_model_for_tier(model_tier),
+                max_tokens=1024,
+            )
+        else:
+            # Other providers: combine prompts
+            user_prompt = f"{self.INSTRUCTION_PROMPT}\n\n{article_content}"
+            response = self.provider.complete(
+                user_prompt=user_prompt,
+                system_prompt=self.SYSTEM_PROMPT,
+                model=self.provider.get_model_for_tier(model_tier),
+                max_tokens=1024,
+            )
+
+        summary = self._parse_response(response.text, model, title, url)
 
         # Cache the result
         if self.cache:
@@ -209,7 +218,7 @@ KEY POINTS:
         """
         Select appropriate model based on content complexity.
 
-        Uses Sonnet for:
+        Uses standard tier for:
         - Long content (>2000 words)
         - Technical content
         """
@@ -246,10 +255,8 @@ KEY POINTS:
 Article:
 {truncated_content}"""
 
-    def _parse_response(self, response, model: Model, title: str = "", url: str = "") -> Summary:
-        """Parse Claude's response into structured Summary."""
-        text = response.content[0].text
-
+    def _parse_response(self, text: str, model: Model, title: str = "", url: str = "") -> Summary:
+        """Parse LLM response into structured Summary."""
         # Default values
         headline = ""
         summary_text = ""
@@ -384,8 +391,7 @@ Article:
         """
         Async version of summarize.
 
-        Note: anthropic SDK is sync, so this wraps the sync call.
-        For true async, we'd need to use httpx directly.
+        Note: Wraps sync call in executor for now.
         """
         import asyncio
         loop = asyncio.get_event_loop()
@@ -396,8 +402,23 @@ Article:
 
 
 def create_summarizer(
-    api_key: str,
+    provider: LLMProvider,
     cache: "TieredCache | None" = None
 ) -> Summarizer:
     """Factory function to create a Summarizer instance."""
-    return Summarizer(api_key=api_key, cache=cache)
+    return Summarizer(provider=provider, cache=cache)
+
+
+# Backwards compatibility: create summarizer from API key (uses Anthropic)
+def create_summarizer_from_api_key(
+    api_key: str,
+    cache: "TieredCache | None" = None
+) -> Summarizer:
+    """
+    Create a Summarizer using Anthropic provider (legacy API).
+
+    Deprecated: Use create_summarizer(provider, cache) instead.
+    """
+    from .providers import AnthropicProvider
+    provider = AnthropicProvider(api_key=api_key)
+    return Summarizer(provider=provider, cache=cache)

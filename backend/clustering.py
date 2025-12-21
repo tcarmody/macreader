@@ -1,15 +1,17 @@
 """
-Clustering - Claude-powered topic clustering for articles.
+Clustering - LLM-powered topic clustering for articles.
 
-Groups articles by semantic topic using Claude API to identify
+Groups articles by semantic topic using LLM to identify
 themes across titles and summaries.
 """
 
-import anthropic
 import hashlib
 import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
+
+from .providers import LLMProvider
+from .providers.base import ModelTier
 
 if TYPE_CHECKING:
     from .cache import TieredCache
@@ -32,10 +34,7 @@ class ClusteringResult:
 
 
 class Clusterer:
-    """Claude-powered article clusterer."""
-
-    # Model to use for clustering
-    MODEL = "claude-haiku-4-5-20251001"
+    """LLM-powered article clusterer with multi-provider support."""
 
     # Max tokens for clustering response (needs to be large enough for many topics)
     MAX_TOKENS = 4096
@@ -45,10 +44,17 @@ class Clusterer:
 
     def __init__(
         self,
-        api_key: str,
+        provider: LLMProvider,
         cache: "TieredCache | None" = None
     ):
-        self.client = anthropic.Anthropic(api_key=api_key)
+        """
+        Initialize clusterer with an LLM provider.
+
+        Args:
+            provider: LLM provider instance (Anthropic, OpenAI, or Google)
+            cache: Optional cache for storing clustering results
+        """
+        self.provider = provider
         self.cache = cache
 
     def cluster(
@@ -108,18 +114,19 @@ class Clusterer:
         # Build prompt with article info
         prompt = self._build_prompt(articles, min_clusters, max_clusters)
 
-        # Call Claude API
-        response = self.client.messages.create(
-            model=self.MODEL,
+        # Use fast model for clustering (doesn't need complex reasoning)
+        model = self.provider.get_model_for_tier(ModelTier.FAST)
+
+        # Call LLM with JSON mode if supported
+        response = self.provider.complete(
+            user_prompt=prompt,
+            model=model,
             max_tokens=self.MAX_TOKENS,
-            messages=[{
-                "role": "user",
-                "content": prompt
-            }]
+            json_mode=self.provider.capabilities.supports_json_mode,
         )
 
         # Parse response
-        result = self._parse_response(response, articles)
+        result = self._parse_response(response.text, articles)
 
         # Cache the result
         if self.cache and result.topics:
@@ -193,11 +200,11 @@ Rules:
 
     def _parse_response(
         self,
-        response,
+        text: str,
         articles: list["DBArticle"]
     ) -> ClusteringResult:
-        """Parse Claude's response into ClusteringResult."""
-        text = response.content[0].text.strip()
+        """Parse LLM response into ClusteringResult."""
+        text = text.strip()
 
         # Try to extract JSON from response
         try:
@@ -271,7 +278,7 @@ Rules:
         """
         Async version of cluster.
 
-        Note: anthropic SDK is sync, so this wraps the sync call.
+        Note: Wraps sync call in executor for now.
         """
         import asyncio
         loop = asyncio.get_event_loop()
@@ -282,8 +289,23 @@ Rules:
 
 
 def create_clusterer(
-    api_key: str,
+    provider: LLMProvider,
     cache: "TieredCache | None" = None
 ) -> Clusterer:
     """Factory function to create a Clusterer instance."""
-    return Clusterer(api_key=api_key, cache=cache)
+    return Clusterer(provider=provider, cache=cache)
+
+
+# Backwards compatibility: create clusterer from API key (uses Anthropic)
+def create_clusterer_from_api_key(
+    api_key: str,
+    cache: "TieredCache | None" = None
+) -> Clusterer:
+    """
+    Create a Clusterer using Anthropic provider (legacy API).
+
+    Deprecated: Use create_clusterer(provider, cache) instead.
+    """
+    from .providers import AnthropicProvider
+    provider = AnthropicProvider(api_key=api_key)
+    return Clusterer(provider=provider, cache=cache)
