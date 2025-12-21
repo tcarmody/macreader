@@ -103,13 +103,18 @@ struct MainView: View {
 
         case .openInBrowser:
             if let article = appState.selectedArticle {
-                NSWorkspace.shared.open(article.url)
+                NSWorkspace.shared.open(article.originalUrl)
             }
 
         case .toggleRead:
             if let article = appState.selectedArticle {
                 let newStatus = !article.isRead
                 try? await appState.markRead(articleId: article.id, isRead: newStatus)
+            }
+
+        case .markAsUnread:
+            if let article = appState.selectedArticle {
+                try? await appState.markRead(articleId: article.id, isRead: false)
             }
 
         case .toggleBookmark:
@@ -136,6 +141,11 @@ struct MainView: View {
             isSearchFocused = false
             appState.searchQuery = ""
             appState.selectedArticleIds.removeAll()
+
+        case .scrollDown, .scrollUp:
+            // These are handled by the scroll view naturally when focused
+            // Could implement programmatic scrolling if needed
+            break
         }
     }
 

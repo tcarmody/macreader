@@ -60,6 +60,7 @@ struct FeedListView: View {
                             categoryContextMenu(for: category)
                         }
                     }
+                    .collapsible(false)
                 } else {
                     // Uncategorized feeds section
                     Section("Feeds") {
@@ -385,7 +386,7 @@ struct FilterRow: View {
     }
 }
 
-/// Row for a feed with selection indicator
+/// Row for a feed with selection indicator and favicon
 struct FeedRow: View {
     let feed: Feed
     var isSelected: Bool = false
@@ -407,15 +408,7 @@ struct FeedRow: View {
                 }
             }
         } icon: {
-            ZStack {
-                if isSelected {
-                    Image(systemName: "checkmark.circle.fill")
-                        .foregroundStyle(.blue)
-                } else {
-                    Image(systemName: "dot.radiowaves.up.forward")
-                        .foregroundStyle(.orange)
-                }
-            }
+            FeedFaviconView(feed: feed, isSelected: isSelected, size: 16)
         }
         .background(isSelected ? Color.accentColor.opacity(0.1) : Color.clear)
         .cornerRadius(4)
@@ -518,6 +511,7 @@ struct CategoryHeader: View {
             .padding(.trailing, 12)
         }
         .buttonStyle(.plain)
+        .padding(.bottom, 4)
     }
 }
 

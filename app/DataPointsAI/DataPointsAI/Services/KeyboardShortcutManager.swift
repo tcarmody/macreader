@@ -3,34 +3,40 @@ import Combine
 
 /// Vim-style keyboard shortcut actions
 enum KeyboardAction: Equatable {
-    case nextArticle           // j
-    case previousArticle       // k
+    case nextArticle           // j or Down arrow
+    case previousArticle       // k or Up arrow
     case openArticle           // o or Enter
     case openInBrowser         // O (shift+o)
     case toggleRead            // r
-    case toggleBookmark        // s (star)
-    case goToTop               // g then g
-    case goToBottom            // G (shift+g)
+    case markAsUnread          // u
+    case toggleBookmark        // s (star) or b
+    case goToTop               // g then g or Home
+    case goToBottom            // G (shift+g) or End
     case focusSearch           // /
     case markAllRead           // A (shift+a)
     case refresh               // R (shift+r)
     case escape                // Escape - clear selection/search
+    case scrollDown            // Space - scroll article content
+    case scrollUp              // Shift+Space - scroll article content up
 }
 
 /// Manages vim-style keyboard navigation for the article list
 ///
 /// ## Keyboard Shortcuts
-/// - `j` - Next article
-/// - `k` - Previous article
+/// - `j` / `↓` - Next article
+/// - `k` / `↑` - Previous article
 /// - `o` / `Enter` - Open article (load detail)
 /// - `O` (shift+o) - Open in browser
 /// - `r` - Toggle read status
+/// - `u` - Mark as unread
 /// - `R` (shift+r) - Refresh feeds
-/// - `s` - Toggle bookmark (star)
-/// - `g g` - Go to first article
-/// - `G` (shift+g) - Go to last article
+/// - `s` / `b` - Toggle bookmark (star)
+/// - `g g` / `Home` - Go to first article
+/// - `G` (shift+g) / `End` - Go to last article
 /// - `/` - Focus search field
 /// - `A` (shift+a) - Mark all as read
+/// - `Space` - Scroll article content down
+/// - `Shift+Space` - Scroll article content up
 /// - `Escape` - Clear search/selection
 @MainActor
 class KeyboardShortcutManager: ObservableObject {
@@ -55,13 +61,40 @@ class KeyboardShortcutManager: ObservableObject {
     /// - Returns: The keyboard action to perform, if any
     func processKeyEvent(_ event: NSEvent) -> KeyboardAction? {
         guard isEnabled else { return nil }
-        guard let characters = event.charactersIgnoringModifiers else { return nil }
-        guard let char = characters.first else { return nil }
 
         let hasShift = event.modifierFlags.contains(.shift)
         let hasCommand = event.modifierFlags.contains(.command)
         let hasControl = event.modifierFlags.contains(.control)
         let hasOption = event.modifierFlags.contains(.option)
+
+        // Handle special keys first (arrows, home, end, space)
+        switch event.keyCode {
+        case 125: // Down arrow
+            if !hasCommand && !hasControl && !hasOption {
+                return .nextArticle
+            }
+        case 126: // Up arrow
+            if !hasCommand && !hasControl && !hasOption {
+                return .previousArticle
+            }
+        case 115: // Home
+            if !hasCommand && !hasControl && !hasOption {
+                return .goToTop
+            }
+        case 119: // End
+            if !hasCommand && !hasControl && !hasOption {
+                return .goToBottom
+            }
+        case 49: // Space
+            if !hasCommand && !hasControl && !hasOption {
+                return hasShift ? .scrollUp : .scrollDown
+            }
+        default:
+            break
+        }
+
+        guard let characters = event.charactersIgnoringModifiers else { return nil }
+        guard let char = characters.first else { return nil }
 
         // Skip if command/control/option modifiers are held (let system handle those)
         if hasCommand || hasControl || hasOption {
@@ -93,7 +126,9 @@ class KeyboardShortcutManager: ObservableObject {
             return .openArticle
         case "r":
             return hasShift ? .refresh : .toggleRead
-        case "s":
+        case "u":
+            return .markAsUnread
+        case "s", "b":
             return .toggleBookmark
         case "g":
             // Start 'g' sequence, wait for next key

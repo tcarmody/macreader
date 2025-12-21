@@ -11,8 +11,13 @@ struct ArticleRow: View {
         appState.selectedArticle?.id == article.id
     }
 
+    /// Current list density setting
+    private var listDensity: ListDensity {
+        appState.settings.listDensity
+    }
+
     var body: some View {
-        VStack(alignment: .leading, spacing: 4) {
+        VStack(alignment: .leading, spacing: listDensity == .compact ? 2 : 4) {
             // Title row with unread indicator
             HStack(alignment: .top, spacing: 8) {
                 // Selection/Unread indicator
@@ -21,20 +26,26 @@ struct ArticleRow: View {
                         Image(systemName: "checkmark.circle.fill")
                             .foregroundStyle(.blue)
                             .font(.system(size: 14))
-                    } else {
+                    } else if !article.isRead {
+                        // Unread indicator - simple blue dot
                         Circle()
-                            .fill(article.isRead ? Color.clear : Color.blue)
+                            .fill(Color.blue)
+                            .frame(width: 8, height: 8)
+                    } else {
+                        // Read - empty space (no indicator)
+                        Color.clear
                             .frame(width: 8, height: 8)
                     }
                 }
                 .frame(width: 14, height: 14)
-                .padding(.top, 4)
+                .padding(.top, listDensity == .compact ? 2 : 4)
 
-                VStack(alignment: .leading, spacing: 4) {
-                    // Title
+                VStack(alignment: .leading, spacing: listDensity == .compact ? 2 : 4) {
+                    // Title - bold for unread, semibold for read
                     Text(article.title)
                         .font(.headline)
-                        .lineLimit(2)
+                        .fontWeight(article.isRead ? .semibold : .bold)
+                        .lineLimit(listDensity == .compact ? 1 : 2)
                         .foregroundStyle(article.isRead ? .secondary : .primary)
 
                     // Source and time
@@ -56,18 +67,18 @@ struct ArticleRow: View {
                     .font(.caption)
                     .foregroundStyle(.secondary)
 
-                    // Summary preview
-                    if let preview = article.summaryPreview {
+                    // Summary preview (hidden in compact mode)
+                    if listDensity.showSummaryPreview, let preview = article.summaryPreview {
                         Text(preview)
                             .font(.subheadline)
-                            .foregroundStyle(.secondary)
-                            .lineLimit(2)
+                            .foregroundStyle(.tertiary)
+                            .lineLimit(listDensity == .spacious ? 3 : 2)
                             .padding(.top, 2)
                     }
                 }
             }
         }
-        .padding(.vertical, 6)
+        .padding(.vertical, listDensity.verticalPadding)
         .padding(.horizontal, isMultiSelected || isKeyboardFocused ? 4 : 0)
         .background(
             isMultiSelected ? Color.accentColor.opacity(0.1) :

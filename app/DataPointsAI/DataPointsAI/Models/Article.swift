@@ -177,6 +177,35 @@ enum GroupByMode: String, CaseIterable, Sendable {
     }
 }
 
+/// How to sort articles within groups
+enum ArticleSortOption: String, CaseIterable, Sendable {
+    case newestFirst = "newest"
+    case oldestFirst = "oldest"
+    case unreadFirst = "unread"
+    case titleAZ = "title_az"
+    case titleZA = "title_za"
+
+    var label: String {
+        switch self {
+        case .newestFirst: return "Newest First"
+        case .oldestFirst: return "Oldest First"
+        case .unreadFirst: return "Unread First"
+        case .titleAZ: return "Title A-Z"
+        case .titleZA: return "Title Z-A"
+        }
+    }
+
+    var iconName: String {
+        switch self {
+        case .newestFirst: return "arrow.down.circle"
+        case .oldestFirst: return "arrow.up.circle"
+        case .unreadFirst: return "envelope.badge"
+        case .titleAZ: return "textformat.abc"
+        case .titleZA: return "textformat.abc"
+        }
+    }
+}
+
 /// Response from grouped articles API
 struct GroupedArticlesResponse: Codable, Sendable {
     let groupBy: String

@@ -1,4 +1,6 @@
 import Foundation
+import AppKit
+import SwiftUI
 
 /// Feed model (matches FeedResponse from API)
 struct Feed: Identifiable, Codable, Hashable, Sendable {
@@ -55,12 +57,19 @@ struct AppSettings: Codable, Sendable {
     // Client-side only settings (not synced with backend)
     var notificationsEnabled: Bool = true
 
+    // Appearance settings (client-side only)
+    var articleFontSize: ArticleFontSize = .medium
+    var articleLineSpacing: ArticleLineSpacing = .normal
+    var listDensity: ListDensity = .comfortable
+    var appTypeface: AppTypeface = .system
+    var contentTypeface: ContentTypeface = .system
+
     enum CodingKeys: String, CodingKey {
         case refreshIntervalMinutes = "refresh_interval_minutes"
         case autoSummarize = "auto_summarize"
         case markReadOnOpen = "mark_read_on_open"
         case defaultModel = "default_model"
-        // notificationsEnabled is not sent to/from API
+        // Client-side settings are not sent to/from API
     }
 
     static let `default` = AppSettings(
@@ -68,8 +77,258 @@ struct AppSettings: Codable, Sendable {
         autoSummarize: false,
         markReadOnOpen: true,
         defaultModel: "haiku",
-        notificationsEnabled: true
+        notificationsEnabled: true,
+        articleFontSize: .medium,
+        articleLineSpacing: .normal,
+        listDensity: .comfortable,
+        appTypeface: .system,
+        contentTypeface: .system
     )
+}
+
+/// Font size options for article content
+enum ArticleFontSize: String, Codable, CaseIterable, Sendable {
+    case small = "small"
+    case medium = "medium"
+    case large = "large"
+    case extraLarge = "extra_large"
+
+    var label: String {
+        switch self {
+        case .small: return "Small"
+        case .medium: return "Medium"
+        case .large: return "Large"
+        case .extraLarge: return "Extra Large"
+        }
+    }
+
+    var bodyFontSize: CGFloat {
+        switch self {
+        case .small: return 13
+        case .medium: return 15
+        case .large: return 17
+        case .extraLarge: return 20
+        }
+    }
+
+    var titleFontSize: CGFloat {
+        switch self {
+        case .small: return 18
+        case .medium: return 22
+        case .large: return 26
+        case .extraLarge: return 30
+        }
+    }
+}
+
+/// Line spacing options for article content
+enum ArticleLineSpacing: String, Codable, CaseIterable, Sendable {
+    case compact = "compact"
+    case normal = "normal"
+    case relaxed = "relaxed"
+
+    var label: String {
+        switch self {
+        case .compact: return "Compact"
+        case .normal: return "Normal"
+        case .relaxed: return "Relaxed"
+        }
+    }
+
+    var multiplier: CGFloat {
+        switch self {
+        case .compact: return 1.2
+        case .normal: return 1.5
+        case .relaxed: return 1.8
+        }
+    }
+}
+
+/// List density options for article list
+enum ListDensity: String, Codable, CaseIterable, Sendable {
+    case compact = "compact"
+    case comfortable = "comfortable"
+    case spacious = "spacious"
+
+    var label: String {
+        switch self {
+        case .compact: return "Compact"
+        case .comfortable: return "Comfortable"
+        case .spacious: return "Spacious"
+        }
+    }
+
+    var verticalPadding: CGFloat {
+        switch self {
+        case .compact: return 4
+        case .comfortable: return 8
+        case .spacious: return 12
+        }
+    }
+
+    var showSummaryPreview: Bool {
+        switch self {
+        case .compact: return false
+        case .comfortable, .spacious: return true
+        }
+    }
+}
+
+/// Typeface options for the application UI
+enum AppTypeface: String, Codable, CaseIterable, Sendable {
+    // Sans-serif
+    case system = "system"
+    case helveticaNeue = "helvetica_neue"
+    case avenir = "avenir"
+    case avenirNext = "avenir_next"
+    // Serif
+    case newYork = "new_york"
+    case georgia = "georgia"
+    case palatino = "palatino"
+    case charter = "charter"
+    case iowan = "iowan"
+    case baskerville = "baskerville"
+    // Other
+    case americanTypewriter = "american_typewriter"
+    case sfMono = "sf_mono"
+
+    var label: String {
+        switch self {
+        case .system: return "System (San Francisco)"
+        case .helveticaNeue: return "Helvetica Neue"
+        case .avenir: return "Avenir"
+        case .avenirNext: return "Avenir Next"
+        case .newYork: return "New York"
+        case .georgia: return "Georgia"
+        case .palatino: return "Palatino"
+        case .charter: return "Charter"
+        case .iowan: return "Iowan Old Style"
+        case .baskerville: return "Baskerville"
+        case .americanTypewriter: return "American Typewriter"
+        case .sfMono: return "SF Mono"
+        }
+    }
+
+    /// Returns the SwiftUI Font.Design for system fonts, or nil for custom fonts
+    var fontDesign: Font.Design? {
+        switch self {
+        case .system: return .default
+        case .newYork: return .serif
+        case .sfMono: return .monospaced
+        default: return nil
+        }
+    }
+
+    /// Returns the font family name for custom fonts
+    var fontFamily: String? {
+        switch self {
+        case .system, .newYork, .sfMono: return nil
+        case .helveticaNeue: return "Helvetica Neue"
+        case .avenir: return "Avenir"
+        case .avenirNext: return "Avenir Next"
+        case .georgia: return "Georgia"
+        case .palatino: return "Palatino"
+        case .charter: return "Charter"
+        case .iowan: return "Iowan Old Style"
+        case .baskerville: return "Baskerville"
+        case .americanTypewriter: return "American Typewriter"
+        }
+    }
+
+    /// Creates a SwiftUI Font with this typeface
+    func font(size: CGFloat, weight: Font.Weight = .regular) -> Font {
+        if let family = fontFamily {
+            // Use custom font family
+            let weightSuffix: String
+            switch weight {
+            case .bold, .semibold, .heavy, .black:
+                weightSuffix = "-Bold"
+            case .light, .ultraLight, .thin:
+                weightSuffix = "-Light"
+            default:
+                weightSuffix = ""
+            }
+            // Try the weighted variant first, fall back to base font
+            if let _ = NSFont(name: family + weightSuffix, size: size) {
+                return Font.custom(family + weightSuffix, size: size)
+            }
+            return Font.custom(family, size: size)
+        } else if let design = fontDesign {
+            return Font.system(size: size, weight: weight, design: design)
+        } else {
+            return Font.system(size: size, weight: weight)
+        }
+    }
+}
+
+/// Typeface options for HTML content view
+enum ContentTypeface: String, Codable, CaseIterable, Sendable {
+    // Sans-serif
+    case system = "system"
+    case helveticaNeue = "helvetica_neue"
+    case avenir = "avenir"
+    case avenirNext = "avenir_next"
+    // Serif
+    case serif = "serif"
+    case georgia = "georgia"
+    case palatino = "palatino"
+    case charter = "charter"
+    case iowan = "iowan"
+    case baskerville = "baskerville"
+    case times = "times"
+    // Other
+    case americanTypewriter = "american_typewriter"
+    case menlo = "menlo"
+
+    var label: String {
+        switch self {
+        case .system: return "System (San Francisco)"
+        case .helveticaNeue: return "Helvetica Neue"
+        case .avenir: return "Avenir"
+        case .avenirNext: return "Avenir Next"
+        case .serif: return "System Serif (New York)"
+        case .georgia: return "Georgia"
+        case .palatino: return "Palatino"
+        case .charter: return "Charter"
+        case .iowan: return "Iowan Old Style"
+        case .baskerville: return "Baskerville"
+        case .times: return "Times New Roman"
+        case .americanTypewriter: return "American Typewriter"
+        case .menlo: return "Menlo"
+        }
+    }
+
+    /// Returns the CSS font-family value
+    var cssFontFamily: String {
+        switch self {
+        case .system:
+            return "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+        case .helveticaNeue:
+            return "'Helvetica Neue', Helvetica, Arial, sans-serif"
+        case .avenir:
+            return "Avenir, 'Helvetica Neue', Helvetica, Arial, sans-serif"
+        case .avenirNext:
+            return "'Avenir Next', Avenir, 'Helvetica Neue', Helvetica, Arial, sans-serif"
+        case .serif:
+            return "'New York', 'Iowan Old Style', Georgia, serif"
+        case .georgia:
+            return "Georgia, 'Times New Roman', serif"
+        case .palatino:
+            return "Palatino, 'Palatino Linotype', 'Book Antiqua', serif"
+        case .charter:
+            return "Charter, Georgia, serif"
+        case .iowan:
+            return "'Iowan Old Style', Georgia, serif"
+        case .baskerville:
+            return "Baskerville, 'Baskerville Old Face', Georgia, serif"
+        case .times:
+            return "'Times New Roman', Times, serif"
+        case .americanTypewriter:
+            return "'American Typewriter', 'Courier New', Courier, monospace"
+        case .menlo:
+            return "Menlo, Monaco, 'SF Mono', 'Courier New', monospace"
+        }
+    }
 }
 
 /// API health status

@@ -11,6 +11,26 @@ struct ArticleDetailView: View {
     @State private var summarizationElapsed: Int = 0
     @State private var summarizationTimer: Timer?
 
+    /// Current font size setting
+    private var fontSize: ArticleFontSize {
+        appState.settings.articleFontSize
+    }
+
+    /// Current line spacing setting
+    private var lineSpacing: ArticleLineSpacing {
+        appState.settings.articleLineSpacing
+    }
+
+    /// Current app typeface setting
+    private var appTypeface: AppTypeface {
+        appState.settings.appTypeface
+    }
+
+    /// Current content typeface setting
+    private var contentTypeface: ContentTypeface {
+        appState.settings.contentTypeface
+    }
+
     var body: some View {
         Group {
             if let article = appState.selectedArticleDetail {
@@ -19,8 +39,8 @@ struct ArticleDetailView: View {
                         // Header
                         VStack(alignment: .leading, spacing: 8) {
                             Text(article.title)
-                                .font(.title)
-                                .fontWeight(.bold)
+                                .font(appTypeface.font(size: fontSize.titleFontSize, weight: .bold))
+                                .lineSpacing(fontSize.titleFontSize * (lineSpacing.multiplier - 1))
                                 .textSelection(.enabled)
 
                             HStack(spacing: 8) {
@@ -50,11 +70,12 @@ struct ArticleDetailView: View {
                         if let summary = article.summaryFull {
                             VStack(alignment: .leading, spacing: 12) {
                                 Label("AI Summary", systemImage: "sparkles")
-                                    .font(.headline)
+                                    .font(appTypeface.font(size: fontSize.bodyFontSize + 2, weight: .semibold))
                                     .foregroundStyle(.blue)
 
                                 Text(summary)
-                                    .font(.body)
+                                    .font(appTypeface.font(size: fontSize.bodyFontSize))
+                                    .lineSpacing(fontSize.bodyFontSize * (lineSpacing.multiplier - 1))
                                     .textSelection(.enabled)
                             }
                             .padding()
@@ -89,10 +110,12 @@ struct ArticleDetailView: View {
                                 } else {
                                     if let shortSummary = article.summaryShort {
                                         Text(shortSummary)
-                                            .font(.body)
+                                            .font(appTypeface.font(size: fontSize.bodyFontSize))
+                                            .lineSpacing(fontSize.bodyFontSize * (lineSpacing.multiplier - 1))
                                             .foregroundStyle(.secondary)
                                     } else {
                                         Text("No summary available")
+                                            .font(appTypeface.font(size: fontSize.bodyFontSize))
                                             .foregroundStyle(.secondary)
                                     }
 
@@ -112,14 +135,17 @@ struct ArticleDetailView: View {
                         if let keyPoints = article.keyPoints, !keyPoints.isEmpty {
                             VStack(alignment: .leading, spacing: 12) {
                                 Text("Key Points")
-                                    .font(.headline)
+                                    .font(appTypeface.font(size: fontSize.bodyFontSize + 2, weight: .semibold))
 
                                 VStack(alignment: .leading, spacing: 8) {
                                     ForEach(keyPoints, id: \.self) { point in
                                         HStack(alignment: .top, spacing: 8) {
                                             Text("•")
+                                                .font(appTypeface.font(size: fontSize.bodyFontSize))
                                                 .foregroundStyle(.blue)
                                             Text(point)
+                                                .font(appTypeface.font(size: fontSize.bodyFontSize))
+                                                .lineSpacing(fontSize.bodyFontSize * (lineSpacing.multiplier - 1))
                                                 .textSelection(.enabled)
                                         }
                                     }
@@ -164,7 +190,7 @@ struct ArticleDetailView: View {
                             VStack(alignment: .leading, spacing: 12) {
                                 HStack {
                                     Text("Original Content")
-                                        .font(.headline)
+                                        .font(appTypeface.font(size: fontSize.bodyFontSize + 2, weight: .semibold))
 
                                     Spacer()
 
@@ -187,8 +213,14 @@ struct ArticleDetailView: View {
                                     }
                                 }
 
-                                HTMLContentView(html: content, dynamicHeight: $contentHeight)
-                                    .frame(height: contentHeight)
+                                HTMLContentView(
+                                    html: content,
+                                    dynamicHeight: $contentHeight,
+                                    fontSize: fontSize.bodyFontSize,
+                                    lineHeight: lineSpacing.multiplier,
+                                    fontFamily: contentTypeface.cssFontFamily
+                                )
+                                .frame(height: contentHeight)
                             }
                             .padding(.top, 8)
                         } else {

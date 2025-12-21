@@ -30,6 +30,7 @@ class AppState: ObservableObject {
     @Published var showSettings: Bool = false
     @Published var showImportOPML: Bool = false
     @Published var groupByMode: GroupByMode = .date
+    @Published var sortOption: ArticleSortOption = .newestFirst
     @Published var isClusteringLoading: Bool = false
 
     // Server-side grouped articles (for topic/feed modes)
@@ -73,10 +74,35 @@ class AppState: ObservableObject {
     var groupedArticles: [ArticleGroup] {
         // For topic/feed modes, use server-side grouped data
         if groupByMode != .date && !serverGroupedArticles.isEmpty {
-            return serverGroupedArticles
+            return serverGroupedArticles.map { group in
+                ArticleGroup(id: group.id, title: group.title, articles: sortArticles(group.articles))
+            }
         }
         // For date mode, group locally
-        return groupArticlesByDate(filteredArticles)
+        return groupArticlesByDate(filteredArticles).map { group in
+            ArticleGroup(id: group.id, title: group.title, articles: sortArticles(group.articles))
+        }
+    }
+
+    /// Sort articles according to current sort option
+    private func sortArticles(_ articles: [Article]) -> [Article] {
+        switch sortOption {
+        case .newestFirst:
+            return articles.sorted { ($0.publishedAt ?? $0.createdAt) > ($1.publishedAt ?? $1.createdAt) }
+        case .oldestFirst:
+            return articles.sorted { ($0.publishedAt ?? $0.createdAt) < ($1.publishedAt ?? $1.createdAt) }
+        case .unreadFirst:
+            return articles.sorted { a, b in
+                if a.isRead != b.isRead {
+                    return !a.isRead // Unread (false) comes first
+                }
+                return (a.publishedAt ?? a.createdAt) > (b.publishedAt ?? b.createdAt)
+            }
+        case .titleAZ:
+            return articles.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedAscending }
+        case .titleZA:
+            return articles.sorted { $0.title.localizedCaseInsensitiveCompare($1.title) == .orderedDescending }
+        }
     }
 
     var filteredArticles: [Article] {
@@ -135,6 +161,9 @@ class AppState: ObservableObject {
     init() {
         self.apiClient = APIClient()
         self.pythonServer = PythonServer()
+
+        // Load client-side settings from UserDefaults
+        loadLocalSettings()
     }
 
     // MARK: - Server Management
@@ -503,7 +532,69 @@ class AppState: ObservableObject {
     // MARK: - Settings
 
     func updateSettings(_ newSettings: AppSettings) async throws {
-        settings = try await apiClient.updateSettings(newSettings)
+        // Preserve client-side appearance settings that aren't synced to the API
+        let savedAppearance = (
+            fontSize: newSettings.articleFontSize,
+            lineSpacing: newSettings.articleLineSpacing,
+            listDensity: newSettings.listDensity,
+            notifications: newSettings.notificationsEnabled,
+            appTypeface: newSettings.appTypeface,
+            contentTypeface: newSettings.contentTypeface
+        )
+
+        // Send to API (only synced settings will be sent due to CodingKeys)
+        var updatedSettings = try await apiClient.updateSettings(newSettings)
+
+        // Restore client-side settings
+        updatedSettings.articleFontSize = savedAppearance.fontSize
+        updatedSettings.articleLineSpacing = savedAppearance.lineSpacing
+        updatedSettings.listDensity = savedAppearance.listDensity
+        updatedSettings.notificationsEnabled = savedAppearance.notifications
+        updatedSettings.appTypeface = savedAppearance.appTypeface
+        updatedSettings.contentTypeface = savedAppearance.contentTypeface
+
+        settings = updatedSettings
+
+        // Persist client-side settings locally
+        saveLocalSettings()
+    }
+
+    /// Save client-side settings to UserDefaults
+    private func saveLocalSettings() {
+        UserDefaults.standard.set(settings.articleFontSize.rawValue, forKey: "articleFontSize")
+        UserDefaults.standard.set(settings.articleLineSpacing.rawValue, forKey: "articleLineSpacing")
+        UserDefaults.standard.set(settings.listDensity.rawValue, forKey: "listDensity")
+        UserDefaults.standard.set(settings.notificationsEnabled, forKey: "notificationsEnabled")
+        UserDefaults.standard.set(settings.appTypeface.rawValue, forKey: "appTypeface")
+        UserDefaults.standard.set(settings.contentTypeface.rawValue, forKey: "contentTypeface")
+    }
+
+    /// Load client-side settings from UserDefaults
+    private func loadLocalSettings() {
+        if let fontSizeRaw = UserDefaults.standard.string(forKey: "articleFontSize"),
+           let fontSize = ArticleFontSize(rawValue: fontSizeRaw) {
+            settings.articleFontSize = fontSize
+        }
+        if let lineSpacingRaw = UserDefaults.standard.string(forKey: "articleLineSpacing"),
+           let lineSpacing = ArticleLineSpacing(rawValue: lineSpacingRaw) {
+            settings.articleLineSpacing = lineSpacing
+        }
+        if let densityRaw = UserDefaults.standard.string(forKey: "listDensity"),
+           let density = ListDensity(rawValue: densityRaw) {
+            settings.listDensity = density
+        }
+        // Only load if key exists (to preserve default of true)
+        if UserDefaults.standard.object(forKey: "notificationsEnabled") != nil {
+            settings.notificationsEnabled = UserDefaults.standard.bool(forKey: "notificationsEnabled")
+        }
+        if let appTypefaceRaw = UserDefaults.standard.string(forKey: "appTypeface"),
+           let appTypeface = AppTypeface(rawValue: appTypefaceRaw) {
+            settings.appTypeface = appTypeface
+        }
+        if let contentTypefaceRaw = UserDefaults.standard.string(forKey: "contentTypeface"),
+           let contentTypeface = ContentTypeface(rawValue: contentTypefaceRaw) {
+            settings.contentTypeface = contentTypeface
+        }
     }
 
     // MARK: - Grouping

@@ -13,6 +13,9 @@ class NonScrollingWebView: WKWebView {
 struct HTMLContentView: NSViewRepresentable {
     let html: String
     @Binding var dynamicHeight: CGFloat
+    var fontSize: CGFloat = 14
+    var lineHeight: CGFloat = 1.6
+    var fontFamily: String = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
 
     func makeNSView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
@@ -50,9 +53,9 @@ struct HTMLContentView: NSViewRepresentable {
                     color-scheme: light dark;
                 }
                 body {
-                    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
-                    font-size: 14px;
-                    line-height: 1.6;
+                    font-family: \(fontFamily);
+                    font-size: \(Int(fontSize))px;
+                    line-height: \(lineHeight);
                     color: var(--text-color, #333);
                     background: transparent;
                     margin: 0;
