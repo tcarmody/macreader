@@ -87,6 +87,38 @@ struct APIStatus: Codable, Sendable {
     var isHealthy: Bool { status == "ok" }
 }
 
+/// Server health status for UI display
+enum ServerHealthStatus: Equatable {
+    case unknown
+    case healthy(summarizationEnabled: Bool)
+    case unhealthy(error: String)
+    case checking
+
+    var isHealthy: Bool {
+        if case .healthy = self { return true }
+        return false
+    }
+
+    var statusText: String {
+        switch self {
+        case .unknown: return "Unknown"
+        case .healthy(let summarizationEnabled):
+            return summarizationEnabled ? "Connected" : "Connected (no API key)"
+        case .unhealthy(let error): return "Error: \(error)"
+        case .checking: return "Checking..."
+        }
+    }
+
+    var statusColor: String {
+        switch self {
+        case .healthy(let summarizationEnabled):
+            return summarizationEnabled ? "green" : "yellow"
+        case .unhealthy: return "red"
+        case .unknown, .checking: return "gray"
+        }
+    }
+}
+
 /// Statistics from the API
 struct Stats: Codable, Sendable {
     let totalFeeds: Int

@@ -182,6 +182,9 @@ struct FeedListView: View {
                 Text("Are you sure you want to delete the folder \"\(category)\"? The feeds will be moved to uncategorized.")
             }
         }
+        .safeAreaInset(edge: .bottom) {
+            ServerStatusIndicator()
+        }
     }
 
     @ViewBuilder
@@ -631,6 +634,53 @@ struct RenameCategorySheet: View {
                 print("Failed to rename category: \(error)")
             }
             isSaving = false
+        }
+    }
+}
+
+/// Server status indicator shown at the bottom of the sidebar
+struct ServerStatusIndicator: View {
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Circle()
+                .fill(statusColor)
+                .frame(width: 8, height: 8)
+
+            Text(appState.serverStatus.statusText)
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .lineLimit(1)
+
+            Spacer()
+
+            if !appState.serverStatus.isHealthy && appState.serverRunning {
+                Button {
+                    Task {
+                        await appState.checkServerHealth()
+                    }
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.caption)
+                }
+                .buttonStyle(.plain)
+                .help("Retry connection")
+            }
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 8)
+        .background(.bar)
+    }
+
+    private var statusColor: Color {
+        switch appState.serverStatus {
+        case .healthy(let summarizationEnabled):
+            return summarizationEnabled ? .green : .yellow
+        case .unhealthy:
+            return .red
+        case .unknown, .checking:
+            return .gray
         }
     }
 }

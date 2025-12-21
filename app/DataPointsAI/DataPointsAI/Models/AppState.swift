@@ -21,6 +21,9 @@ class AppState: ObservableObject {
     // Server state
     @Published var serverRunning: Bool = false
     @Published var serverError: String?
+    @Published var serverStatus: ServerHealthStatus = .unknown
+
+    private var healthCheckTask: Task<Void, Never>?
 
     // UI state
     @Published var showAddFeed: Bool = false
@@ -141,17 +144,52 @@ class AppState: ObservableObject {
         do {
             try await pythonServer.start()
             serverRunning = true
+            // Start periodic health checks
+            startHealthChecks()
             // Load initial data after server starts
             await refresh()
         } catch {
             serverError = error.localizedDescription
             serverRunning = false
+            serverStatus = .unhealthy(error: error.localizedDescription)
         }
     }
 
     func stopServer() {
+        healthCheckTask?.cancel()
+        healthCheckTask = nil
         pythonServer.stop()
         serverRunning = false
+        serverStatus = .unknown
+    }
+
+    /// Check server health once
+    func checkServerHealth() async {
+        serverStatus = .checking
+        do {
+            let status = try await apiClient.healthCheck()
+            if status.isHealthy {
+                serverStatus = .healthy(summarizationEnabled: status.summarizationEnabled)
+                serverRunning = true
+                serverError = nil
+            } else {
+                serverStatus = .unhealthy(error: "Server reported unhealthy status")
+            }
+        } catch {
+            serverStatus = .unhealthy(error: error.localizedDescription)
+            // Don't immediately mark server as not running - could be transient
+        }
+    }
+
+    /// Start periodic health checks (every 30 seconds)
+    private func startHealthChecks() {
+        healthCheckTask?.cancel()
+        healthCheckTask = Task {
+            while !Task.isCancelled {
+                await checkServerHealth()
+                try? await Task.sleep(nanoseconds: 30_000_000_000) // 30 seconds
+            }
+        }
     }
 
     // MARK: - Data Loading
@@ -251,8 +289,9 @@ class AppState: ObservableObject {
         try await apiClient.summarizeArticle(articleId: articleId)
 
         // Poll for the summary to be ready (background task on server)
-        // Try up to 30 times with 1 second delay (30 seconds total)
-        for _ in 0..<30 {
+        // Try up to 60 times with 1 second delay (60 seconds total)
+        // Complex articles with Sonnet model can take 15-30+ seconds
+        for _ in 0..<60 {
             try await Task.sleep(nanoseconds: 1_000_000_000) // 1 second
 
             let detail = try await apiClient.getArticle(id: articleId)

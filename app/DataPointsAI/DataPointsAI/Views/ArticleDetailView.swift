@@ -7,6 +7,9 @@ struct ArticleDetailView: View {
     @State private var isSummarizing: Bool = false
     @State private var isFetchingContent: Bool = false
     @State private var contentHeight: CGFloat = 200
+    @State private var summarizationError: String?
+    @State private var summarizationElapsed: Int = 0
+    @State private var summarizationTimer: Timer?
 
     var body: some View {
         Group {
@@ -57,31 +60,44 @@ struct ArticleDetailView: View {
                             .padding()
                             .background(Color.blue.opacity(0.05))
                             .clipShape(RoundedRectangle(cornerRadius: 8))
-                        } else if article.summaryShort != nil {
-                            // Has short summary but not full - offer to generate
-                            VStack(alignment: .leading, spacing: 8) {
-                                Text(article.summaryShort!)
-                                    .font(.body)
-                                    .foregroundStyle(.secondary)
-                            }
                         } else {
-                            // No summary yet
+                            // No full summary - show generate button
                             VStack(spacing: 12) {
                                 if isSummarizing {
                                     ProgressView()
                                         .scaleEffect(0.8)
-                                    Text("Generating summary...")
+                                    Text("Generating summary... \(summarizationElapsed)s")
                                         .foregroundStyle(.secondary)
+                                    if summarizationElapsed > 10 {
+                                        Text("Complex articles may take up to 60 seconds")
+                                            .font(.caption)
+                                            .foregroundStyle(.tertiary)
+                                    }
+                                } else if let error = summarizationError {
+                                    HStack(spacing: 8) {
+                                        Image(systemName: "exclamationmark.triangle.fill")
+                                            .foregroundStyle(.orange)
+                                        Text(error)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+
+                                    Button("Retry") {
+                                        startSummarization(articleId: article.id)
+                                    }
+                                    .buttonStyle(.bordered)
                                 } else {
-                                    Text("No summary available")
-                                        .foregroundStyle(.secondary)
+                                    if let shortSummary = article.summaryShort {
+                                        Text(shortSummary)
+                                            .font(.body)
+                                            .foregroundStyle(.secondary)
+                                    } else {
+                                        Text("No summary available")
+                                            .foregroundStyle(.secondary)
+                                    }
 
                                     Button("Generate Summary") {
-                                        Task {
-                                            isSummarizing = true
-                                            try? await appState.summarizeArticle(articleId: article.id)
-                                            isSummarizing = false
-                                        }
+                                        startSummarization(articleId: article.id)
                                     }
                                     .buttonStyle(.bordered)
                                 }
@@ -249,6 +265,33 @@ struct ArticleDetailView: View {
 
     private func feedName(for feedId: Int) -> String? {
         appState.feeds.first { $0.id == feedId }?.name
+    }
+
+    private func startSummarization(articleId: Int) {
+        summarizationError = nil
+        summarizationElapsed = 0
+        isSummarizing = true
+
+        // Start elapsed time counter
+        summarizationTimer = Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { _ in
+            summarizationElapsed += 1
+        }
+
+        Task {
+            do {
+                try await appState.summarizeArticle(articleId: articleId)
+                // Check if summary was actually generated
+                if appState.selectedArticleDetail?.summaryFull == nil {
+                    summarizationError = "Summary generation timed out. The server may be busy."
+                }
+            } catch {
+                summarizationError = error.localizedDescription
+            }
+
+            summarizationTimer?.invalidate()
+            summarizationTimer = nil
+            isSummarizing = false
+        }
     }
 }
 
