@@ -6,6 +6,7 @@ pydantic>=2.12.0
 
 # HTTP & Parsing
 aiohttp>=3.13.0
+Brotli>=1.1.0           # Brotli content-encoding support
 feedparser>=6.0.12
 beautifulsoup4>=4.14.0
 lxml>=6.0.0
