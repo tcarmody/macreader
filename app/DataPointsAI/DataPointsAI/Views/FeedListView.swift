@@ -639,6 +639,7 @@ struct RenameCategorySheet: View {
 /// Server status indicator shown at the bottom of the sidebar
 struct ServerStatusIndicator: View {
     @EnvironmentObject var appState: AppState
+    @State private var isRestarting = false
 
     var body: some View {
         HStack(spacing: 8) {
@@ -653,7 +654,11 @@ struct ServerStatusIndicator: View {
 
             Spacer()
 
-            if !appState.serverStatus.isHealthy && appState.serverRunning {
+            if isRestarting {
+                ProgressView()
+                    .scaleEffect(0.5)
+                    .frame(width: 12, height: 12)
+            } else if !appState.serverStatus.isHealthy && appState.serverRunning {
                 Button {
                     Task {
                         await appState.checkServerHealth()
@@ -669,6 +674,18 @@ struct ServerStatusIndicator: View {
         .padding(.horizontal, 12)
         .padding(.vertical, 8)
         .background(.bar)
+        .contextMenu {
+            Button {
+                Task {
+                    isRestarting = true
+                    await appState.restartServer()
+                    isRestarting = false
+                }
+            } label: {
+                Label("Restart Server", systemImage: "arrow.triangle.2.circlepath")
+            }
+            .disabled(isRestarting)
+        }
     }
 
     private var statusColor: Color {

@@ -202,6 +202,19 @@ class AppState: ObservableObject {
         serverStatus = .unknown
     }
 
+    /// Restart the server with fresh code
+    func restartServer() async {
+        serverStatus = .checking
+        do {
+            try await pythonServer.restart()
+            serverRunning = true
+            await checkServerHealth()
+        } catch {
+            serverStatus = .unhealthy(error: error.localizedDescription)
+            serverError = error.localizedDescription
+        }
+    }
+
     /// Check server health once
     func checkServerHealth() async {
         serverStatus = .checking

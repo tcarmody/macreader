@@ -19,17 +19,10 @@ class PythonServer: ObservableObject {
     func start() async throws {
         guard !isRunning else { return }
 
-        // First, check if a server is already running and healthy
-        if await isExistingServerHealthy() {
-            print("✅ Existing server on port \(port) is healthy, reusing it")
-            isRunning = true
-            error = nil
-            return
-        }
-
-        // If port is in use but not responding, kill the zombie process
+        // Always kill any existing server to ensure we run with latest code
+        // This prevents stale code issues when the backend is modified
         if isPortInUse() {
-            print("⚠️ Port \(port) is in use but not responding, clearing it...")
+            print("🔄 Killing existing server on port \(port) to ensure fresh code...")
             killProcessOnPort()
             // Give the OS time to release the port
             try? await Task.sleep(nanoseconds: 500_000_000)
@@ -103,6 +96,16 @@ class PythonServer: ObservableObject {
         process?.terminate()
         process = nil
         isRunning = false
+    }
+
+    /// Restart the server with fresh code
+    func restart() async throws {
+        print("🔄 Restarting Python server...")
+        stop()
+        // Kill any lingering processes
+        killProcessOnPort()
+        try await Task.sleep(nanoseconds: 500_000_000)
+        try await start()
     }
 
     /// Check if an existing server is already running and healthy
