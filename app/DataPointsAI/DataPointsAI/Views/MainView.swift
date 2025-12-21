@@ -6,7 +6,7 @@ struct MainView: View {
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @FocusState private var isSearchFocused: Bool
     @StateObject private var keyboardManager = KeyboardShortcutManager.shared
-    @State private var articleScrollState = ArticleScrollState()
+    @StateObject private var articleScrollState = ArticleScrollState()
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
@@ -14,7 +14,7 @@ struct MainView: View {
         } content: {
             ArticleListView()
         } detail: {
-            ArticleDetailView(scrollState: $articleScrollState)
+            ArticleDetailView(scrollState: articleScrollState)
         }
         .navigationSplitViewStyle(.balanced)
         .searchable(text: $appState.searchQuery, prompt: "Search articles (press / to focus)")
@@ -79,22 +79,41 @@ struct MainView: View {
             }
 
             if let action = keyboardManager.processKeyEvent(event) {
-                // Special handling for scroll actions - only consume if we're navigating
+                // Special handling for scroll actions
                 if action == .scrollDown {
-                    if appState.selectedArticleDetail == nil || articleScrollState.isAtBottom {
-                        // Navigate to next article
+                    let canScroll = articleScrollState.canScrollDown
+                    print("Space pressed - canScrollDown: \(canScroll), hasScrollView: \(articleScrollState.scrollView != nil)")
+                    if appState.selectedArticleDetail == nil {
+                        // No article selected, navigate to first
+                        print("  -> No article selected, going to next")
                         Task { @MainActor in
                             await handleKeyboardAction(.nextArticle)
                         }
-                        return nil // Consume the event
+                    } else if canScroll {
+                        // Scroll down within the article
+                        print("  -> Scrolling down (pageDown)")
+                        articleScrollState.scrollDown()
+                    } else {
+                        // At bottom of article, navigate to next
+                        print("  -> At bottom, going to next article")
+                        Task { @MainActor in
+                            await handleKeyboardAction(.nextArticle)
+                        }
                     }
-                    // Let the scroll view handle the space key
-                    return event
+                    return nil // Always consume space bar
                 }
 
                 if action == .scrollUp {
-                    // Let the scroll view handle shift+space
-                    return event
+                    let canScroll = articleScrollState.canScrollUp
+                    print("Shift+Space pressed - canScrollUp: \(canScroll)")
+                    if appState.selectedArticleDetail != nil && canScroll {
+                        // Scroll up within the article
+                        print("  -> Scrolling up (pageUp)")
+                        articleScrollState.scrollUp()
+                    } else {
+                        print("  -> At top or no article, not scrolling")
+                    }
+                    return nil // Consume shift+space
                 }
 
                 Task { @MainActor in
