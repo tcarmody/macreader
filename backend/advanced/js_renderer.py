@@ -46,8 +46,7 @@ class JSRenderer:
 
     def __init__(
         self,
-        timeout: int = 30000,  # milliseconds
-        wait_for_idle: bool = True,
+        timeout: int = 45000,  # milliseconds - increased for slow sites
         scroll_to_load: bool = True,
         max_scrolls: int = 3,
     ):
@@ -56,12 +55,10 @@ class JSRenderer:
 
         Args:
             timeout: Page load timeout in milliseconds
-            wait_for_idle: Wait for network to be idle before extracting
             scroll_to_load: Scroll page to trigger lazy loading
             max_scrolls: Maximum number of scroll iterations
         """
         self.timeout = timeout
-        self.wait_for_idle = wait_for_idle
         self.scroll_to_load = scroll_to_load
         self.max_scrolls = max_scrolls
 
@@ -208,9 +205,9 @@ class JSRenderer:
             await page.route("**/*.{png,jpg,jpeg,gif,webp,svg,ico}", lambda route: route.abort())
             await page.route("**/*", self._filter_requests)
 
-            # Navigate to the page
-            wait_until = "networkidle" if self.wait_for_idle else "domcontentloaded"
-            response = await page.goto(url, timeout=self.timeout, wait_until=wait_until)
+            # Navigate to the page - use domcontentloaded for faster initial load
+            # then wait for content to appear
+            response = await page.goto(url, timeout=self.timeout, wait_until="domcontentloaded")
 
             if not response:
                 return RenderResult(
@@ -221,12 +218,22 @@ class JSRenderer:
                     error="No response received"
                 )
 
+            # Wait for article content to load (try common selectors)
+            try:
+                await page.wait_for_selector(
+                    "article, [role='main'], .article-content, .story-body, .post-content, main",
+                    timeout=10000  # 10 seconds for content to appear
+                )
+            except Exception:
+                # If no article selector found, just wait a bit
+                await page.wait_for_timeout(2000)
+
             # Scroll to trigger lazy loading
             if self.scroll_to_load:
                 await self._scroll_page(page)
 
             # Wait a bit for any final rendering
-            await page.wait_for_timeout(500)
+            await page.wait_for_timeout(1000)
 
             # Get the final HTML
             html = await page.content()
