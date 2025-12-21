@@ -66,6 +66,10 @@ class AppState: ObservableObject {
             return "Unread"
         case .bookmarked:
             return "Saved"
+        case .summarized:
+            return "Summarized"
+        case .unsummarized:
+            return "Unsummarized"
         case .feed(let id):
             return feeds.first { $0.id == id }?.name ?? "Feed"
         }
@@ -116,6 +120,12 @@ class AppState: ObservableObject {
             result = result.filter { !$0.isRead }
         case .bookmarked:
             result = result.filter { $0.isBookmarked }
+        case .summarized:
+            // Already filtered server-side, but apply locally for consistency
+            result = result.filter { $0.summaryShort != nil }
+        case .unsummarized:
+            // Already filtered server-side, but apply locally for consistency
+            result = result.filter { $0.summaryShort == nil }
         case .feed(let id):
             result = result.filter { $0.feedId == id }
         }
@@ -256,6 +266,10 @@ class AppState: ObservableObject {
             return try await apiClient.getArticles(unreadOnly: true)
         case .bookmarked:
             return try await apiClient.getArticles(bookmarkedOnly: true)
+        case .summarized:
+            return try await apiClient.getArticles(summarizedOnly: true)
+        case .unsummarized:
+            return try await apiClient.getArticles(summarizedOnly: false)
         case .feed(let id):
             return try await apiClient.getArticles(feedId: id)
         }

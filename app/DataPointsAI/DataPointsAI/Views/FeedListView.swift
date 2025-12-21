@@ -36,6 +36,10 @@ struct FeedListView: View {
                     }
 
                 FilterRow(filter: .bookmarked, count: nil)
+
+                FilterRow(filter: .summarized, count: nil)
+
+                FilterRow(filter: .unsummarized, count: nil)
             }
 
             // Group feeds by category

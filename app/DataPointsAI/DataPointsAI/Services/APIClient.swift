@@ -97,6 +97,7 @@ actor APIClient {
         feedId: Int? = nil,
         unreadOnly: Bool = false,
         bookmarkedOnly: Bool = false,
+        summarizedOnly: Bool? = nil,
         limit: Int = 50
     ) async throws -> [Article] {
         var queryItems: [URLQueryItem] = []
@@ -109,6 +110,9 @@ actor APIClient {
         }
         if bookmarkedOnly {
             queryItems.append(URLQueryItem(name: "bookmarked_only", value: "true"))
+        }
+        if let summarizedOnly = summarizedOnly {
+            queryItems.append(URLQueryItem(name: "summarized_only", value: String(summarizedOnly)))
         }
         queryItems.append(URLQueryItem(name: "limit", value: String(limit)))
 

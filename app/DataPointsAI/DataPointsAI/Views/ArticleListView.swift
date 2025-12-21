@@ -186,8 +186,8 @@ struct ArticleListView: View {
             try await appState.markAllRead()
         case .unread:
             try await appState.markAllRead()
-        case .bookmarked:
-            // Don't mark bookmarked as read automatically
+        case .bookmarked, .summarized, .unsummarized:
+            // Mark all visible articles in this filter as read
             let ids = appState.filteredArticles.map { $0.id }
             try await appState.bulkMarkRead(articleIds: ids)
         case .feed(let feedId):
@@ -232,6 +232,10 @@ struct EmptyArticlesView: View {
             return "All Caught Up"
         case .bookmarked:
             return "No Saved Articles"
+        case .summarized:
+            return "No Summarized Articles"
+        case .unsummarized:
+            return "No Unsummarized Articles"
         case .feed:
             return "No Articles"
         }
@@ -245,6 +249,10 @@ struct EmptyArticlesView: View {
             return "checkmark.circle"
         case .bookmarked:
             return "star"
+        case .summarized:
+            return "sparkles"
+        case .unsummarized:
+            return "sparkles.rectangle.stack"
         case .feed:
             return "doc.text"
         }
@@ -260,6 +268,10 @@ struct EmptyArticlesView: View {
             return "You've read all your articles."
         case .bookmarked:
             return "Bookmark articles to save them for later."
+        case .summarized:
+            return "Articles with AI summaries will appear here."
+        case .unsummarized:
+            return "All articles have been summarized."
         case .feed:
             return "This feed has no articles yet."
         }

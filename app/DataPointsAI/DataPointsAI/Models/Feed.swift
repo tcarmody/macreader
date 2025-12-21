@@ -26,6 +26,8 @@ enum ArticleFilter: Hashable {
     case all
     case unread
     case bookmarked
+    case summarized
+    case unsummarized
     case feed(Int)
 
     var displayName: String {
@@ -33,6 +35,8 @@ enum ArticleFilter: Hashable {
         case .all: return "All Articles"
         case .unread: return "Unread"
         case .bookmarked: return "Saved"
+        case .summarized: return "Summarized"
+        case .unsummarized: return "Unsummarized"
         case .feed: return "Feed"
         }
     }
@@ -42,6 +46,8 @@ enum ArticleFilter: Hashable {
         case .all: return "tray.full"
         case .unread: return "circle.fill"
         case .bookmarked: return "star.fill"
+        case .summarized: return "sparkles"
+        case .unsummarized: return "sparkles.rectangle.stack"
         case .feed: return "dot.radiowaves.up.forward"
         }
     }

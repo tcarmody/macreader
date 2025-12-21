@@ -247,10 +247,17 @@ class Database:
         feed_id: int | None = None,
         unread_only: bool = False,
         bookmarked_only: bool = False,
+        summarized_only: bool | None = None,
         limit: int = 50,
         offset: int = 0
     ) -> list[DBArticle]:
-        """Get articles with optional filters."""
+        """Get articles with optional filters.
+
+        Args:
+            summarized_only: If True, only return articles with summaries.
+                            If False, only return articles without summaries.
+                            If None, return all articles.
+        """
         query = "SELECT * FROM articles WHERE 1=1"
         params: list = []
 
@@ -261,6 +268,10 @@ class Database:
             query += " AND is_read = 0"
         if bookmarked_only:
             query += " AND is_bookmarked = 1"
+        if summarized_only is True:
+            query += " AND summary_full IS NOT NULL"
+        elif summarized_only is False:
+            query += " AND summary_full IS NULL"
 
         query += " ORDER BY published_at DESC NULLS LAST, created_at DESC LIMIT ? OFFSET ?"
         params.extend([limit, offset])

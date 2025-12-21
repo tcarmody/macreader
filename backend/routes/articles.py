@@ -33,14 +33,22 @@ async def list_articles(
     feed_id: int | None = None,
     unread_only: bool = False,
     bookmarked_only: bool = False,
+    summarized_only: bool | None = None,
     limit: int = Query(default=50, le=200),
     offset: int = 0
 ) -> list[ArticleResponse]:
-    """Get articles, optionally filtered by feed or status."""
+    """Get articles, optionally filtered by feed or status.
+
+    Args:
+        summarized_only: If True, only return summarized articles.
+                        If False, only return unsummarized articles.
+                        If None, return all articles regardless of summary status.
+    """
     articles = db.get_articles(
         feed_id=feed_id,
         unread_only=unread_only,
         bookmarked_only=bookmarked_only,
+        summarized_only=summarized_only,
         limit=limit,
         offset=offset
     )
