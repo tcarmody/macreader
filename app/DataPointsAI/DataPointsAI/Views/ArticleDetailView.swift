@@ -382,21 +382,19 @@ struct ArticleDetailView: View {
 
                     Spacer()
 
-                    if article.sourceUrl != nil {
-                        if isFetchingContent {
-                            ProgressView()
-                                .scaleEffect(0.7)
-                        } else {
-                            Button("Fetch Source Article") {
-                                Task {
-                                    isFetchingContent = true
-                                    try? await appState.fetchArticleContent(articleId: article.id)
-                                    isFetchingContent = false
-                                }
+                    if isFetchingContent {
+                        ProgressView()
+                            .scaleEffect(0.7)
+                    } else {
+                        Button("Fetch Full Article") {
+                            Task {
+                                isFetchingContent = true
+                                try? await appState.fetchArticleContent(articleId: article.id)
+                                isFetchingContent = false
                             }
-                            .buttonStyle(.bordered)
-                            .controlSize(.small)
                         }
+                        .buttonStyle(.bordered)
+                        .controlSize(.small)
                     }
                 }
 
