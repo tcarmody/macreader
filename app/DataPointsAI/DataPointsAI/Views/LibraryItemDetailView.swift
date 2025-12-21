@@ -1,5 +1,54 @@
 import SwiftUI
 import WebKit
+import AppKit
+
+/// NSTextView wrapper for efficient rendering of large text content
+struct LargeTextView: NSViewRepresentable {
+    let text: String
+    let font: NSFont
+    let lineSpacing: CGFloat
+
+    func makeNSView(context: Context) -> NSScrollView {
+        let scrollView = NSScrollView()
+        scrollView.hasVerticalScroller = true
+        scrollView.hasHorizontalScroller = false
+        scrollView.autohidesScrollers = true
+        scrollView.borderType = .noBorder
+
+        let textView = NSTextView()
+        textView.isEditable = false
+        textView.isSelectable = true
+        textView.backgroundColor = .clear
+        textView.drawsBackground = false
+        textView.isVerticallyResizable = true
+        textView.isHorizontallyResizable = false
+        textView.autoresizingMask = [.width]
+        textView.textContainerInset = NSSize(width: 0, height: 8)
+
+        // Configure text container
+        textView.textContainer?.containerSize = NSSize(width: scrollView.contentSize.width, height: .greatestFiniteMagnitude)
+        textView.textContainer?.widthTracksTextView = true
+
+        scrollView.documentView = textView
+        return scrollView
+    }
+
+    func updateNSView(_ scrollView: NSScrollView, context: Context) {
+        guard let textView = scrollView.documentView as? NSTextView else { return }
+
+        // Create paragraph style with line spacing
+        let paragraphStyle = NSMutableParagraphStyle()
+        paragraphStyle.lineSpacing = lineSpacing
+
+        let attributes: [NSAttributedString.Key: Any] = [
+            .font: font,
+            .paragraphStyle: paragraphStyle,
+            .foregroundColor: NSColor.labelColor
+        ]
+
+        textView.textStorage?.setAttributedString(NSAttributedString(string: text, attributes: attributes))
+    }
+}
 
 /// Right pane: full library item detail with summary
 struct LibraryItemDetailView: View {
@@ -9,6 +58,7 @@ struct LibraryItemDetailView: View {
     @State private var summarizationError: String?
     @State private var summarizationElapsed: Int = 0
     @State private var summarizationTimer: Timer?
+    @State private var showFullContent: Bool = false
 
     var body: some View {
         Group {
@@ -36,6 +86,10 @@ struct LibraryItemDetailView: View {
                 itemBody(item: item)
                     .padding()
             }
+        }
+        .onChange(of: item.id) { _, _ in
+            // Reset content expansion state when viewing a new item
+            showFullContent = false
         }
     }
 
@@ -307,14 +361,28 @@ struct LibraryItemDetailView: View {
 
     // MARK: - Content Section
 
+    /// Character threshold for showing "Show More" button
+    private let contentPreviewLimit = 5000
+
     @ViewBuilder
     private func contentSection(item: LibraryItemDetail, fontSize: ArticleFontSize, lineSpacing: ArticleLineSpacing, contentTypeface: ContentTypeface) -> some View {
         if let content = item.content, !content.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
-                Text("Content")
-                    .font(.headline)
+                HStack {
+                    Text("Content")
+                        .font(.headline)
 
-                // For HTML content, use the web view; for plain text, use Text view
+                    Spacer()
+
+                    // Show character count for large documents
+                    if content.count > contentPreviewLimit {
+                        Text("\(content.count.formatted()) characters")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+
+                // For HTML content, use the web view; for plain text, use efficient text view
                 if item.type == .url || item.type == .html {
                     HTMLContentView(
                         html: content,
@@ -326,11 +394,44 @@ struct LibraryItemDetailView: View {
                     .frame(height: contentHeight)
                 } else {
                     // Plain text content (PDF, DOCX, TXT, MD)
-                    Text(content)
-                        .font(appState.settings.appTypeface.font(size: fontSize.bodyFontSize))
-                        .lineSpacing(fontSize.bodyFontSize * (lineSpacing.multiplier - 1))
-                        .textSelection(.enabled)
-                        .frame(maxWidth: .infinity, alignment: .leading)
+                    // Use NSTextView-based view for efficient rendering of large documents
+                    let nsFont = NSFont.systemFont(ofSize: fontSize.bodyFontSize)
+                    let extraLineSpacing = fontSize.bodyFontSize * (lineSpacing.multiplier - 1)
+
+                    if content.count > contentPreviewLimit && !showFullContent {
+                        // Show truncated preview for very large documents
+                        VStack(alignment: .leading, spacing: 8) {
+                            Text(String(content.prefix(contentPreviewLimit)) + "...")
+                                .font(.system(size: fontSize.bodyFontSize))
+                                .lineSpacing(extraLineSpacing)
+                                .textSelection(.enabled)
+                                .frame(maxWidth: .infinity, alignment: .leading)
+
+                            Button {
+                                showFullContent = true
+                            } label: {
+                                Label("Show Full Content", systemImage: "chevron.down")
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    } else {
+                        // Use efficient NSTextView for full content
+                        LargeTextView(
+                            text: content,
+                            font: nsFont,
+                            lineSpacing: extraLineSpacing
+                        )
+                        .frame(minHeight: 200, maxHeight: 600)
+
+                        if content.count > contentPreviewLimit {
+                            Button {
+                                showFullContent = false
+                            } label: {
+                                Label("Collapse Content", systemImage: "chevron.up")
+                            }
+                            .buttonStyle(.bordered)
+                        }
+                    }
                 }
             }
             .padding(.top, 8)
