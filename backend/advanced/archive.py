@@ -79,6 +79,8 @@ class ArchiveService:
         # Try each archive service in order
         services = [
             ("archive.today", self._fetch_archive_today),
+            ("archive.ph", self._fetch_archive_ph),
+            ("ghostarchive", self._fetch_ghostarchive),
             ("wayback", self._fetch_wayback),
             ("google_cache", self._fetch_google_cache),
         ]
@@ -158,6 +160,129 @@ class ArchiveService:
                     cached_date=None,
                     success=False,
                     error=f"Not found (status {resp.status})"
+                )
+
+    async def _fetch_archive_ph(self, url: str) -> ArchiveResult:
+        """
+        Fetch from Archive.ph (alternative endpoint).
+
+        Sometimes archive.ph has different cached versions than archive.today.
+        """
+        search_url = f"https://archive.ph/newest/{url}"
+
+        async with aiohttp.ClientSession(headers=self.headers) as session:
+            async with session.get(
+                search_url,
+                timeout=aiohttp.ClientTimeout(total=self.timeout),
+                allow_redirects=True
+            ) as resp:
+                if resp.status == 200:
+                    html = await resp.text()
+                    final_url = str(resp.url)
+
+                    cached_date = self._parse_archive_today_date(final_url)
+
+                    if cached_date and self._is_too_old(cached_date):
+                        return ArchiveResult(
+                            url=final_url,
+                            original_url=url,
+                            html="",
+                            source="archive.ph",
+                            cached_date=cached_date,
+                            success=False,
+                            error="Cached version too old"
+                        )
+
+                    return ArchiveResult(
+                        url=final_url,
+                        original_url=url,
+                        html=html,
+                        source="archive.ph",
+                        cached_date=cached_date,
+                        success=True
+                    )
+
+                return ArchiveResult(
+                    url=url,
+                    original_url=url,
+                    html="",
+                    source="archive.ph",
+                    cached_date=None,
+                    success=False,
+                    error=f"Not found (status {resp.status})"
+                )
+
+    async def _fetch_ghostarchive(self, url: str) -> ArchiveResult:
+        """
+        Fetch from Ghostarchive.org.
+
+        A newer archive service that sometimes has content others don't.
+        """
+        search_url = f"https://ghostarchive.org/search?term={quote(url, safe='')}"
+
+        async with aiohttp.ClientSession(headers=self.headers) as session:
+            # First search for the URL
+            async with session.get(
+                search_url,
+                timeout=aiohttp.ClientTimeout(total=self.timeout),
+                allow_redirects=True
+            ) as resp:
+                if resp.status != 200:
+                    return ArchiveResult(
+                        url=url,
+                        original_url=url,
+                        html="",
+                        source="ghostarchive",
+                        cached_date=None,
+                        success=False,
+                        error=f"Search failed (status {resp.status})"
+                    )
+
+                search_html = await resp.text()
+
+                # Look for archive link in search results
+                # Ghostarchive links look like: /archive/xxxxx
+                match = re.search(r'href="(/archive/[^"]+)"', search_html)
+                if not match:
+                    return ArchiveResult(
+                        url=url,
+                        original_url=url,
+                        html="",
+                        source="ghostarchive",
+                        cached_date=None,
+                        success=False,
+                        error="No archive found"
+                    )
+
+                archive_path = match.group(1)
+                archive_url = f"https://ghostarchive.org{archive_path}"
+
+            # Fetch the actual archived page
+            async with session.get(
+                archive_url,
+                timeout=aiohttp.ClientTimeout(total=self.timeout),
+                allow_redirects=True
+            ) as resp:
+                if resp.status != 200:
+                    return ArchiveResult(
+                        url=archive_url,
+                        original_url=url,
+                        html="",
+                        source="ghostarchive",
+                        cached_date=None,
+                        success=False,
+                        error=f"Failed to fetch archive (status {resp.status})"
+                    )
+
+                html = await resp.text()
+
+                return ArchiveResult(
+                    url=archive_url,
+                    original_url=url,
+                    html=html,
+                    source="ghostarchive",
+                    cached_date=None,  # Ghostarchive doesn't expose dates easily
+                    success=True
                 )
 
     async def _fetch_wayback(self, url: str) -> ArchiveResult:
