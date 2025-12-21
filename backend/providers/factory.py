@@ -65,7 +65,7 @@ def create_provider(
     elif provider_type == ProviderType.GOOGLE:
         return GoogleProvider(
             api_key=api_key,
-            default_model=default_model or "gemini-3.0-flash",
+            default_model=default_model or "gemini-3-flash-preview",
         )
     else:
         raise ValueError(f"Unknown provider type: {provider_type}")

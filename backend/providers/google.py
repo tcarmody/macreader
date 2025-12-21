@@ -17,29 +17,32 @@ class GoogleProvider(LLMProvider):
     """
 
     # Model mappings for each tier
+    # Using Gemini 3 preview models (latest)
     TIER_MODELS = {
-        ModelTier.FAST: "gemini-3.0-flash",
-        ModelTier.STANDARD: "gemini-3.0-pro",
-        ModelTier.ADVANCED: "gemini-3.0-pro",
+        ModelTier.FAST: "gemini-3-flash-preview",
+        ModelTier.STANDARD: "gemini-3-pro-preview",
+        ModelTier.ADVANCED: "gemini-3-pro-preview",
     }
 
     # Model aliases for convenience
     MODEL_ALIASES = {
-        "flash": "gemini-3.0-flash",
-        "pro": "gemini-3.0-pro",
-        "gemini-flash": "gemini-3.0-flash",
-        "gemini-pro": "gemini-3.0-pro",
-        "fast": "gemini-3.0-flash",
-        "standard": "gemini-3.0-pro",
+        "flash": "gemini-3-flash-preview",
+        "pro": "gemini-3-pro-preview",
+        "gemini-flash": "gemini-3-flash-preview",
+        "gemini-pro": "gemini-3-pro-preview",
+        "fast": "gemini-3-flash-preview",
+        "standard": "gemini-3-pro-preview",
+        # Stable 2.5 aliases
+        "gemini-2.5-flash": "gemini-2.5-flash",
+        "gemini-2.5-pro": "gemini-2.5-pro",
         # Legacy aliases
         "gemini-2.0-flash": "gemini-2.0-flash",
-        "gemini-2.5-pro": "gemini-2.5-pro",
     }
 
     def __init__(
         self,
         api_key: str,
-        default_model: str = "gemini-3.0-flash",
+        default_model: str = "gemini-3-flash-preview",
     ):
         """
         Initialize Google Gemini provider.
