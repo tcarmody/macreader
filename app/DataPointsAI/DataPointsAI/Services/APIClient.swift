@@ -24,9 +24,9 @@ enum APIError: Error, LocalizedError, Sendable {
     }
 }
 
-/// Helper for JSON decoding outside of actor context
+/// Helper for JSON decoding with custom date formatting
 private enum JSONHelper {
-    static let decoder: JSONDecoder = {
+    private static let decoder: JSONDecoder = {
         let decoder = JSONDecoder()
         // Use custom date decoding to handle both formats:
         // - "yyyy-MM-dd'T'HH:mm:ss" (articles)
@@ -61,10 +61,7 @@ private enum JSONHelper {
         return decoder
     }()
 
-    static let encoder: JSONEncoder = {
-        let encoder = JSONEncoder()
-        return encoder
-    }()
+    private static let encoder = JSONEncoder()
 
     static func decode<T: Decodable>(_ type: T.Type, from data: Data) throws -> T {
         try decoder.decode(type, from: data)
@@ -76,7 +73,9 @@ private enum JSONHelper {
 }
 
 /// Client for communicating with Python backend
-actor APIClient {
+/// MainActor isolated since it's only used from MainActor contexts (AppState)
+@MainActor
+final class APIClient {
     private let baseURL: URL
     private let session: URLSession
 
