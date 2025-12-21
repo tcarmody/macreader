@@ -25,6 +25,7 @@ struct Feed: Identifiable, Codable, Hashable, Sendable {
 enum ArticleFilter: Hashable {
     case all
     case unread
+    case today
     case bookmarked
     case summarized
     case unsummarized
@@ -34,6 +35,7 @@ enum ArticleFilter: Hashable {
         switch self {
         case .all: return "All Articles"
         case .unread: return "Unread"
+        case .today: return "Today"
         case .bookmarked: return "Saved"
         case .summarized: return "Summarized"
         case .unsummarized: return "Unsummarized"
@@ -45,6 +47,7 @@ enum ArticleFilter: Hashable {
         switch self {
         case .all: return "tray.full"
         case .unread: return "circle.fill"
+        case .today: return "sun.max.fill"
         case .bookmarked: return "star.fill"
         case .summarized: return "sparkles"
         case .unsummarized: return "sparkles.rectangle.stack"

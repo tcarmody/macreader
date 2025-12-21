@@ -5,6 +5,7 @@ import Combine
 enum KeyboardAction: Equatable {
     case nextArticle           // j or Down arrow
     case previousArticle       // k or Up arrow
+    case nextUnread            // n - jump to next unread article
     case openArticle           // o or Enter
     case openInBrowser         // O (shift+o)
     case toggleRead            // r
@@ -25,6 +26,7 @@ enum KeyboardAction: Equatable {
 /// ## Keyboard Shortcuts
 /// - `j` / `↓` - Next article
 /// - `k` / `↑` - Previous article
+/// - `n` - Jump to next unread article
 /// - `o` / `Enter` - Open article (load detail)
 /// - `O` (shift+o) - Open in browser
 /// - `r` - Toggle read status
@@ -120,6 +122,8 @@ class KeyboardShortcutManager: ObservableObject {
             return .nextArticle
         case "k":
             return .previousArticle
+        case "n":
+            return .nextUnread
         case "o":
             return hasShift ? .openInBrowser : .openArticle
         case "\r", "\n": // Enter/Return

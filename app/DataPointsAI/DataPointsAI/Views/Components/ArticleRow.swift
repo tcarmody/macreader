@@ -178,6 +178,21 @@ struct ArticleRow: View {
             }
         }
 
+        // Mark Above/Below as Read
+        Divider()
+
+        Button {
+            markArticlesAboveAsRead()
+        } label: {
+            Label("Mark Above as Read", systemImage: "arrow.up.to.line")
+        }
+
+        Button {
+            markArticlesBelowAsRead()
+        } label: {
+            Label("Mark Below as Read", systemImage: "arrow.down.to.line")
+        }
+
         // Selection management
         if hasSelection {
             Divider()
@@ -195,6 +210,33 @@ struct ArticleRow: View {
             } label: {
                 Label("Add to Selection", systemImage: "plus.circle")
             }
+        }
+    }
+
+    private func markArticlesAboveAsRead() {
+        let allArticles = appState.groupedArticles.flatMap { $0.articles }
+        guard let currentIndex = allArticles.firstIndex(where: { $0.id == article.id }) else { return }
+
+        let articlesToMark = allArticles[..<currentIndex].filter { !$0.isRead }
+        guard !articlesToMark.isEmpty else { return }
+
+        Task {
+            try? await appState.bulkMarkRead(articleIds: articlesToMark.map { $0.id }, isRead: true)
+        }
+    }
+
+    private func markArticlesBelowAsRead() {
+        let allArticles = appState.groupedArticles.flatMap { $0.articles }
+        guard let currentIndex = allArticles.firstIndex(where: { $0.id == article.id }) else { return }
+
+        let startIndex = allArticles.index(after: currentIndex)
+        guard startIndex < allArticles.endIndex else { return }
+
+        let articlesToMark = allArticles[startIndex...].filter { !$0.isRead }
+        guard !articlesToMark.isEmpty else { return }
+
+        Task {
+            try? await appState.bulkMarkRead(articleIds: articlesToMark.map { $0.id }, isRead: true)
         }
     }
 

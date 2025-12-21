@@ -31,6 +31,7 @@ class AppState: ObservableObject {
     @Published var showImportOPML: Bool = false
     @Published var groupByMode: GroupByMode = .date
     @Published var sortOption: ArticleSortOption = .newestFirst
+    @Published var hideReadArticles: Bool = false
     @Published var isClusteringLoading: Bool = false
 
     // Server-side grouped articles (for topic/feed modes)
@@ -64,6 +65,8 @@ class AppState: ObservableObject {
             return "All Articles"
         case .unread:
             return "Unread"
+        case .today:
+            return "Today"
         case .bookmarked:
             return "Saved"
         case .summarized:
@@ -118,6 +121,10 @@ class AppState: ObservableObject {
             break
         case .unread:
             result = result.filter { !$0.isRead }
+        case .today:
+            let calendar = Calendar.current
+            let startOfToday = calendar.startOfDay(for: Date())
+            result = result.filter { ($0.publishedAt ?? $0.createdAt) >= startOfToday }
         case .bookmarked:
             result = result.filter { $0.isBookmarked }
         case .summarized:
@@ -128,6 +135,11 @@ class AppState: ObservableObject {
             result = result.filter { $0.summaryShort == nil }
         case .feed(let id):
             result = result.filter { $0.feedId == id }
+        }
+
+        // Apply "hide read" toggle (unless we're already in unread filter)
+        if hideReadArticles && selectedFilter != .unread {
+            result = result.filter { !$0.isRead }
         }
 
         // Apply search
@@ -143,6 +155,12 @@ class AppState: ObservableObject {
 
     var totalUnreadCount: Int {
         feeds.reduce(0) { $0 + $1.unreadCount }
+    }
+
+    var todayArticleCount: Int {
+        let calendar = Calendar.current
+        let startOfToday = calendar.startOfDay(for: Date())
+        return articles.filter { ($0.publishedAt ?? $0.createdAt) >= startOfToday }.count
     }
 
     /// Feeds grouped by category, with uncategorized feeds under nil key
@@ -279,6 +297,12 @@ class AppState: ObservableObject {
             return try await apiClient.getArticles()
         case .unread:
             return try await apiClient.getArticles(unreadOnly: true)
+        case .today:
+            // Fetch all articles and filter to today client-side
+            let allArticles = try await apiClient.getArticles()
+            let calendar = Calendar.current
+            let startOfToday = calendar.startOfDay(for: Date())
+            return allArticles.filter { ($0.publishedAt ?? $0.createdAt) >= startOfToday }
         case .bookmarked:
             return try await apiClient.getArticles(bookmarkedOnly: true)
         case .summarized:

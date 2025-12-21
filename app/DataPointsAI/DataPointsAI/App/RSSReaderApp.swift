@@ -141,6 +141,17 @@ struct RSSReaderApp: App {
 
                 Divider()
 
+                Button("Copy Article URL") {
+                    if let article = appState.selectedArticle {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(article.url.absoluteString, forType: .string)
+                    }
+                }
+                .keyboardShortcut("c", modifiers: [.command, .shift])
+                .disabled(appState.selectedArticle == nil)
+
+                Divider()
+
                 Button("Mark as Read") {
                     markSelectedAsRead(true)
                 }
@@ -239,7 +250,7 @@ struct RSSReaderApp: App {
         switch appState.selectedFilter {
         case .all, .unread:
             try await appState.markAllRead()
-        case .bookmarked, .summarized, .unsummarized:
+        case .today, .bookmarked, .summarized, .unsummarized:
             let ids = appState.filteredArticles.map { $0.id }
             try await appState.bulkMarkRead(articleIds: ids)
         case .feed(let feedId):

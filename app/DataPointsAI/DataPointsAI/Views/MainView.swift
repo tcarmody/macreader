@@ -134,6 +134,9 @@ struct MainView: View {
         case .previousArticle:
             navigateToArticle(direction: .previous)
 
+        case .nextUnread:
+            navigateToNextUnread()
+
         case .openArticle:
             if let article = appState.selectedArticle {
                 await appState.loadArticleDetail(for: article)
@@ -237,6 +240,41 @@ struct MainView: View {
         appState.selectedArticleIds = [last.id]
         Task {
             await appState.loadArticleDetail(for: last)
+        }
+    }
+
+    private func navigateToNextUnread() {
+        let allArticles = appState.groupedArticles.flatMap { $0.articles }
+        guard !allArticles.isEmpty else { return }
+
+        let currentId = appState.selectedArticle?.id
+        let currentIndex = currentId.flatMap { id in
+            allArticles.firstIndex(where: { $0.id == id })
+        }
+
+        // Search for next unread starting after current position
+        let startIndex = (currentIndex ?? -1) + 1
+
+        // First, search from current position to end
+        if let nextUnread = allArticles[startIndex...].first(where: { !$0.isRead }) {
+            selectArticle(nextUnread)
+            return
+        }
+
+        // If not found, wrap around and search from beginning
+        if startIndex > 0, let nextUnread = allArticles[..<startIndex].first(where: { !$0.isRead }) {
+            selectArticle(nextUnread)
+            return
+        }
+
+        // No unread articles found - could show feedback here if desired
+    }
+
+    private func selectArticle(_ article: Article) {
+        appState.selectedArticle = article
+        appState.selectedArticleIds = [article.id]
+        Task {
+            await appState.loadArticleDetail(for: article)
         }
     }
 }

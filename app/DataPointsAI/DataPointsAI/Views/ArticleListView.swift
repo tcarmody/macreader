@@ -47,6 +47,14 @@ struct ArticleListView: View {
                     selectionToolbar
                 }
 
+                // Hide read toggle
+                Button {
+                    appState.hideReadArticles.toggle()
+                } label: {
+                    Image(systemName: appState.hideReadArticles ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                }
+                .help(appState.hideReadArticles ? "Show Read Articles" : "Hide Read Articles")
+
                 // Sort menu
                 Menu {
                     ForEach(ArticleSortOption.allCases, id: \.self) { option in
@@ -186,7 +194,7 @@ struct ArticleListView: View {
             try await appState.markAllRead()
         case .unread:
             try await appState.markAllRead()
-        case .bookmarked, .summarized, .unsummarized:
+        case .today, .bookmarked, .summarized, .unsummarized:
             // Mark all visible articles in this filter as read
             let ids = appState.filteredArticles.map { $0.id }
             try await appState.bulkMarkRead(articleIds: ids)
@@ -230,6 +238,8 @@ struct EmptyArticlesView: View {
             return appState.feeds.isEmpty ? "No Feeds" : "No Articles"
         case .unread:
             return "All Caught Up"
+        case .today:
+            return "Nothing New Today"
         case .bookmarked:
             return "No Saved Articles"
         case .summarized:
@@ -247,6 +257,8 @@ struct EmptyArticlesView: View {
             return appState.feeds.isEmpty ? "newspaper" : "doc.text"
         case .unread:
             return "checkmark.circle"
+        case .today:
+            return "sun.max.fill"
         case .bookmarked:
             return "star"
         case .summarized:
@@ -266,6 +278,8 @@ struct EmptyArticlesView: View {
                 : "No articles found."
         case .unread:
             return "You've read all your articles."
+        case .today:
+            return "No articles published today yet."
         case .bookmarked:
             return "Bookmark articles to save them for later."
         case .summarized:

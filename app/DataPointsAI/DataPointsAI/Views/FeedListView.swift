@@ -35,6 +35,8 @@ struct FeedListView: View {
                         }
                     }
 
+                FilterRow(filter: .today, count: appState.todayArticleCount)
+
                 FilterRow(filter: .bookmarked, count: nil)
 
                 FilterRow(filter: .summarized, count: nil)
