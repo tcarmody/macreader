@@ -360,7 +360,7 @@ struct ArticleDetailView: View {
                 } label: {
                     Label("Fetch Full Article", systemImage: "arrow.down.doc")
                 }
-                .buttonStyle(.bordered)
+                .buttonStyle(.borderedProminent)
             }
 
             Button {
@@ -373,7 +373,7 @@ struct ArticleDetailView: View {
                     systemImage: article.isBookmarked ? "star.fill" : "star"
                 )
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.borderedProminent)
 
             Button {
                 NSWorkspace.shared.open(article.originalUrl)
