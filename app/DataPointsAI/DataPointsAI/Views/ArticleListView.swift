@@ -204,16 +204,27 @@ struct ArticleListView: View {
     }
 }
 
-/// Empty state when no articles
+/// Empty state when no articles with custom illustrations
 struct EmptyArticlesView: View {
     @EnvironmentObject var appState: AppState
 
     var body: some View {
-        ContentUnavailableView {
-            Label(emptyTitle, systemImage: emptyIcon)
-        } description: {
-            Text(emptyDescription)
-        } actions: {
+        VStack(spacing: 24) {
+            emptyStateIllustration
+                .frame(width: 120, height: 120)
+
+            VStack(spacing: 8) {
+                Text(emptyTitle)
+                    .font(.title2)
+                    .fontWeight(.semibold)
+
+                Text(emptyDescription)
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 280)
+            }
+
             if appState.feeds.isEmpty {
                 Button("Add Feed") {
                     DispatchQueue.main.async {
@@ -229,6 +240,29 @@ struct EmptyArticlesView: View {
                 }
                 .buttonStyle(.bordered)
             }
+        }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    @ViewBuilder
+    private var emptyStateIllustration: some View {
+        switch appState.selectedFilter {
+        case .all:
+            if appState.feeds.isEmpty {
+                NoFeedsIllustration()
+            } else {
+                NoArticlesIllustration()
+            }
+        case .unread:
+            AllCaughtUpIllustration()
+        case .today:
+            NothingTodayIllustration()
+        case .bookmarked:
+            NoBookmarksIllustration()
+        case .summarized, .unsummarized:
+            SparklesIllustration()
+        case .feed:
+            NoArticlesIllustration()
         }
     }
 
@@ -251,25 +285,6 @@ struct EmptyArticlesView: View {
         }
     }
 
-    private var emptyIcon: String {
-        switch appState.selectedFilter {
-        case .all:
-            return appState.feeds.isEmpty ? "newspaper" : "doc.text"
-        case .unread:
-            return "checkmark.circle"
-        case .today:
-            return "sun.max.fill"
-        case .bookmarked:
-            return "star"
-        case .summarized:
-            return "sparkles"
-        case .unsummarized:
-            return "sparkles.rectangle.stack"
-        case .feed:
-            return "doc.text"
-        }
-    }
-
     private var emptyDescription: String {
         switch appState.selectedFilter {
         case .all:
@@ -288,6 +303,188 @@ struct EmptyArticlesView: View {
             return "All articles have been summarized."
         case .feed:
             return "This feed has no articles yet."
+        }
+    }
+}
+
+// MARK: - Empty State Illustrations
+
+/// Illustration for "No Feeds" state - stack of empty documents
+struct NoFeedsIllustration: View {
+    var body: some View {
+        ZStack {
+            // Background circle
+            Circle()
+                .fill(Color.blue.opacity(0.1))
+
+            // Stack of papers
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.gray.opacity(0.3))
+                .frame(width: 50, height: 60)
+                .offset(x: 8, y: 8)
+                .rotationEffect(.degrees(5))
+
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.gray.opacity(0.4))
+                .frame(width: 50, height: 60)
+                .offset(x: 4, y: 4)
+                .rotationEffect(.degrees(2))
+
+            RoundedRectangle(cornerRadius: 6)
+                .fill(Color.white)
+                .frame(width: 50, height: 60)
+                .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
+
+            // Plus sign
+            Image(systemName: "plus.circle.fill")
+                .font(.system(size: 24))
+                .foregroundStyle(.blue)
+                .offset(x: 20, y: 20)
+        }
+    }
+}
+
+/// Illustration for "No Articles" state - empty document
+struct NoArticlesIllustration: View {
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color.gray.opacity(0.1))
+
+            // Document shape
+            RoundedRectangle(cornerRadius: 8)
+                .fill(Color.white)
+                .frame(width: 55, height: 70)
+                .shadow(color: .black.opacity(0.1), radius: 3, y: 2)
+
+            // Lines representing text
+            VStack(spacing: 6) {
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color.gray.opacity(0.3))
+                    .frame(width: 35, height: 4)
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(width: 30, height: 4)
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color.gray.opacity(0.2))
+                    .frame(width: 35, height: 4)
+            }
+            .offset(y: -5)
+        }
+    }
+}
+
+/// Illustration for "All Caught Up" state - checkmark celebration
+struct AllCaughtUpIllustration: View {
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color.green.opacity(0.1))
+
+            // Checkmark circle
+            Circle()
+                .fill(Color.green.opacity(0.2))
+                .frame(width: 60, height: 60)
+
+            Image(systemName: "checkmark")
+                .font(.system(size: 36, weight: .bold))
+                .foregroundStyle(.green)
+
+            // Celebration dots
+            ForEach(0..<6, id: \.self) { i in
+                Circle()
+                    .fill(Color.green.opacity(0.5))
+                    .frame(width: 8, height: 8)
+                    .offset(y: -50)
+                    .rotationEffect(.degrees(Double(i) * 60))
+            }
+        }
+    }
+}
+
+/// Illustration for "Nothing Today" state - calendar/sun
+struct NothingTodayIllustration: View {
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color.orange.opacity(0.1))
+
+            // Sun rays
+            ForEach(0..<8, id: \.self) { i in
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color.orange.opacity(0.4))
+                    .frame(width: 4, height: 12)
+                    .offset(y: -40)
+                    .rotationEffect(.degrees(Double(i) * 45))
+            }
+
+            // Sun center
+            Circle()
+                .fill(Color.orange.opacity(0.3))
+                .frame(width: 50, height: 50)
+
+            // Sleeping face
+            Text("z")
+                .font(.system(size: 14, weight: .bold))
+                .foregroundStyle(.orange)
+                .offset(x: 20, y: -15)
+
+            Text("z")
+                .font(.system(size: 10, weight: .bold))
+                .foregroundStyle(.orange.opacity(0.7))
+                .offset(x: 28, y: -25)
+        }
+    }
+}
+
+/// Illustration for "No Bookmarks" state - empty star
+struct NoBookmarksIllustration: View {
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color.yellow.opacity(0.1))
+
+            // Star outline
+            Image(systemName: "star")
+                .font(.system(size: 50))
+                .foregroundStyle(Color.yellow.opacity(0.4))
+
+            // Dashed circle
+            Circle()
+                .strokeBorder(style: StrokeStyle(lineWidth: 2, dash: [5, 5]))
+                .foregroundStyle(Color.yellow.opacity(0.3))
+                .frame(width: 80, height: 80)
+        }
+    }
+}
+
+/// Illustration for summarized/unsummarized states - sparkles
+struct SparklesIllustration: View {
+    var body: some View {
+        ZStack {
+            Circle()
+                .fill(Color.purple.opacity(0.1))
+
+            // Large sparkle
+            Image(systemName: "sparkle")
+                .font(.system(size: 40))
+                .foregroundStyle(.purple.opacity(0.6))
+
+            // Small sparkles around
+            Image(systemName: "sparkle")
+                .font(.system(size: 16))
+                .foregroundStyle(.purple.opacity(0.4))
+                .offset(x: 30, y: -20)
+
+            Image(systemName: "sparkle")
+                .font(.system(size: 12))
+                .foregroundStyle(.purple.opacity(0.3))
+                .offset(x: -25, y: 25)
+
+            Image(systemName: "sparkle")
+                .font(.system(size: 14))
+                .foregroundStyle(.purple.opacity(0.35))
+                .offset(x: -30, y: -15)
         }
     }
 }

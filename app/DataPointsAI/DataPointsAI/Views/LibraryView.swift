@@ -203,16 +203,52 @@ struct LibraryItemRow: View {
     }
 }
 
-/// Empty state for library
+/// Empty state for library with custom illustration
 struct EmptyLibraryView: View {
     @EnvironmentObject var appState: AppState
 
     var body: some View {
-        ContentUnavailableView {
-            Label("Library Empty", systemImage: "books.vertical")
-        } description: {
-            Text("Add URLs or upload files to save them for later reading and summarization.")
-        } actions: {
+        VStack(spacing: 24) {
+            // Library illustration
+            ZStack {
+                Circle()
+                    .fill(Color.indigo.opacity(0.1))
+                    .frame(width: 120, height: 120)
+
+                // Stack of books
+                HStack(spacing: 3) {
+                    ForEach(0..<3, id: \.self) { i in
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(bookColor(for: i))
+                            .frame(width: 12, height: 50 - CGFloat(i * 5))
+                    }
+                }
+
+                // Bookshelf
+                RoundedRectangle(cornerRadius: 2)
+                    .fill(Color.brown.opacity(0.4))
+                    .frame(width: 60, height: 4)
+                    .offset(y: 27)
+
+                // Plus badge
+                Image(systemName: "plus.circle.fill")
+                    .font(.system(size: 24))
+                    .foregroundStyle(.indigo)
+                    .offset(x: 35, y: 25)
+            }
+
+            VStack(spacing: 8) {
+                Text("Library Empty")
+                    .font(.title2)
+                    .fontWeight(.semibold)
+
+                Text("Add URLs or upload files to save them for later reading and summarization.")
+                    .font(.body)
+                    .foregroundStyle(.secondary)
+                    .multilineTextAlignment(.center)
+                    .frame(maxWidth: 280)
+            }
+
             Button {
                 appState.showAddToLibrary = true
             } label: {
@@ -220,6 +256,12 @@ struct EmptyLibraryView: View {
             }
             .buttonStyle(.borderedProminent)
         }
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
+    }
+
+    private func bookColor(for index: Int) -> Color {
+        let colors: [Color] = [.indigo.opacity(0.6), .purple.opacity(0.5), .blue.opacity(0.5)]
+        return colors[index % colors.count]
     }
 }
 
