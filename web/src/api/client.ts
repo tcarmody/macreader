@@ -236,7 +236,10 @@ export async function getLibraryItems(params?: {
   if (params?.bookmarked_only) searchParams.append('bookmarked_only', 'true')
 
   const query = searchParams.toString()
-  return fetchApi(`/standalone${query ? `?${query}` : ''}`)
+  const response = await fetchApi<{ items: StandaloneItem[]; total: number }>(
+    `/standalone${query ? `?${query}` : ''}`
+  )
+  return response.items
 }
 
 export async function getLibraryItem(itemId: number): Promise<StandaloneItemDetail> {
