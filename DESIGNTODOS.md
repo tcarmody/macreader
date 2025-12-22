@@ -19,6 +19,7 @@ Future UI/UX improvements to consider for the macOS RSS reader app.
 
 ### Sharing & Integration
 - [x] **Improved Share Sheet** - Share link, share with summary, copy summary, copy link options
+- [x] **Spotlight Integration** - Articles indexed for system-wide search with deep linking
 
 ### NetNewsWire-Inspired Features
 - [x] **Smart Feeds** - Today, Unread, Bookmarked, Summarized, Unsummarized filters
@@ -108,6 +109,5 @@ Expand the server status indicator to show:
 - Today widget with recent articles
 - Starred articles widget
 
-#### Spotlight Integration
-- Index articles for macOS Spotlight search
-- Support Handoff to iOS companion app
+#### Handoff Support
+- Support Handoff to iOS companion app (requires iOS app)
