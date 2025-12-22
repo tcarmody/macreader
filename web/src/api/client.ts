@@ -96,12 +96,11 @@ export async function getFeeds(): Promise<Feed[]> {
   return fetchApi('/feeds')
 }
 
-export async function addFeed(url: string, name?: string, category?: string): Promise<Feed> {
-  const params = new URLSearchParams({ url })
-  if (name) params.append('name', name)
-  if (category) params.append('category', category)
-
-  return fetchApi(`/feeds?${params}`, { method: 'POST' })
+export async function addFeed(url: string, name?: string, _category?: string): Promise<Feed> {
+  return fetchApi('/feeds', {
+    method: 'POST',
+    body: JSON.stringify({ url, name }),
+  })
 }
 
 export async function deleteFeed(feedId: number): Promise<void> {
