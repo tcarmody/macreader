@@ -34,7 +34,9 @@ This guide explains how to deploy the DataPoints RSS reader as a web application
 1. Go to [railway.app](https://railway.app) and sign in
 2. Click **"New Project"** → **"Deploy from GitHub repo"**
 3. Select your `macreader` repository
-4. Railway will detect the Python project automatically
+4. Railway will detect the Python project and use [Railpack](https://docs.railway.com/guides/build-configuration) to build it automatically
+
+> **Note**: The `railway.json` file configures Railway to use Railpack (the current default builder). Nixpacks is deprecated but still supported for existing services.
 
 ### 1.2 Configure Environment Variables
 
@@ -52,17 +54,24 @@ In Railway dashboard, go to your service → **Variables** tab and add:
 
 ### 1.3 Configure Persistent Storage
 
-SQLite needs persistent storage to survive redeploys:
+SQLite needs persistent storage to survive redeploys. See Railway's [Volumes documentation](https://docs.railway.com/guides/volumes) for the latest instructions.
 
-1. In Railway dashboard, go to your service
-2. Click **"Settings"** → **"Add Volume"**
-3. Mount path: `/app/data`
-4. Add environment variable: `DB_PATH=/app/data/articles.db`
+**To add a volume:**
+
+1. Open your project in Railway dashboard
+2. Use the **Command Palette** (press `⌘K` or `Ctrl+K`) and search for "volume", or right-click on the project canvas
+3. Select **"Create Volume"**
+4. When prompted, select your service to attach the volume to
+5. Set the **mount path** to `/app/data`
+6. Add environment variable: `DB_PATH=/app/data/articles.db`
+7. Also add: `CACHE_DIR=/app/data/cache`
+
+> **Important**: Railway automatically provides `RAILWAY_VOLUME_MOUNT_PATH` environment variable at runtime once the volume is attached.
 
 ### 1.4 Verify Deployment
 
-1. Railway will automatically deploy from the `Procfile`
-2. Once deployed, click **"Settings"** → copy your service URL (e.g., `https://macreader-production.up.railway.app`)
+1. Railway will automatically deploy using the `Procfile`
+2. Once deployed, go to your service → **Settings** → **Networking** to find your service URL (e.g., `https://macreader-production.up.railway.app`)
 3. Test the API: `https://your-url.railway.app/status`
 
 You should see:
@@ -132,7 +141,7 @@ CORS_ORIGINS=https://your-app.vercel.app,https://reader.yourdomain.com
 
 ### Railway Custom Domain
 
-1. In Railway dashboard → **Settings** → **Domains**
+1. In Railway dashboard → your service → **Settings** → **Networking** → **Public Networking**
 2. Add your domain (e.g., `api.yourdomain.com`)
 3. Update Vercel's `VITE_API_URL` to use the new domain
 
@@ -165,12 +174,19 @@ You're now ready to:
 ### Summarization not working
 
 1. Verify at least one LLM API key is set (either in Railway env vars or in the web UI settings)
-2. Check Railway logs for errors: Railway dashboard → **Logs**
+2. Check Railway logs for errors: Railway dashboard → your service → **Logs**
 
 ### Database reset on redeploy
 
-1. Ensure you've added a persistent volume in Railway
+1. Ensure you've added a persistent volume in Railway (see [Using Volumes](https://docs.railway.com/guides/volumes))
 2. Verify `DB_PATH` points to the volume mount (e.g., `/app/data/articles.db`)
+3. If you see "No such file or directory" errors, ensure the directory structure exists on the volume
+
+### Build failures on Railway
+
+1. Check that the project is using Railpack (set in `railway.json` or service settings)
+2. Review build logs in Railway dashboard → your service → **Deployments**
+3. See [Build Configuration](https://docs.railway.com/guides/build-configuration) for customization options
 
 ### Build failures on Vercel
 
@@ -259,3 +275,12 @@ npm run dev
 ```
 
 The frontend dev server proxies `/api` requests to `localhost:5005` automatically.
+
+---
+
+## References
+
+- [Railway Volumes Documentation](https://docs.railway.com/guides/volumes)
+- [Railway Build Configuration](https://docs.railway.com/guides/build-configuration)
+- [Railway Deployments](https://docs.railway.com/reference/deployments)
+- [Vercel Documentation](https://vercel.com/docs)
