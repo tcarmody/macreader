@@ -363,11 +363,55 @@ struct ArticleDetailView: View {
 
             Spacer()
 
-            ShareLink(item: article.originalUrl) {
+            // Share menu with options
+            Menu {
+                // Share URL only
+                ShareLink(item: article.originalUrl) {
+                    Label("Share Link", systemImage: "link")
+                }
+
+                // Share with summary (if available)
+                if let summary = article.summaryShort ?? article.summaryFull, !summary.isEmpty {
+                    ShareLink(item: shareTextWithSummary(article: article, summary: summary)) {
+                        Label("Share with Summary", systemImage: "text.quote")
+                    }
+
+                    Divider()
+
+                    Button {
+                        copySummaryToClipboard(article: article, summary: summary)
+                    } label: {
+                        Label("Copy Summary", systemImage: "doc.on.doc")
+                    }
+                }
+
+                Divider()
+
+                Button {
+                    copyLinkToClipboard(article: article)
+                } label: {
+                    Label("Copy Link", systemImage: "link")
+                }
+            } label: {
                 Label("Share", systemImage: "square.and.arrow.up")
             }
             .buttonStyle(.bordered)
         }
+    }
+
+    private func shareTextWithSummary(article: ArticleDetail, summary: String) -> String {
+        var text = article.title + "\n\n"
+        text += summary + "\n\n"
+        if let feedName = feedName(for: article.feedId) {
+            text += "via \(feedName)\n"
+        }
+        text += article.originalUrl.absoluteString
+        return text
+    }
+
+    private func copyLinkToClipboard(article: ArticleDetail) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(article.originalUrl.absoluteString, forType: .string)
     }
 
     // MARK: - Content Section
