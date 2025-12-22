@@ -9,6 +9,7 @@ struct FeedListView: View {
     @State private var feedsForNewCategory: [Int] = []
     @State private var categoryToRename: String?
     @State private var categoryToDelete: String?
+    @State private var dropTargetCategory: String? = nil  // nil means uncategorized, empty string means no target
 
     var body: some View {
         List(selection: $appState.selectedFilter) {
@@ -69,8 +70,14 @@ struct FeedListView: View {
                             feedCount: group.feeds.count,
                             unreadCount: group.feeds.reduce(0) { $0 + $1.unreadCount },
                             isCollapsed: appState.collapsedCategories.contains(category),
-                            onToggle: { appState.toggleCategoryCollapsed(category) }
+                            onToggle: { appState.toggleCategoryCollapsed(category) },
+                            isDropTarget: dropTargetCategory == category
                         )
+                        .dropDestination(for: FeedTransfer.self) { items, _ in
+                            handleDrop(items: items, toCategory: category)
+                        } isTargeted: { isTargeted in
+                            dropTargetCategory = isTargeted ? category : nil
+                        }
                         .contextMenu {
                             categoryContextMenu(for: category)
                         }
@@ -78,10 +85,17 @@ struct FeedListView: View {
                     .collapsible(false)
                 } else {
                     // Uncategorized feeds section
-                    Section("Feeds") {
+                    Section {
                         ForEach(group.feeds) { feed in
                             feedRow(for: feed)
                         }
+                    } header: {
+                        UncategorizedHeader(isDropTarget: dropTargetCategory == "")
+                            .dropDestination(for: FeedTransfer.self) { items, _ in
+                                handleDrop(items: items, toCategory: nil)
+                            } isTargeted: { isTargeted in
+                                dropTargetCategory = isTargeted ? "" : nil
+                            }
                     }
                 }
             }
@@ -207,8 +221,24 @@ struct FeedListView: View {
 
     @ViewBuilder
     private func feedRow(for feed: Feed) -> some View {
-        FeedRow(feed: feed, isSelected: appState.selectedFeedIds.contains(feed.id))
+        let isInSelection = appState.selectedFeedIds.contains(feed.id)
+        let feedIdsToTransfer = isInSelection && !appState.selectedFeedIds.isEmpty
+            ? Array(appState.selectedFeedIds)
+            : [feed.id]
+
+        FeedRow(feed: feed, isSelected: isInSelection)
             .tag(ArticleFilter.feed(feed.id))
+            .draggable(FeedTransfer(feedIds: feedIdsToTransfer)) {
+                // Drag preview
+                HStack(spacing: 6) {
+                    Image(systemName: "doc.on.doc")
+                    Text(feedIdsToTransfer.count == 1 ? feed.name : "\(feedIdsToTransfer.count) feeds")
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(.regularMaterial)
+                .cornerRadius(6)
+            }
             .contextMenu {
                 feedContextMenu(for: feed)
             }
@@ -273,6 +303,19 @@ struct FeedListView: View {
         for i in range {
             appState.selectedFeedIds.insert(appState.feeds[i].id)
         }
+    }
+
+    /// Handle dropping feeds onto a category
+    private func handleDrop(items: [FeedTransfer], toCategory category: String?) -> Bool {
+        guard let transfer = items.first else { return false }
+
+        Task {
+            for feedId in transfer.feedIds {
+                try? await appState.moveFeedToCategory(feedId: feedId, category: category)
+            }
+        }
+
+        return true
     }
 
     @ViewBuilder
@@ -525,6 +568,7 @@ struct CategoryHeader: View {
     let unreadCount: Int
     let isCollapsed: Bool
     let onToggle: () -> Void
+    var isDropTarget: Bool = false
 
     var body: some View {
         Button(action: onToggle) {
@@ -555,9 +599,29 @@ struct CategoryHeader: View {
             }
             // Offset to align with feed row badges (section headers are wider than rows)
             .padding(.trailing, 12)
+            .padding(.vertical, 2)
+            .background(isDropTarget ? Color.accentColor.opacity(0.2) : Color.clear)
+            .cornerRadius(4)
         }
         .buttonStyle(.plain)
         .padding(.bottom, 4)
+    }
+}
+
+/// Header for uncategorized feeds section with drop target support
+struct UncategorizedHeader: View {
+    var isDropTarget: Bool = false
+
+    var body: some View {
+        HStack(spacing: 6) {
+            Text("Feeds")
+                .font(.headline)
+                .foregroundStyle(.primary)
+            Spacer()
+        }
+        .padding(.vertical, 2)
+        .background(isDropTarget ? Color.accentColor.opacity(0.2) : Color.clear)
+        .cornerRadius(4)
     }
 }
 

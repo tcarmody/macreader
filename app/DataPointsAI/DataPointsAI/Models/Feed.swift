@@ -1,6 +1,7 @@
 import Foundation
 import AppKit
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Feed model (matches FeedResponse from API)
 struct Feed: Identifiable, Codable, Hashable, Sendable {
@@ -18,6 +19,22 @@ struct Feed: Identifiable, Codable, Hashable, Sendable {
         case category
         case unreadCount = "unread_count"
         case lastFetched = "last_fetched"
+    }
+}
+
+// MARK: - Drag and Drop Support
+
+/// Custom UTType for feed drag and drop
+extension UTType {
+    static let feedTransfer = UTType(exportedAs: "com.datapointsai.feed-transfer")
+}
+
+/// Transferable data for dragging feeds between categories
+struct FeedTransfer: Codable, Transferable {
+    let feedIds: [Int]
+
+    static var transferRepresentation: some TransferRepresentation {
+        CodableRepresentation(contentType: .feedTransfer)
     }
 }
 
