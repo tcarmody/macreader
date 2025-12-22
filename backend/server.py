@@ -10,9 +10,11 @@ FastAPI application providing endpoints for:
 """
 
 import logging
+import os
 from contextlib import asynccontextmanager
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 
 from .config import config, state
 from .database import Database
@@ -97,6 +99,92 @@ app = FastAPI(
     version="2.0.0",
     lifespan=lifespan
 )
+
+# CORS configuration for web frontend
+# Allow origins from environment variable or default to common development URLs
+cors_origins = os.getenv("CORS_ORIGINS", "").split(",") if os.getenv("CORS_ORIGINS") else []
+cors_origins = [origin.strip() for origin in cors_origins if origin.strip()]
+
+# Always allow localhost for development
+default_origins = [
+    "http://localhost:3000",
+    "http://localhost:5173",
+    "http://127.0.0.1:3000",
+    "http://127.0.0.1:5173",
+]
+
+# Combine configured and default origins
+all_origins = list(set(cors_origins + default_origins))
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=all_origins,
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+    expose_headers=["*"],
+)
+
+
+@app.middleware("http")
+async def inject_api_keys_from_headers(request: Request, call_next):
+    """
+    Middleware to extract API keys from request headers and make them available.
+    This allows the web frontend to pass user-provided API keys.
+
+    Headers:
+    - X-Anthropic-Key: Anthropic API key
+    - X-OpenAI-Key: OpenAI API key
+    - X-Google-Key: Google API key
+    - X-Preferred-Provider: Preferred LLM provider
+    """
+    # Store original values
+    original_anthropic = config.ANTHROPIC_API_KEY
+    original_openai = config.OPENAI_API_KEY
+    original_google = config.GOOGLE_API_KEY
+    original_provider = config.LLM_PROVIDER
+
+    # Check for header-provided keys
+    header_anthropic = request.headers.get("X-Anthropic-Key")
+    header_openai = request.headers.get("X-OpenAI-Key")
+    header_google = request.headers.get("X-Google-Key")
+    header_provider = request.headers.get("X-Preferred-Provider")
+
+    # Temporarily override config if headers are provided
+    # Only override if header is non-empty and config is empty
+    if header_anthropic and not config.ANTHROPIC_API_KEY:
+        config.ANTHROPIC_API_KEY = header_anthropic
+    if header_openai and not config.OPENAI_API_KEY:
+        config.OPENAI_API_KEY = header_openai
+    if header_google and not config.GOOGLE_API_KEY:
+        config.GOOGLE_API_KEY = header_google
+    if header_provider:
+        config.LLM_PROVIDER = header_provider
+
+    # Reinitialize provider if we got new keys and don't have one yet
+    if not state.provider and (header_anthropic or header_openai or header_google):
+        state.provider = get_provider_from_env(
+            anthropic_key=config.ANTHROPIC_API_KEY or None,
+            openai_key=config.OPENAI_API_KEY or None,
+            google_key=config.GOOGLE_API_KEY or None,
+            preferred_provider=config.LLM_PROVIDER or None,
+            default_model=config.LLM_MODEL or None,
+        )
+        if state.provider:
+            state.summarizer = Summarizer(provider=state.provider, cache=state.cache)
+            state.clusterer = Clusterer(provider=state.provider, cache=state.cache)
+            logger.info(f"LLM provider initialized from headers: {state.provider.name}")
+
+    try:
+        response = await call_next(request)
+        return response
+    finally:
+        # Restore original values
+        config.ANTHROPIC_API_KEY = original_anthropic
+        config.OPENAI_API_KEY = original_openai
+        config.GOOGLE_API_KEY = original_google
+        config.LLM_PROVIDER = original_provider
+
 
 # Include routers
 app.include_router(misc_router)
