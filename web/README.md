@@ -131,6 +131,5 @@ web/
 │   ├── App.tsx       # Main app component
 │   └── main.tsx      # Entry point
 ├── public/           # Static assets
-├── vercel.json       # Vercel config
 └── vite.config.ts    # Vite config
 ```

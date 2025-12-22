@@ -93,11 +93,9 @@ You should see:
 1. Go to [vercel.com](https://vercel.com) and sign in
 2. Click **"Add New..."** → **"Project"**
 3. Import your `macreader` repository
-4. Configure the project:
-   - **Framework Preset**: Vite
-   - **Root Directory**: `web`
-   - **Build Command**: `npm run build` (default)
-   - **Output Directory**: `dist` (default)
+4. Vercel will auto-detect the configuration from `vercel.json` - just click **"Deploy"**
+
+> **Note**: The root `vercel.json` tells Vercel to build from the `web/` directory automatically. No manual configuration needed.
 
 ### 2.2 Configure Environment Variables
 
