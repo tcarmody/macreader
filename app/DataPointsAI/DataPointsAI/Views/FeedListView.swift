@@ -748,33 +748,49 @@ struct ServerStatusIndicator: View {
     @State private var isRestarting = false
 
     var body: some View {
-        HStack(spacing: 8) {
-            Circle()
-                .fill(statusColor)
-                .frame(width: 8, height: 8)
-
-            Text(appState.serverStatus.statusText)
-                .font(.caption)
-                .foregroundStyle(.secondary)
-                .lineLimit(1)
-
-            Spacer()
-
-            if isRestarting {
-                ProgressView()
-                    .scaleEffect(0.5)
-                    .frame(width: 12, height: 12)
-            } else if !appState.serverStatus.isHealthy && appState.serverRunning {
-                Button {
-                    Task {
-                        await appState.checkServerHealth()
-                    }
-                } label: {
+        VStack(spacing: 4) {
+            // Last refresh time (if available)
+            if let lastRefresh = appState.lastRefreshTime {
+                HStack(spacing: 4) {
                     Image(systemName: "arrow.clockwise")
-                        .font(.caption)
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                    Text(lastRefreshText(for: lastRefresh))
+                        .font(.caption2)
+                        .foregroundStyle(.tertiary)
+                    Spacer()
                 }
-                .buttonStyle(.plain)
-                .help("Retry connection")
+            }
+
+            // Server status row
+            HStack(spacing: 8) {
+                Circle()
+                    .fill(statusColor)
+                    .frame(width: 8, height: 8)
+
+                Text(appState.serverStatus.statusText)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
+
+                Spacer()
+
+                if isRestarting {
+                    ProgressView()
+                        .scaleEffect(0.5)
+                        .frame(width: 12, height: 12)
+                } else if !appState.serverStatus.isHealthy && appState.serverRunning {
+                    Button {
+                        Task {
+                            await appState.checkServerHealth()
+                        }
+                    } label: {
+                        Image(systemName: "arrow.clockwise")
+                            .font(.caption)
+                    }
+                    .buttonStyle(.plain)
+                    .help("Retry connection")
+                }
             }
         }
         .padding(.horizontal, 12)
@@ -791,6 +807,26 @@ struct ServerStatusIndicator: View {
                 Label("Restart Server", systemImage: "arrow.triangle.2.circlepath")
             }
             .disabled(isRestarting)
+        }
+    }
+
+    private func lastRefreshText(for date: Date) -> String {
+        let now = Date()
+        let interval = now.timeIntervalSince(date)
+
+        if interval < 60 {
+            return "Updated just now"
+        } else if interval < 3600 {
+            let minutes = Int(interval / 60)
+            return "Updated \(minutes)m ago"
+        } else if interval < 86400 {
+            let hours = Int(interval / 3600)
+            return "Updated \(hours)h ago"
+        } else {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .short
+            formatter.timeStyle = .short
+            return "Updated \(formatter.string(from: date))"
         }
     }
 

@@ -22,6 +22,7 @@ class AppState: ObservableObject {
     @Published var serverRunning: Bool = false
     @Published var serverError: String?
     @Published var serverStatus: ServerHealthStatus = .unknown
+    @Published var lastRefreshTime: Date?
 
     private var healthCheckTask: Task<Void, Never>?
 
@@ -721,6 +722,9 @@ class AppState: ObservableObject {
 
         // Final refresh to get all new articles
         await refresh()
+
+        // Update last refresh time
+        lastRefreshTime = Date()
 
         // Notify about new articles if count increased
         let newArticleCount = totalUnreadCount - previousUnreadCount
