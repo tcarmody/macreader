@@ -39,7 +39,7 @@ struct FeedTransfer: Codable, Transferable {
 }
 
 /// Filter options for article list
-enum ArticleFilter: Hashable {
+enum ArticleFilter: Hashable, Codable {
     case all
     case unread
     case today
@@ -47,6 +47,43 @@ enum ArticleFilter: Hashable {
     case summarized
     case unsummarized
     case feed(Int)
+
+    // Custom coding for the associated value case
+    private enum CodingKeys: String, CodingKey {
+        case type, feedId
+    }
+
+    init(from decoder: Decoder) throws {
+        let container = try decoder.container(keyedBy: CodingKeys.self)
+        let type = try container.decode(String.self, forKey: .type)
+        switch type {
+        case "all": self = .all
+        case "unread": self = .unread
+        case "today": self = .today
+        case "bookmarked": self = .bookmarked
+        case "summarized": self = .summarized
+        case "unsummarized": self = .unsummarized
+        case "feed":
+            let feedId = try container.decode(Int.self, forKey: .feedId)
+            self = .feed(feedId)
+        default: self = .all
+        }
+    }
+
+    func encode(to encoder: Encoder) throws {
+        var container = encoder.container(keyedBy: CodingKeys.self)
+        switch self {
+        case .all: try container.encode("all", forKey: .type)
+        case .unread: try container.encode("unread", forKey: .type)
+        case .today: try container.encode("today", forKey: .type)
+        case .bookmarked: try container.encode("bookmarked", forKey: .type)
+        case .summarized: try container.encode("summarized", forKey: .type)
+        case .unsummarized: try container.encode("unsummarized", forKey: .type)
+        case .feed(let feedId):
+            try container.encode("feed", forKey: .type)
+            try container.encode(feedId, forKey: .feedId)
+        }
+    }
 
     var displayName: String {
         switch self {

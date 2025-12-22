@@ -661,6 +661,7 @@ class AppState: ObservableObject {
         } else {
             collapsedCategories.insert(category)
         }
+        saveWindowState()
     }
 
     func renameCategory(from oldName: String, to newName: String) async throws {
@@ -791,6 +792,20 @@ class AppState: ObservableObject {
         UserDefaults.standard.set(settings.notificationsEnabled, forKey: "notificationsEnabled")
         UserDefaults.standard.set(settings.appTypeface.rawValue, forKey: "appTypeface")
         UserDefaults.standard.set(settings.contentTypeface.rawValue, forKey: "contentTypeface")
+
+        // Save window state
+        saveWindowState()
+    }
+
+    /// Save window state (collapsed categories, selected filter)
+    func saveWindowState() {
+        // Save collapsed categories
+        UserDefaults.standard.set(Array(collapsedCategories), forKey: "collapsedCategories")
+
+        // Save selected filter
+        if let filterData = try? JSONEncoder().encode(selectedFilter) {
+            UserDefaults.standard.set(filterData, forKey: "selectedFilter")
+        }
     }
 
     /// Load client-side settings from UserDefaults
@@ -818,6 +833,23 @@ class AppState: ObservableObject {
         if let contentTypefaceRaw = UserDefaults.standard.string(forKey: "contentTypeface"),
            let contentTypeface = ContentTypeface(rawValue: contentTypefaceRaw) {
             settings.contentTypeface = contentTypeface
+        }
+
+        // Load window state
+        loadWindowState()
+    }
+
+    /// Load window state (collapsed categories, selected filter)
+    private func loadWindowState() {
+        // Load collapsed categories
+        if let categories = UserDefaults.standard.stringArray(forKey: "collapsedCategories") {
+            collapsedCategories = Set(categories)
+        }
+
+        // Load selected filter
+        if let filterData = UserDefaults.standard.data(forKey: "selectedFilter"),
+           let filter = try? JSONDecoder().decode(ArticleFilter.self, from: filterData) {
+            selectedFilter = filter
         }
     }
 

@@ -69,6 +69,9 @@ struct MainView: View {
         .onAppear {
             setupKeyboardMonitor()
         }
+        .onChange(of: appState.selectedFilter) { _, _ in
+            appState.saveWindowState()
+        }
     }
 
     private func setupKeyboardMonitor() {
