@@ -664,6 +664,18 @@ class AppState: ObservableObject {
         saveWindowState()
     }
 
+    /// Collapse all category folders in the sidebar
+    func collapseAllCategories() {
+        collapsedCategories = Set(categories)
+        saveWindowState()
+    }
+
+    /// Expand all category folders in the sidebar
+    func expandAllCategories() {
+        collapsedCategories.removeAll()
+        saveWindowState()
+    }
+
     func renameCategory(from oldName: String, to newName: String) async throws {
         // Update all feeds in this category
         let feedsInCategory = feeds.filter { $0.category == oldName }

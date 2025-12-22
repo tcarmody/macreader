@@ -200,6 +200,12 @@ struct MainView: View {
         case .scrollDown, .scrollUp:
             // Handled in setupKeyboardMonitor for proper event consumption
             break
+
+        case .collapseAllFolders:
+            appState.collapseAllCategories()
+
+        case .expandAllFolders:
+            appState.expandAllCategories()
         }
     }
 

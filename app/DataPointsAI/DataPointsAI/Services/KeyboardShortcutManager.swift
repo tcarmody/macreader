@@ -19,6 +19,8 @@ enum KeyboardAction: Equatable {
     case escape                // Escape - clear selection/search
     case scrollDown            // Space - scroll article content
     case scrollUp              // Shift+Space - scroll article content up
+    case collapseAllFolders    // ; - collapse all sidebar folders
+    case expandAllFolders      // ' - expand all sidebar folders
 }
 
 /// Manages vim-style keyboard navigation for the article list
@@ -39,6 +41,8 @@ enum KeyboardAction: Equatable {
 /// - `A` (shift+a) - Mark all as read
 /// - `Space` - Scroll article down, or go to next article when at bottom
 /// - `Shift+Space` - Scroll article content up
+/// - `;` - Collapse all sidebar folders
+/// - `'` - Expand all sidebar folders
 /// - `Escape` - Clear search/selection
 @MainActor
 class KeyboardShortcutManager: ObservableObject {
@@ -144,6 +148,10 @@ class KeyboardShortcutManager: ObservableObject {
             return .focusSearch
         case "A":
             return .markAllRead
+        case ";":
+            return .collapseAllFolders
+        case "'":
+            return .expandAllFolders
         case "\u{1B}": // Escape
             return .escape
         default:
