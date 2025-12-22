@@ -131,34 +131,31 @@ export async function refreshFeed(feedId: number): Promise<{ message: string }> 
   return fetchApi(`/feeds/${feedId}/refresh`, { method: 'POST' })
 }
 
-export async function importOpml(file: File): Promise<{ imported: number; failed: number }> {
-  const formData = new FormData()
-  formData.append('file', file)
-
-  const config = getApiConfig()
-  const response = await fetch(`${config.backendUrl}/feeds/import-opml`, {
-    method: 'POST',
-    body: formData,
-  })
-
-  if (!response.ok) {
-    throw new Error('Failed to import OPML')
-  }
-
-  return response.json()
+export interface OPMLImportResult {
+  url: string
+  name: string | null
+  success: boolean
+  error?: string
+  feed_id?: number
 }
 
-export async function exportOpml(): Promise<Blob> {
-  const config = getApiConfig()
-  const response = await fetch(`${config.backendUrl}/feeds/export-opml`, {
-    headers: getHeaders(),
+export interface OPMLImportResponse {
+  total: number
+  imported: number
+  skipped: number
+  failed: number
+  results: OPMLImportResult[]
+}
+
+export async function importOpml(opmlContent: string): Promise<OPMLImportResponse> {
+  return fetchApi('/feeds/import-opml', {
+    method: 'POST',
+    body: JSON.stringify({ opml_content: opmlContent }),
   })
+}
 
-  if (!response.ok) {
-    throw new Error('Failed to export OPML')
-  }
-
-  return response.blob()
+export async function exportOpml(): Promise<{ opml: string; feed_count: number }> {
+  return fetchApi('/feeds/export-opml')
 }
 
 // Articles

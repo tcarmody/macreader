@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import {
   Newspaper,
   BookMarked,
@@ -15,6 +15,9 @@ import {
   FolderOpen,
   Search,
   Menu,
+  Upload,
+  Download,
+  Loader2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -23,7 +26,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { useAppStore } from '@/store/app-store'
-import { useFeeds, useRefreshFeeds, useStats } from '@/hooks/use-queries'
+import { useFeeds, useRefreshFeeds, useStats, useImportOpml, useExportOpml } from '@/hooks/use-queries'
 import type { Feed, FilterType } from '@/types'
 
 interface SidebarProps {
@@ -47,8 +50,45 @@ export function Sidebar({ onOpenSettings, onAddFeed }: SidebarProps) {
   const { data: feeds = [], isLoading: feedsLoading } = useFeeds()
   const { data: stats } = useStats()
   const refreshFeeds = useRefreshFeeds()
+  const importOpml = useImportOpml()
+  const exportOpml = useExportOpml()
 
+  const fileInputRef = useRef<HTMLInputElement>(null)
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
+
+  const handleImportOpml = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0]
+    if (!file) return
+
+    try {
+      const content = await file.text()
+      const result = await importOpml.mutateAsync(content)
+      alert(`Imported ${result.imported} feeds, skipped ${result.skipped}, failed ${result.failed}`)
+    } catch (error) {
+      alert(`Failed to import OPML: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+
+    // Reset input
+    e.target.value = ''
+  }
+
+  const handleExportOpml = async () => {
+    try {
+      const result = await exportOpml.mutateAsync()
+      // Create and download the file
+      const blob = new Blob([result.opml], { type: 'application/xml' })
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = 'datapoints-feeds.opml'
+      document.body.appendChild(a)
+      a.click()
+      document.body.removeChild(a)
+      URL.revokeObjectURL(url)
+    } catch (error) {
+      alert(`Failed to export OPML: ${error instanceof Error ? error.message : 'Unknown error'}`)
+    }
+  }
 
   // Group feeds by category
   const feedsByCategory = feeds.reduce((acc, feed) => {
@@ -222,9 +262,46 @@ export function Sidebar({ onOpenSettings, onAddFeed }: SidebarProps) {
             <div className="px-2 space-y-1">
               <div className="flex items-center justify-between px-2 py-1">
                 <span className="text-xs font-semibold text-muted-foreground uppercase">Feeds</span>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onAddFeed}>
-                  <Plus className="h-3 w-3" />
-                </Button>
+                <div className="flex gap-0.5">
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={() => fileInputRef.current?.click()}
+                    disabled={importOpml.isPending}
+                    title="Import OPML"
+                  >
+                    {importOpml.isPending ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Upload className="h-3 w-3" />
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="icon"
+                    className="h-6 w-6"
+                    onClick={handleExportOpml}
+                    disabled={exportOpml.isPending || feeds.length === 0}
+                    title="Export OPML"
+                  >
+                    {exportOpml.isPending ? (
+                      <Loader2 className="h-3 w-3 animate-spin" />
+                    ) : (
+                      <Download className="h-3 w-3" />
+                    )}
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onAddFeed} title="Add feed">
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </div>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept=".opml,.xml"
+                  onChange={handleImportOpml}
+                  className="hidden"
+                />
               </div>
 
               {feedsLoading ? (

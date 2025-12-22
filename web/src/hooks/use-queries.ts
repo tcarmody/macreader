@@ -108,6 +108,24 @@ export function useRefreshFeeds() {
   })
 }
 
+export function useImportOpml() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: api.importOpml,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.feeds })
+      queryClient.invalidateQueries({ queryKey: ['articles'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.stats })
+    },
+  })
+}
+
+export function useExportOpml() {
+  return useMutation({
+    mutationFn: api.exportOpml,
+  })
+}
+
 // Articles
 export function useArticles(filter: FilterType) {
   return useQuery({
