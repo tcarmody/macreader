@@ -397,6 +397,7 @@ struct ArticleDetailView: View {
                 Label("Share", systemImage: "square.and.arrow.up")
             }
             .buttonStyle(.bordered)
+            .fixedSize()
         }
     }
 
