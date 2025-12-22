@@ -342,13 +342,26 @@ struct ArticleDetailView: View {
 
     @ViewBuilder
     private func actionsSection(article: ArticleDetail) -> some View {
-        HStack(spacing: 16) {
-            Button {
-                NSWorkspace.shared.open(article.originalUrl)
-            } label: {
-                Label("Read Original", systemImage: "safari")
+        HStack(spacing: 12) {
+            // Fetch Full Article button
+            if isFetchingContent {
+                HStack(spacing: 6) {
+                    ProgressView()
+                        .scaleEffect(0.7)
+                    Text("Fetching...")
+                }
+                .padding(.horizontal, 10)
+                .padding(.vertical, 6)
+                .background(.regularMaterial)
+                .cornerRadius(6)
+            } else {
+                Button {
+                    fetchContent(articleId: article.id)
+                } label: {
+                    Label("Fetch Full Article", systemImage: "arrow.down.doc")
+                }
+                .buttonStyle(.bordered)
             }
-            .buttonStyle(.borderedProminent)
 
             Button {
                 Task {
@@ -361,6 +374,13 @@ struct ArticleDetailView: View {
                 )
             }
             .buttonStyle(.bordered)
+
+            Button {
+                NSWorkspace.shared.open(article.originalUrl)
+            } label: {
+                Label("Read Original", systemImage: "safari")
+            }
+            .buttonStyle(.borderedProminent)
 
             Spacer()
 
@@ -449,25 +469,16 @@ struct ArticleDetailView: View {
 
     @ViewBuilder
     private func contentExtractionControls(article: ArticleDetail) -> some View {
-        HStack(spacing: 8) {
-            if isFetchingContent {
-                HStack(spacing: 4) {
-                    ProgressView()
-                        .scaleEffect(0.6)
-                    Text("Extracting...")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                }
-            } else if let error = contentFetchError {
-                HStack(spacing: 4) {
-                    Image(systemName: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.orange)
-                        .font(.caption)
-                    Text(error)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
-                }
+        // Show error status if extraction failed (button is now in actions section)
+        if let error = contentFetchError {
+            HStack(spacing: 4) {
+                Image(systemName: "exclamationmark.triangle.fill")
+                    .foregroundStyle(.orange)
+                    .font(.caption)
+                Text(error)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .lineLimit(1)
 
                 Button {
                     fetchContent(articleId: article.id)
@@ -477,15 +488,6 @@ struct ArticleDetailView: View {
                 }
                 .buttonStyle(.bordered)
                 .controlSize(.small)
-            } else {
-                Button {
-                    fetchContent(articleId: article.id)
-                } label: {
-                    Label("Fetch Full Article", systemImage: "arrow.down.doc")
-                }
-                .buttonStyle(.bordered)
-                .controlSize(.small)
-                .help("Extract full article content from the website")
             }
         }
     }
