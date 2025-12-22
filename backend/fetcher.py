@@ -3,7 +3,8 @@ Content Fetcher - Extract article content from URLs.
 
 Handles:
 - HTTP fetching with proper headers
-- HTML content extraction (removes boilerplate)
+- HTML content extraction using trafilatura (reader-mode)
+- Fallback to BeautifulSoup for edge cases
 - Integration points for JS renderer and archive services (future)
 """
 
@@ -12,6 +13,13 @@ import re
 import hashlib
 from dataclasses import dataclass
 from bs4 import BeautifulSoup
+
+try:
+    import trafilatura
+    from trafilatura.settings import use_config
+    TRAFILATURA_AVAILABLE = True
+except ImportError:
+    TRAFILATURA_AVAILABLE = False
 
 
 @dataclass
@@ -110,7 +118,72 @@ class Fetcher:
         return result
 
     def _extract_content(self, url: str, html: str) -> FetchResult:
-        """Extract article content from HTML."""
+        """Extract article content from HTML using trafilatura with BeautifulSoup fallback."""
+        # Try trafilatura first (reader-mode extraction)
+        if TRAFILATURA_AVAILABLE:
+            result = self._extract_with_trafilatura(url, html)
+            if result and self.has_sufficient_content(result.content):
+                return result
+
+        # Fallback to BeautifulSoup heuristics
+        return self._extract_with_beautifulsoup(url, html)
+
+    def _extract_with_trafilatura(self, url: str, html: str) -> FetchResult | None:
+        """Extract content using trafilatura (Mozilla Readability-style extraction)."""
+        try:
+            # Configure trafilatura for better extraction
+            config = use_config()
+            config.set("DEFAULT", "EXTRACTION_TIMEOUT", "30")
+
+            # Extract main content as HTML (preserves formatting)
+            content = trafilatura.extract(
+                html,
+                url=url,
+                output_format="html",
+                include_links=True,
+                include_images=False,
+                include_tables=True,
+                favor_recall=True,  # Prefer more content over precision
+                config=config,
+            )
+
+            if not content:
+                return None
+
+            # Extract metadata separately
+            metadata = trafilatura.extract_metadata(html, default_url=url)
+
+            title = metadata.title if metadata else None
+            author = metadata.author if metadata else None
+            published = None
+            if metadata and metadata.date:
+                published = metadata.date
+
+            # Generate content hash
+            content_hash = hashlib.sha256(content.encode()).hexdigest()[:16]
+
+            # Fall back to BeautifulSoup for title if not found
+            if not title:
+                soup = BeautifulSoup(html, "html.parser")
+                if title_tag := soup.find("title"):
+                    title = title_tag.get_text(strip=True)
+                    title = re.sub(r"\s*[|\-–—]\s*[^|\-–—]+$", "", title)
+
+            return FetchResult(
+                url=url,
+                title=title or "Untitled",
+                content=content,
+                author=author,
+                published=published,
+                source="direct",
+                content_hash=content_hash,
+            )
+        except Exception:
+            # If trafilatura fails, return None to trigger fallback
+            return None
+
+    def _extract_with_beautifulsoup(self, url: str, html: str) -> FetchResult:
+        """Fallback extraction using BeautifulSoup heuristics."""
         soup = BeautifulSoup(html, "html.parser")
 
         # Remove unwanted elements
