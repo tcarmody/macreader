@@ -98,6 +98,7 @@ struct ArticleDetailView: View {
     @ObservedObject var scrollState: ArticleScrollState
     @State private var isSummarizing: Bool = false
     @State private var isFetchingContent: Bool = false
+    @State private var contentFetchError: String?
     @State private var contentHeight: CGFloat = 200
     @State private var summarizationError: String?
     @State private var summarizationElapsed: Int = 0
@@ -421,25 +422,13 @@ struct ArticleDetailView: View {
         if let content = article.content, !content.isEmpty {
             VStack(alignment: .leading, spacing: 12) {
                 HStack {
-                    Text("Original Content")
+                    Text("Article Content")
                         .font(appTypeface.font(size: fontSize.bodyFontSize + 2, weight: .semibold))
 
                     Spacer()
 
-                    if isFetchingContent {
-                        ProgressView()
-                            .scaleEffect(0.7)
-                    } else {
-                        Button("Fetch Full Article") {
-                            Task {
-                                isFetchingContent = true
-                                try? await appState.fetchArticleContent(articleId: article.id)
-                                isFetchingContent = false
-                            }
-                        }
-                        .buttonStyle(.bordered)
-                        .controlSize(.small)
-                    }
+                    // Content extraction controls
+                    contentExtractionControls(article: article)
                 }
 
                 HTMLContentView(
@@ -458,31 +447,119 @@ struct ArticleDetailView: View {
     }
 
     @ViewBuilder
-    private func noContentView(article: ArticleDetail) -> some View {
-        VStack(spacing: 12) {
+    private func contentExtractionControls(article: ArticleDetail) -> some View {
+        HStack(spacing: 8) {
             if isFetchingContent {
-                ProgressView()
-                    .scaleEffect(0.8)
-                Text("Fetching content...")
-                    .foregroundStyle(.secondary)
-            } else {
-                Text("Content not available in feed")
-                    .foregroundStyle(.secondary)
+                HStack(spacing: 4) {
+                    ProgressView()
+                        .scaleEffect(0.6)
+                    Text("Extracting...")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } else if let error = contentFetchError {
+                HStack(spacing: 4) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .foregroundStyle(.orange)
+                        .font(.caption)
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .lineLimit(1)
+                }
 
-                Button("Fetch from Website") {
-                    Task {
-                        isFetchingContent = true
-                        try? await appState.fetchArticleContent(articleId: article.id)
-                        isFetchingContent = false
-                    }
+                Button {
+                    fetchContent(articleId: article.id)
+                } label: {
+                    Image(systemName: "arrow.clockwise")
+                        .font(.caption)
                 }
                 .buttonStyle(.bordered)
+                .controlSize(.small)
+            } else {
+                Button {
+                    fetchContent(articleId: article.id)
+                } label: {
+                    Label("Fetch Full Article", systemImage: "arrow.down.doc")
+                }
+                .buttonStyle(.bordered)
+                .controlSize(.small)
+                .help("Extract full article content from the website")
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func noContentView(article: ArticleDetail) -> some View {
+        VStack(spacing: 16) {
+            if isFetchingContent {
+                VStack(spacing: 8) {
+                    ProgressView()
+                        .scaleEffect(0.9)
+                    Text("Extracting article content...")
+                        .foregroundStyle(.secondary)
+                    Text("This may take a few seconds")
+                        .font(.caption)
+                        .foregroundStyle(.tertiary)
+                }
+            } else if let error = contentFetchError {
+                VStack(spacing: 8) {
+                    Image(systemName: "exclamationmark.triangle.fill")
+                        .font(.largeTitle)
+                        .foregroundStyle(.orange)
+
+                    Text("Failed to extract content")
+                        .font(.headline)
+
+                    Text(error)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+
+                    Button("Try Again") {
+                        fetchContent(articleId: article.id)
+                    }
+                    .buttonStyle(.bordered)
+                }
+            } else {
+                VStack(spacing: 8) {
+                    Image(systemName: "doc.text.magnifyingglass")
+                        .font(.largeTitle)
+                        .foregroundStyle(.secondary)
+
+                    Text("No content in feed")
+                        .font(.headline)
+
+                    Text("Extract the full article from the website")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+
+                    Button {
+                        fetchContent(articleId: article.id)
+                    } label: {
+                        Label("Extract Article", systemImage: "arrow.down.doc")
+                    }
+                    .buttonStyle(.borderedProminent)
+                }
             }
         }
         .frame(maxWidth: .infinity)
-        .padding()
+        .padding(.vertical, 32)
         .background(Color.secondary.opacity(0.1))
         .clipShape(RoundedRectangle(cornerRadius: 8))
+    }
+
+    private func fetchContent(articleId: Int) {
+        contentFetchError = nil
+        Task {
+            isFetchingContent = true
+            do {
+                try await appState.fetchArticleContent(articleId: articleId)
+            } catch {
+                contentFetchError = error.localizedDescription
+            }
+            isFetchingContent = false
+        }
     }
 
     // MARK: - Toolbar
@@ -521,6 +598,22 @@ struct ArticleDetailView: View {
                     )
                 }
                 .help(article.isBookmarked ? "Remove Bookmark" : "Bookmark")
+            }
+
+            ToolbarItem {
+                Button {
+                    fetchContent(articleId: article.id)
+                } label: {
+                    if isFetchingContent {
+                        ProgressView()
+                            .scaleEffect(0.5)
+                            .frame(width: 16, height: 16)
+                    } else {
+                        Label("Extract Article", systemImage: "arrow.down.doc")
+                    }
+                }
+                .disabled(isFetchingContent)
+                .help("Extract full article content from website")
             }
 
             ToolbarItem {
