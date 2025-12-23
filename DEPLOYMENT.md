@@ -223,6 +223,72 @@ A typical article summary uses ~2,000 input tokens and ~500 output tokens, costi
 
 ## Security Considerations
 
+### Authentication Options
+
+DataPoints supports multiple authentication methods:
+
+#### Option 1: No Authentication (Development Only)
+
+By default, the API is open. Suitable only for local development.
+
+#### Option 2: API Key Authentication
+
+Set a shared API key that all users must provide:
+
+| Variable | Value |
+|----------|-------|
+| `AUTH_API_KEY` | Your secret key (generate with `python -c "import secrets; print(secrets.token_urlsafe(32))"`) |
+
+Users enter this key in the Settings dialog to access the app.
+
+#### Option 3: OAuth Authentication (Recommended for Production)
+
+Enable user login via Google and/or GitHub:
+
+| Variable | Value | Required |
+|----------|-------|----------|
+| `SESSION_SECRET` | Secret for signing cookies (generate with `python -c "import secrets; print(secrets.token_urlsafe(32))"`) | Yes |
+| `GOOGLE_CLIENT_ID` | From [Google Cloud Console](https://console.cloud.google.com/apis/credentials) | For Google login |
+| `GOOGLE_CLIENT_SECRET` | From Google Cloud Console | For Google login |
+| `GITHUB_CLIENT_ID` | From [GitHub Developer Settings](https://github.com/settings/developers) | For GitHub login |
+| `GITHUB_CLIENT_SECRET` | From GitHub Developer Settings | For GitHub login |
+| `SESSION_SECURE` | `true` (default) or `false` for HTTP | Optional |
+| `SESSION_MAX_AGE` | Session lifetime in seconds (default: 604800 = 7 days) | Optional |
+| `OAUTH_ALLOWED_EMAILS` | Comma-separated list of allowed emails (empty = allow all) | Optional |
+| `OAUTH_FRONTEND_URL` | URL to redirect after login (default: `/`) | Optional |
+
+**Setting up Google OAuth:**
+
+1. Go to [Google Cloud Console](https://console.cloud.google.com/apis/credentials)
+2. Create a new OAuth 2.0 Client ID
+3. Set authorized redirect URI to: `https://your-railway-url/auth/callback/google`
+4. Copy the Client ID and Client Secret to Railway environment variables
+
+**Setting up GitHub OAuth:**
+
+1. Go to [GitHub Developer Settings](https://github.com/settings/developers)
+2. Create a new OAuth App
+3. Set authorization callback URL to: `https://your-railway-url/auth/callback/github`
+4. Copy the Client ID and Client Secret to Railway environment variables
+
+**Restricting Access:**
+
+To limit which users can log in, set `OAUTH_ALLOWED_EMAILS`:
+
+```
+OAUTH_ALLOWED_EMAILS=you@gmail.com,friend@example.com
+```
+
+Only users with emails in this list will be allowed to authenticate.
+
+#### Option 4: Both API Key and OAuth
+
+You can enable both methods simultaneously. Users can authenticate via either:
+- Providing the API key in the Settings dialog
+- Logging in via Google/GitHub
+
+This is useful for programmatic API access (using the key) alongside user login (OAuth).
+
 ### API Keys
 
 - **Server-side keys**: Set in Railway environment variables, never exposed to clients

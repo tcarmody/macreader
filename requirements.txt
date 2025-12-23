@@ -5,6 +5,11 @@ python-dotenv>=1.2.1
 pydantic>=2.12.0
 slowapi>=0.1.9          # Rate limiting
 
+# OAuth Authentication
+authlib>=1.4.0          # OAuth client for Google/GitHub
+itsdangerous>=2.2.0     # Session signing
+httpx>=0.28.0           # Async HTTP for OAuth
+
 # HTTP & Parsing
 aiohttp>=3.13.0
 Brotli>=1.1.0           # Brotli content-encoding support

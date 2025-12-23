@@ -10,6 +10,7 @@ import type {
   StatsResponse,
   GroupBy,
   ApiKeyConfig,
+  OAuthStatus,
 } from '@/types'
 
 // Get API configuration from localStorage
@@ -62,6 +63,7 @@ async function fetchApi<T>(
 
   const response = await fetch(url, {
     ...options,
+    credentials: 'include',  // Include cookies for OAuth session
     headers: {
       ...getHeaders(),
       ...options.headers,
@@ -273,6 +275,7 @@ export async function uploadLibraryFile(file: File): Promise<StandaloneItem> {
 
   const response = await fetch(`${config.backendUrl}/standalone/upload`, {
     method: 'POST',
+    credentials: 'include',  // Include cookies for OAuth session
     headers,
     body: formData,
   })
@@ -313,5 +316,30 @@ export async function batchSummarize(
   return fetchApi('/summarize/batch', {
     method: 'POST',
     body: JSON.stringify({ urls }),
+  })
+}
+
+// OAuth Authentication
+export async function getAuthStatus(): Promise<OAuthStatus> {
+  const config = getApiConfig()
+  const response = await fetch(`${config.backendUrl}/auth/status`, {
+    credentials: 'include',  // Include cookies for session
+  })
+  if (!response.ok) {
+    throw new Error('Failed to get auth status')
+  }
+  return response.json()
+}
+
+export function getLoginUrl(provider: 'google' | 'github'): string {
+  const config = getApiConfig()
+  return `${config.backendUrl}/auth/login/${provider}`
+}
+
+export async function logout(): Promise<void> {
+  const config = getApiConfig()
+  await fetch(`${config.backendUrl}/auth/logout`, {
+    method: 'POST',
+    credentials: 'include',
   })
 }

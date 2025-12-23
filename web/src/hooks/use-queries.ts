@@ -5,6 +5,7 @@ import type { FilterType, GroupBy } from '@/types'
 // Query Keys
 export const queryKeys = {
   status: ['status'] as const,
+  authStatus: ['authStatus'] as const,
   stats: ['stats'] as const,
   settings: ['settings'] as const,
   feeds: ['feeds'] as const,
@@ -23,6 +24,26 @@ export function useStatus() {
     queryKey: queryKeys.status,
     queryFn: api.getStatus,
     staleTime: 30000, // 30 seconds
+  })
+}
+
+export function useAuthStatus() {
+  return useQuery({
+    queryKey: queryKeys.authStatus,
+    queryFn: api.getAuthStatus,
+    staleTime: 30000,
+    retry: false,  // Don't retry on 401
+  })
+}
+
+export function useLogout() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: api.logout,
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.authStatus })
+      queryClient.invalidateQueries({ queryKey: queryKeys.status })
+    },
   })
 }
 

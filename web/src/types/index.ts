@@ -72,6 +72,21 @@ export interface StatusResponse {
   auth_enabled: boolean
 }
 
+// OAuth types
+export interface OAuthUser {
+  email: string
+  name: string | null
+  provider: 'google' | 'github'
+  created_at: string
+}
+
+export interface OAuthStatus {
+  enabled: boolean
+  google_enabled: boolean
+  github_enabled: boolean
+  user: OAuthUser | null
+}
+
 export interface StatsResponse {
   total_feeds: number
   total_articles: number

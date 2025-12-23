@@ -71,6 +71,42 @@ class Config:
     JS_RENDER_TIMEOUT: int = int(os.getenv("JS_RENDER_TIMEOUT", "30000"))  # ms
     ARCHIVE_MAX_AGE_DAYS: int = int(os.getenv("ARCHIVE_MAX_AGE_DAYS", "30"))
 
+    # OAuth Configuration
+    # Google OAuth
+    GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
+    GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
+
+    # GitHub OAuth
+    GITHUB_CLIENT_ID: str = os.getenv("GITHUB_CLIENT_ID", "")
+    GITHUB_CLIENT_SECRET: str = os.getenv("GITHUB_CLIENT_SECRET", "")
+
+    # Session settings
+    # Secret key for signing session cookies (required for OAuth)
+    # Generate with: python -c "import secrets; print(secrets.token_urlsafe(32))"
+    SESSION_SECRET: str = os.getenv("SESSION_SECRET", "")
+
+    # Session lifetime in seconds (default: 7 days)
+    SESSION_MAX_AGE: int = int(os.getenv("SESSION_MAX_AGE", str(7 * 24 * 60 * 60)))
+
+    # Set to False for local development over HTTP
+    SESSION_SECURE: bool = _parse_bool(os.getenv("SESSION_SECURE"), default=True)
+
+    # Comma-separated list of allowed email addresses (empty = allow all)
+    OAUTH_ALLOWED_EMAILS: str = os.getenv("OAUTH_ALLOWED_EMAILS", "")
+
+    # Frontend URL to redirect to after OAuth callback
+    OAUTH_FRONTEND_URL: str = os.getenv("OAUTH_FRONTEND_URL", "/")
+
+    @property
+    def OAUTH_ENABLED(self) -> bool:
+        """Check if OAuth is configured and enabled."""
+        has_provider = bool(
+            (self.GOOGLE_CLIENT_ID and self.GOOGLE_CLIENT_SECRET) or
+            (self.GITHUB_CLIENT_ID and self.GITHUB_CLIENT_SECRET)
+        )
+        has_secret = bool(self.SESSION_SECRET)
+        return has_provider and has_secret
+
     @classmethod
     def has_llm_key(cls) -> bool:
         """Check if any LLM API key is configured."""

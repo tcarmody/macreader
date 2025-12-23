@@ -33,6 +33,7 @@ from .routes import (
     standalone_router,
 )
 from .rate_limit import setup_rate_limiting
+from .oauth import router as oauth_router, setup_oauth
 
 logger = logging.getLogger(__name__)
 
@@ -85,6 +86,11 @@ async def lifespan(app: FastAPI):
                 "No LLM API key configured. Set ANTHROPIC_API_KEY, OPENAI_API_KEY, "
                 "or GOOGLE_API_KEY. Summarization and clustering disabled."
             )
+
+        # Setup OAuth providers
+        setup_oauth()
+        if config.OAUTH_ENABLED:
+            logger.info("OAuth authentication enabled")
 
     yield
 
@@ -209,7 +215,8 @@ async def inject_api_keys_from_headers(request: Request, call_next):
 # Include routers
 # Public routes (no auth required)
 app.include_router(misc_public_router)
-# Protected routes (require auth when AUTH_API_KEY is set)
+app.include_router(oauth_router)  # OAuth routes are public (login/callback/status)
+# Protected routes (require auth when AUTH_API_KEY or OAuth is configured)
 app.include_router(misc_router)
 app.include_router(articles_router)
 app.include_router(feeds_router)
