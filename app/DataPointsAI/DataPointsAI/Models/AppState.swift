@@ -10,7 +10,7 @@ class AppState: ObservableObject {
 
     @Published var feeds: [Feed] = []
     @Published var articles: [Article] = []
-    @Published var selectedFilter: ArticleFilter = .all
+    @Published var selectedFilterStorage: ArticleFilter = .all
     @Published var selectedArticle: Article?
     @Published var selectedArticleDetail: ArticleDetail?
     @Published var searchQuery: String = ""
@@ -71,6 +71,23 @@ class AppState: ObservableObject {
     private let dockBadgeService = DockBadgeService.shared
 
     // MARK: - Computed Properties
+
+    /// Wrapper around selectedFilterStorage that manages unread view snapshot
+    var selectedFilter: ArticleFilter {
+        get { selectedFilterStorage }
+        set {
+            let oldValue = selectedFilterStorage
+            // Only process if the filter actually changed
+            guard newValue != oldValue else { return }
+
+            // Clear snapshot when leaving unread view
+            if oldValue == .unread && newValue != .unread {
+                clearUnreadSnapshot()
+            }
+
+            selectedFilterStorage = newValue
+        }
+    }
 
     var currentFilterName: String {
         switch selectedFilter {
@@ -878,10 +895,10 @@ class AppState: ObservableObject {
             collapsedCategories = Set(categories)
         }
 
-        // Load selected filter
+        // Load selected filter (use storage directly to avoid triggering snapshot logic)
         if let filterData = UserDefaults.standard.data(forKey: "selectedFilter"),
            let filter = try? JSONDecoder().decode(ArticleFilter.self, from: filterData) {
-            selectedFilter = filter
+            selectedFilterStorage = filter
         }
     }
 
