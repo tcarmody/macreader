@@ -69,6 +69,7 @@ export interface StatusResponse {
   summarization_enabled: boolean
   provider: string | null
   model: string | null
+  auth_enabled: boolean
 }
 
 export interface StatsResponse {
@@ -95,6 +96,7 @@ export type SortBy = 'date' | 'title' | 'feed'
 
 // API key configuration stored in localStorage
 export interface ApiKeyConfig {
+  apiKey?: string  // Auth API key for backend access
   anthropicKey?: string
   openaiKey?: string
   googleKey?: string

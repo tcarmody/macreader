@@ -29,6 +29,7 @@ from .routes import (
     feeds_router,
     summarization_router,
     misc_router,
+    misc_public_router,
     standalone_router,
 )
 
@@ -187,6 +188,9 @@ async def inject_api_keys_from_headers(request: Request, call_next):
 
 
 # Include routers
+# Public routes (no auth required)
+app.include_router(misc_public_router)
+# Protected routes (require auth when AUTH_API_KEY is set)
 app.include_router(misc_router)
 app.include_router(articles_router)
 app.include_router(feeds_router)

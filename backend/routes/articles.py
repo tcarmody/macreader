@@ -7,6 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 
+from ..auth import verify_api_key
 from ..config import state, get_db
 from ..database import Database
 from ..schemas import (
@@ -20,7 +21,11 @@ from ..schemas import (
 from ..tasks import summarize_article
 from ..source_extractor import SourceExtractor
 
-router = APIRouter(prefix="/articles", tags=["articles"])
+router = APIRouter(
+    prefix="/articles",
+    tags=["articles"],
+    dependencies=[Depends(verify_api_key)]
+)
 
 
 # ─────────────────────────────────────────────────────────────

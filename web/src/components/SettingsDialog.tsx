@@ -182,10 +182,34 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
                   <p>Provider: {status.provider || 'None'}</p>
                   <p>Model: {status.model || 'None'}</p>
                   <p>Summarization: {status.summarization_enabled ? 'Enabled' : 'Disabled'}</p>
+                  <p>Authentication: {status.auth_enabled ? 'Required' : 'Disabled'}</p>
                 </div>
               )}
 
               <Separator />
+
+              {/* Auth API Key */}
+              {status?.auth_enabled && (
+                <>
+                  <div>
+                    <h3 className="text-sm font-medium mb-3">Authentication</h3>
+                    <p className="text-xs text-muted-foreground mb-4">
+                      This backend requires an API key for access. Enter the key configured
+                      in the server's AUTH_API_KEY environment variable.
+                    </p>
+                    <div>
+                      <label className="block text-sm mb-1">API Key</label>
+                      <Input
+                        type="password"
+                        value={localConfig.apiKey || ''}
+                        onChange={(e) => setLocalConfig({ ...localConfig, apiKey: e.target.value })}
+                        placeholder="Your API key"
+                      />
+                    </div>
+                  </div>
+                  <Separator />
+                </>
+              )}
 
               {/* API Keys */}
               <div>

@@ -31,6 +31,11 @@ def _parse_bool(value: str | None, default: bool = False) -> bool:
 
 class Config:
     """Application configuration from environment."""
+    # Authentication
+    # Set this to require API key authentication for all endpoints
+    # If not set, the API is open (suitable for local development only)
+    AUTH_API_KEY: str = os.getenv("AUTH_API_KEY", "")
+
     # LLM Provider configuration
     # Set one of these API keys based on your preferred provider
     ANTHROPIC_API_KEY: str = os.getenv("ANTHROPIC_API_KEY", "")

@@ -31,7 +31,12 @@ function getHeaders(): HeadersInit {
     'Content-Type': 'application/json',
   }
 
-  // Pass API keys via headers for the backend to use
+  // Auth API key for backend access
+  if (config.apiKey) {
+    headers['X-API-Key'] = config.apiKey
+  }
+
+  // Pass LLM API keys via headers for the backend to use
   if (config.anthropicKey) {
     headers['X-Anthropic-Key'] = config.anthropicKey
   }
@@ -259,8 +264,16 @@ export async function uploadLibraryFile(file: File): Promise<StandaloneItem> {
   formData.append('file', file)
 
   const config = getApiConfig()
+  const headers: HeadersInit = {}
+
+  // Include auth API key for file uploads
+  if (config.apiKey) {
+    headers['X-API-Key'] = config.apiKey
+  }
+
   const response = await fetch(`${config.backendUrl}/standalone/upload`, {
     method: 'POST',
+    headers,
     body: formData,
   })
 

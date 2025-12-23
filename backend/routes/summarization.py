@@ -4,8 +4,9 @@ Summarization routes: single URL and batch summarization.
 
 import asyncio
 
-from fastapi import APIRouter, HTTPException
+from fastapi import APIRouter, Depends, HTTPException
 
+from ..auth import verify_api_key
 from ..config import state
 from ..schemas import (
     SummarizeRequest,
@@ -14,7 +15,7 @@ from ..schemas import (
     BatchSummarizeResponse,
 )
 
-router = APIRouter(tags=["summarization"])
+router = APIRouter(tags=["summarization"], dependencies=[Depends(verify_api_key)])
 
 
 @router.post("/summarize")

@@ -6,6 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
+from ..auth import verify_api_key
 from ..config import state, get_db
 from ..database import Database
 from ..schemas import (
@@ -20,7 +21,11 @@ from ..schemas import (
 from ..opml import parse_opml, generate_opml, OPMLFeed
 from ..tasks import refresh_all_feeds, refresh_single_feed, fetch_feed_articles
 
-router = APIRouter(prefix="/feeds", tags=["feeds"])
+router = APIRouter(
+    prefix="/feeds",
+    tags=["feeds"],
+    dependencies=[Depends(verify_api_key)]
+)
 
 
 # ─────────────────────────────────────────────────────────────

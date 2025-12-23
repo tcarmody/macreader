@@ -8,6 +8,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
 
+from ..auth import verify_api_key
 from ..config import state, get_db, config
 from ..database import Database
 from ..extractors import extract_text, detect_content_type, ExtractionError
@@ -20,7 +21,11 @@ from ..schemas import (
 )
 from ..tasks import summarize_article
 
-router = APIRouter(prefix="/standalone", tags=["library"])
+router = APIRouter(
+    prefix="/standalone",
+    tags=["library"],
+    dependencies=[Depends(verify_api_key)]
+)
 
 # Directory for uploaded files
 UPLOADS_DIR = config.DB_PATH.parent / "uploads"

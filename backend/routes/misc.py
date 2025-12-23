@@ -6,25 +6,31 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from ..config import state, get_db
+from ..auth import verify_api_key
+from ..config import state, get_db, config
 from ..database import Database
 from ..schemas import ArticleResponse, SettingsResponse, SettingsUpdateRequest
 
-router = APIRouter(tags=["misc"])
+# Protected routes require authentication
+router = APIRouter(tags=["misc"], dependencies=[Depends(verify_api_key)])
+
+# Public router for endpoints that don't require auth
+public_router = APIRouter(tags=["misc"])
 
 
 # ─────────────────────────────────────────────────────────────
-# Health Check
+# Health Check (public - no auth required)
 # ─────────────────────────────────────────────────────────────
 
-@router.get("/status")
+@public_router.get("/status")
 async def health_check() -> dict:
     """API health check."""
     return {
         "status": "ok",
         "version": "2.0.0",
         "summarization_enabled": state.summarizer is not None,
-        "provider": state.provider.name if state.provider else None
+        "provider": state.provider.name if state.provider else None,
+        "auth_enabled": bool(config.AUTH_API_KEY),
     }
 
 
