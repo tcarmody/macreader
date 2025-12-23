@@ -1,4 +1,4 @@
-import { useMemo, useEffect, useRef } from 'react'
+import { useMemo } from 'react'
 import {
   BookMarked,
   Circle,
@@ -21,40 +21,18 @@ export function ArticleList() {
     setSelectedArticleId,
     searchQuery,
     isSearching,
-    unreadViewArticleIds,
-    captureUnreadSnapshot,
   } = useAppStore()
 
+  // Articles are fetched with the filter applied (e.g., unread_only=true for unread view)
+  // We don't filter client-side so articles stay visible after being marked as read
+  // until the user navigates away (like NetNewsWire)
   const { data: articles = [], isLoading } = useArticles(selectedFilter)
   const { data: searchResults = [], isLoading: searchLoading } = useSearch(
     isSearching ? searchQuery : ''
   )
   const markRead = useMarkArticleRead()
 
-  // Track if we've captured the snapshot for the current unread view session
-  const hasSnapshotRef = useRef(false)
-
-  // Capture snapshot when entering unread view and articles are loaded
-  useEffect(() => {
-    if (selectedFilter === 'unread' && articles.length > 0 && !hasSnapshotRef.current) {
-      captureUnreadSnapshot(articles.map(a => a.id))
-      hasSnapshotRef.current = true
-    }
-    // Reset the ref when leaving unread view
-    if (selectedFilter !== 'unread') {
-      hasSnapshotRef.current = false
-    }
-  }, [selectedFilter, articles, captureUnreadSnapshot])
-
-  // Filter articles using snapshot when in unread view
-  const filteredArticles = useMemo(() => {
-    if (selectedFilter === 'unread' && unreadViewArticleIds) {
-      return articles.filter(a => unreadViewArticleIds.has(a.id))
-    }
-    return articles
-  }, [articles, selectedFilter, unreadViewArticleIds])
-
-  const displayArticles = isSearching ? searchResults : filteredArticles
+  const displayArticles = isSearching ? searchResults : articles
 
   // Group articles by date
   const groupedArticles = useMemo(() => {
