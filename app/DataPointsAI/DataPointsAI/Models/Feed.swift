@@ -172,6 +172,10 @@ struct AppSettings: Codable, Sendable {
     var appTypeface: AppTypeface = .system
     var contentTypeface: ContentTypeface = .system
 
+    // Reader mode settings (client-side only, defaults to larger/more relaxed)
+    var readerModeFontSize: ArticleFontSize = .large
+    var readerModeLineSpacing: ArticleLineSpacing = .relaxed
+
     enum CodingKeys: String, CodingKey {
         case refreshIntervalMinutes = "refresh_interval_minutes"
         case autoSummarize = "auto_summarize"
@@ -192,7 +196,9 @@ struct AppSettings: Codable, Sendable {
         articleLineSpacing: .normal,
         listDensity: .comfortable,
         appTypeface: .system,
-        contentTypeface: .system
+        contentTypeface: .system,
+        readerModeFontSize: .large,
+        readerModeLineSpacing: .relaxed
     )
 }
 

@@ -34,6 +34,7 @@ class AppState: ObservableObject {
     @Published var sortOption: ArticleSortOption = .newestFirst
     @Published var hideReadArticles: Bool = false
     @Published var isClusteringLoading: Bool = false
+    @Published var readerModeEnabled: Bool = false
 
     // Server-side grouped articles (for topic/feed modes)
     @Published private var serverGroupedArticles: [ArticleGroup] = []

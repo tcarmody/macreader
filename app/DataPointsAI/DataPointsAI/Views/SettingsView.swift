@@ -18,6 +18,10 @@ struct SettingsView: View {
     @State private var appTypeface: AppTypeface = .system
     @State private var contentTypeface: ContentTypeface = .system
 
+    // Reader mode settings
+    @State private var readerModeFontSize: ArticleFontSize = .large
+    @State private var readerModeLineSpacing: ArticleLineSpacing = .relaxed
+
     var body: some View {
         TabView {
             GeneralSettingsView(
@@ -35,7 +39,9 @@ struct SettingsView: View {
                 articleLineSpacing: $articleLineSpacing,
                 listDensity: $listDensity,
                 appTypeface: $appTypeface,
-                contentTypeface: $contentTypeface
+                contentTypeface: $contentTypeface,
+                readerModeFontSize: $readerModeFontSize,
+                readerModeLineSpacing: $readerModeLineSpacing
             )
             .tabItem {
                 Label("Appearance", systemImage: "textformat.size")
@@ -74,6 +80,8 @@ struct SettingsView: View {
         .onChange(of: listDensity) { _, _ in saveSettings() }
         .onChange(of: appTypeface) { _, _ in saveSettings() }
         .onChange(of: contentTypeface) { _, _ in saveSettings() }
+        .onChange(of: readerModeFontSize) { _, _ in saveSettings() }
+        .onChange(of: readerModeLineSpacing) { _, _ in saveSettings() }
     }
 
     private func loadSettings() {
@@ -88,6 +96,8 @@ struct SettingsView: View {
         listDensity = appState.settings.listDensity
         appTypeface = appState.settings.appTypeface
         contentTypeface = appState.settings.contentTypeface
+        readerModeFontSize = appState.settings.readerModeFontSize
+        readerModeLineSpacing = appState.settings.readerModeLineSpacing
     }
 
     private func saveSettings() {
@@ -104,6 +114,8 @@ struct SettingsView: View {
         newSettings.listDensity = listDensity
         newSettings.appTypeface = appTypeface
         newSettings.contentTypeface = contentTypeface
+        newSettings.readerModeFontSize = readerModeFontSize
+        newSettings.readerModeLineSpacing = readerModeLineSpacing
 
         Task {
             try? await appState.updateSettings(newSettings)
@@ -207,6 +219,8 @@ struct AppearanceSettingsView: View {
     @Binding var listDensity: ListDensity
     @Binding var appTypeface: AppTypeface
     @Binding var contentTypeface: ContentTypeface
+    @Binding var readerModeFontSize: ArticleFontSize
+    @Binding var readerModeLineSpacing: ArticleLineSpacing
 
     var body: some View {
         Form {
@@ -246,6 +260,26 @@ struct AppearanceSettingsView: View {
                 }
             } header: {
                 Text("Size & Spacing")
+            }
+
+            Section {
+                Picker("Font size", selection: $readerModeFontSize) {
+                    ForEach(ArticleFontSize.allCases, id: \.self) { size in
+                        Text(size.label).tag(size)
+                    }
+                }
+
+                Picker("Line spacing", selection: $readerModeLineSpacing) {
+                    ForEach(ArticleLineSpacing.allCases, id: \.self) { spacing in
+                        Text(spacing.label).tag(spacing)
+                    }
+                }
+
+                Text("Reader mode (f) hides the sidebar and article list for distraction-free reading.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Reader Mode")
             }
 
             Section {

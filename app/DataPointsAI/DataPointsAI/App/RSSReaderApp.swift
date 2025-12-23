@@ -113,6 +113,13 @@ struct RSSReaderApp: App {
                     }
                 }
                 .pickerStyle(.inline)
+
+                Divider()
+
+                Button(appState.readerModeEnabled ? "Exit Reader Mode" : "Enter Reader Mode") {
+                    appState.readerModeEnabled.toggle()
+                }
+                .keyboardShortcut("f", modifiers: [.command, .shift])
             }
 
             // Edit menu - Selection commands

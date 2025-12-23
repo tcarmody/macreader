@@ -123,13 +123,18 @@ struct ArticleDetailView: View {
 
     // MARK: - Article Content View
 
+    /// Maximum content width for reader mode (optimal reading width)
+    private var readerModeMaxWidth: CGFloat { 720 }
+
     @ViewBuilder
     private func articleContentView(article: ArticleDetail) -> some View {
         ScrollView {
             VStack(spacing: 0) {
                 articleBody(article: article)
                     .padding()
+                    .frame(maxWidth: appState.readerModeEnabled ? readerModeMaxWidth : .infinity)
             }
+            .frame(maxWidth: .infinity) // Centers content when width is constrained
             .background(ScrollViewAccessor(scrollState: scrollState))
         }
         .onChange(of: article.id) { _, _ in
@@ -141,8 +146,13 @@ struct ArticleDetailView: View {
 
     @ViewBuilder
     private func articleBody(article: ArticleDetail) -> some View {
-        let fontSize = appState.settings.articleFontSize
-        let lineSpacing = appState.settings.articleLineSpacing
+        // Use reader mode settings when in reader mode
+        let fontSize = appState.readerModeEnabled
+            ? appState.settings.readerModeFontSize
+            : appState.settings.articleFontSize
+        let lineSpacing = appState.readerModeEnabled
+            ? appState.settings.readerModeLineSpacing
+            : appState.settings.articleLineSpacing
         let appTypeface = appState.settings.appTypeface
         let contentTypeface = appState.settings.contentTypeface
 
@@ -636,6 +646,18 @@ struct ArticleDetailView: View {
                 }
                 .disabled(isSummarizing)
                 .help(article.summaryFull != nil ? "Regenerate Summary" : "Generate Summary")
+            }
+
+            ToolbarItem {
+                Button {
+                    appState.readerModeEnabled.toggle()
+                } label: {
+                    Label(
+                        appState.readerModeEnabled ? "Exit Reader Mode" : "Reader Mode",
+                        systemImage: appState.readerModeEnabled ? "book.fill" : "book"
+                    )
+                }
+                .help(appState.readerModeEnabled ? "Exit Reader Mode (f)" : "Enter Reader Mode (f)")
             }
         }
     }

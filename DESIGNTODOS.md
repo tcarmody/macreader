@@ -7,6 +7,7 @@ Future UI/UX improvements to consider for the macOS RSS reader app.
 ### Reading Experience
 - [x] **Article Font & Line Spacing Settings** - Customizable font sizes and line spacing
 - [x] **Typeface Selection** - System and custom font options for UI and content
+- [x] **Reader Mode Toggle** - Distraction-free reading with `f` key, hides sidebar/list, centers content
 
 ### Interaction Improvements
 - [x] **Drag & Drop Feeds** - Drag feeds between categories with visual drop indicators
@@ -32,6 +33,41 @@ Future UI/UX improvements to consider for the macOS RSS reader app.
 
 ---
 
+### Feed & Article Management
+- [x] **OPML Import/Export** - Import and export feed subscriptions
+- [x] **Bulk Operations** - Delete multiple feeds, bulk mark articles as read
+- [x] **Category Management** - Rename, delete categories; move uncategorized feeds
+- [x] **Multi-Select** - Select multiple articles/feeds for bulk actions
+- [x] **Context Menus** - Quick actions via right-click on feeds and articles
+
+### Article Display
+- [x] **Grouping Options** - Group by Date, Feed, or Topic (AI-powered clustering)
+- [x] **Sort Options** - Newest/Oldest First, Unread First, Title A-Z/Z-A
+- [x] **List Density Settings** - Compact, Comfortable, Spacious options
+
+### AI Features
+- [x] **Multiple LLM Providers** - Anthropic Claude, OpenAI GPT, Google Gemini
+- [x] **Model Selection** - Choose speed vs quality models per provider
+- [x] **Auto-Summarization** - Option to summarize on fetch
+- [x] **Summary Types** - One-liner, full summary, and key points extraction
+
+### Library Feature
+- [x] **URL Library** - Save URLs for later reading
+- [x] **File Uploads** - Add PDFs, DOCX, TXT, Markdown, HTML files
+- [x] **Library Summarization** - AI summaries for library items
+
+### Native macOS Integration
+- [x] **Dock Badge** - Unread count on dock icon
+- [x] **Desktop Notifications** - Alerts for new articles
+- [x] **Full-Text Search** - SQLite FTS5-powered search with `/` shortcut
+
+### Settings & Configuration
+- [x] **Refresh Interval** - Configurable auto-refresh timing
+- [x] **Mark Read on Open** - Optional auto-mark behavior
+- [x] **Notifications Toggle** - Enable/disable desktop notifications
+
+---
+
 ## Still To-Do
 
 ### Reading Experience
@@ -41,12 +77,6 @@ For long articles, show:
 - A thin progress bar at the top of the article view
 - "X min read" estimate based on word count
 - Resume position when returning to partially-read articles
-
-#### Reader Mode Toggle
-Add a distraction-free reading mode that:
-- Hides the sidebar and article list
-- Centers content with optimal reading width
-- Uses clean, book-like typography
 
 ### Interaction Improvements
 
@@ -77,15 +107,6 @@ Expand the server status indicator to show:
 - Toggle notifications on/off per individual feed
 - Accessible from feed context menu
 - Store preference in database
-
-#### Feed Reordering
-- Drag to reorder feeds within a folder
-- Persist custom sort order
-
-#### Window Layout Persistence
-- Remember panel widths on quit
-- Restore scroll position in article list
-- Restore last selected article
 
 ### Larger Features (Future)
 

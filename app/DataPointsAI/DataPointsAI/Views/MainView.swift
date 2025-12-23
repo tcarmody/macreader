@@ -72,6 +72,11 @@ struct MainView: View {
         .onChange(of: appState.selectedFilter) { _, _ in
             appState.saveWindowState()
         }
+        .onChange(of: appState.readerModeEnabled) { _, isEnabled in
+            withAnimation(.easeInOut(duration: 0.25)) {
+                columnVisibility = isEnabled ? .detailOnly : .all
+            }
+        }
     }
 
     private func setupKeyboardMonitor() {
@@ -206,6 +211,9 @@ struct MainView: View {
 
         case .expandAllFolders:
             appState.expandAllCategories()
+
+        case .toggleReaderMode:
+            appState.readerModeEnabled.toggle()
         }
     }
 
