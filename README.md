@@ -17,6 +17,7 @@ A modern RSS reader with AI-powered summarization, available as a native macOS a
 - **Full-Text Search** - Fast search across all articles with SQLite FTS5
 - **Native macOS App** - SwiftUI interface with Keychain, Spotlight, and notification integration
 - **Web PWA** - Cross-platform Progressive Web App with offline support
+- **Security** - API key auth, OAuth login (Google/GitHub), rate limiting, SSRF protection
 
 ## Architecture
 
@@ -110,10 +111,30 @@ ANTHROPIC_API_KEY=sk-ant-...
 PORT=5005
 LOG_LEVEL=INFO
 
+# Authentication (choose one or both)
+# AUTH_API_KEY=your-secret-key   # Simple API key auth
+# See DEPLOYMENT.md for OAuth setup (Google/GitHub login)
+
 # Advanced features (optional)
 ENABLE_JS_RENDER=true       # JavaScript rendering for dynamic content
 ENABLE_ARCHIVE=true         # Archive service for paywalled content
 ```
+
+## Security
+
+DataPoints supports multiple authentication methods for production deployment:
+
+- **No Auth** - Default for local development
+- **API Key** - Simple shared key via `AUTH_API_KEY` environment variable
+- **OAuth** - User login via Google and/or GitHub (recommended for multi-user)
+- **Both** - API key for programmatic access + OAuth for user login
+
+Additional security features:
+- **Rate Limiting** - Configurable requests per minute per IP
+- **SSRF Protection** - Blocks requests to private networks and cloud metadata
+- **CORS** - Configurable allowed origins for cross-origin requests
+
+See [DEPLOYMENT.md](DEPLOYMENT.md) for detailed security configuration.
 
 ## Project Structure
 
@@ -154,6 +175,8 @@ macreader/
 | `POST /standalone/url` | Add URL to library |
 | `GET /search` | Full-text search |
 | `GET /status` | Health check |
+| `GET /auth/status` | OAuth status |
+| `GET /auth/login/{provider}` | OAuth login (google/github) |
 
 ## Keyboard Shortcuts
 

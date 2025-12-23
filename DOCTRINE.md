@@ -206,6 +206,17 @@ The initial prototype was a web app. Moving to native SwiftUI provided better ke
 
 Early versions required server-side API keys. Switching to user-provided keys (stored in browser localStorage for web, Keychain for native) eliminated the need for user accounts, reduced hosting costs, and gave users control over their AI spending.
 
+### Security Hardening
+
+The security improvements were implemented incrementally:
+
+1. **API Key Authentication** - Simple shared key for single-user deployments
+2. **SSRF Protection** - Block requests to private networks and cloud metadata endpoints
+3. **Rate Limiting** - Prevent abuse and excessive LLM costs
+4. **OAuth Authentication** - User login via Google/GitHub for multi-user deployments
+
+Each layer addresses different threat models. API key auth is sufficient for personal use. OAuth enables sharing with trusted users while maintaining individual accountability.
+
 ### Deployment Should Be Simple
 
 The deployment setup evolved from complex Docker configurations to simple Platform-as-a-Service deployment:
