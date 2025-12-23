@@ -42,6 +42,10 @@ class AppState: ObservableObject {
     @Published var selectedFeedIds: Set<Int> = []
     @Published var selectedArticleIds: Set<Int> = []
 
+    // Snapshot of article IDs to keep visible in current filter view
+    // Used to prevent articles from disappearing when marked as read in Unread view
+    private var unreadViewArticleIds: Set<Int>?
+
     // Edit state
     @Published var feedBeingEdited: Feed?
 
@@ -129,7 +133,12 @@ class AppState: ObservableObject {
         case .all:
             break
         case .unread:
-            result = result.filter { !$0.isRead }
+            // Use snapshot if available to keep articles visible until navigating away
+            if let snapshotIds = unreadViewArticleIds {
+                result = result.filter { snapshotIds.contains($0.id) }
+            } else {
+                result = result.filter { !$0.isRead }
+            }
         case .today:
             let calendar = Calendar.current
             let startOfToday = calendar.startOfDay(for: Date())
@@ -287,6 +296,12 @@ class AppState: ObservableObject {
             feeds = try await feedsTask
             articles = try await articlesTask
             settings = try await settingsTask
+
+            // Capture unread snapshot if in unread view and no snapshot exists yet
+            // This handles the initial app startup case
+            if selectedFilter == .unread && unreadViewArticleIds == nil {
+                captureUnreadSnapshot()
+            }
 
             // Update dock badge with unread count
             updateDockBadge()
@@ -536,6 +551,7 @@ class AppState: ObservableObject {
 
     func selectLibrary() {
         showLibrary = true
+        clearUnreadSnapshot()  // Clear snapshot when leaving feeds view
         selectedFilter = .all  // Reset filter when switching to library
         selectedArticle = nil
         selectedArticleDetail = nil
@@ -913,6 +929,35 @@ class AppState: ObservableObject {
         }
 
         isClusteringLoading = false
+    }
+
+    // MARK: - Unread View Snapshot
+
+    /// Capture a snapshot of currently unread article IDs when entering the Unread view
+    /// This prevents articles from disappearing when marked as read
+    func captureUnreadSnapshot() {
+        let unreadIds = Set(articles.filter { !$0.isRead }.map { $0.id })
+        unreadViewArticleIds = unreadIds
+    }
+
+    /// Clear the unread snapshot when navigating away from the Unread view
+    func clearUnreadSnapshot() {
+        unreadViewArticleIds = nil
+    }
+
+    /// Select a filter and manage unread snapshot appropriately
+    func selectFilter(_ filter: ArticleFilter) {
+        // Clear snapshot when leaving unread view
+        if selectedFilter == .unread && filter != .unread {
+            clearUnreadSnapshot()
+        }
+
+        selectedFilter = filter
+
+        // Capture snapshot when entering unread view
+        if filter == .unread {
+            captureUnreadSnapshot()
+        }
     }
 
     // MARK: - Helpers

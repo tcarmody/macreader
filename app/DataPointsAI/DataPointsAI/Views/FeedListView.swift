@@ -157,9 +157,22 @@ struct FeedListView: View {
                 .disabled(appState.isLoading)
             }
         }
-        .onChange(of: appState.selectedFilter) { _, _ in
+        .onChange(of: appState.selectedFilter) { oldValue, newValue in
             // When a filter is selected, deselect library
             appState.deselectLibrary()
+
+            // Manage unread view snapshot when filter changes
+            if oldValue == .unread && newValue != .unread {
+                appState.clearUnreadSnapshot()
+            } else if newValue == .unread && oldValue != .unread {
+                // Capture snapshot after articles are loaded
+                Task {
+                    await appState.reloadArticles()
+                    appState.captureUnreadSnapshot()
+                }
+                return
+            }
+
             Task {
                 await appState.reloadArticles()
             }
