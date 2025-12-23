@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useEffect, useRef } from 'react'
 import {
   BookMarked,
   Circle,
@@ -21,6 +21,8 @@ export function ArticleList() {
     setSelectedArticleId,
     searchQuery,
     isSearching,
+    unreadViewArticleIds,
+    captureUnreadSnapshot,
   } = useAppStore()
 
   const { data: articles = [], isLoading } = useArticles(selectedFilter)
@@ -29,7 +31,30 @@ export function ArticleList() {
   )
   const markRead = useMarkArticleRead()
 
-  const displayArticles = isSearching ? searchResults : articles
+  // Track if we've captured the snapshot for the current unread view session
+  const hasSnapshotRef = useRef(false)
+
+  // Capture snapshot when entering unread view and articles are loaded
+  useEffect(() => {
+    if (selectedFilter === 'unread' && articles.length > 0 && !hasSnapshotRef.current) {
+      captureUnreadSnapshot(articles.map(a => a.id))
+      hasSnapshotRef.current = true
+    }
+    // Reset the ref when leaving unread view
+    if (selectedFilter !== 'unread') {
+      hasSnapshotRef.current = false
+    }
+  }, [selectedFilter, articles, captureUnreadSnapshot])
+
+  // Filter articles using snapshot when in unread view
+  const filteredArticles = useMemo(() => {
+    if (selectedFilter === 'unread' && unreadViewArticleIds) {
+      return articles.filter(a => unreadViewArticleIds.has(a.id))
+    }
+    return articles
+  }, [articles, selectedFilter, unreadViewArticleIds])
+
+  const displayArticles = isSearching ? searchResults : filteredArticles
 
   // Group articles by date
   const groupedArticles = useMemo(() => {

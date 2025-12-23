@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import * as api from '@/api/client'
-import type { FilterType, GroupBy } from '@/types'
+import type { FilterType, GroupBy, Article, ArticleDetail } from '@/types'
 
 // Query Keys
 export const queryKeys = {
@@ -192,11 +192,33 @@ export function useMarkArticleRead() {
   return useMutation({
     mutationFn: ({ articleId, isRead }: { articleId: number; isRead: boolean }) =>
       api.markArticleRead(articleId, isRead),
+    onMutate: async ({ articleId, isRead }) => {
+      // Optimistically update article in all article list caches
+      // This prevents the article from disappearing from unread view immediately
+      queryClient.setQueriesData<Article[]>(
+        { queryKey: ['articles'] },
+        (old) => old?.map(article =>
+          article.id === articleId ? { ...article, is_read: isRead } : article
+        )
+      )
+
+      // Also update the individual article cache
+      queryClient.setQueryData<ArticleDetail>(
+        queryKeys.article(articleId),
+        (old) => old ? { ...old, is_read: isRead } : old
+      )
+    },
     onSuccess: (_, { articleId }) => {
-      queryClient.invalidateQueries({ queryKey: ['articles'] })
+      // Refresh feeds and stats to update unread counts
+      // But don't invalidate articles - let the optimistic update stand
       queryClient.invalidateQueries({ queryKey: queryKeys.article(articleId) })
       queryClient.invalidateQueries({ queryKey: queryKeys.feeds })
       queryClient.invalidateQueries({ queryKey: queryKeys.stats })
+    },
+    onError: (_, { articleId }) => {
+      // On error, refetch to restore correct state
+      queryClient.invalidateQueries({ queryKey: ['articles'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.article(articleId) })
     },
   })
 }

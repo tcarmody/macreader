@@ -18,6 +18,9 @@ interface AppState {
   searchQuery: string
   isSearching: boolean
 
+  // Unread view snapshot - keeps articles visible until navigating away
+  unreadViewArticleIds: Set<number> | null
+
   // API Configuration
   apiConfig: ApiKeyConfig
 
@@ -33,6 +36,8 @@ interface AppState {
   setIsSearching: (isSearching: boolean) => void
   setApiConfig: (config: ApiKeyConfig) => void
   clearApiKeys: () => void
+  captureUnreadSnapshot: (articleIds: number[]) => void
+  clearUnreadSnapshot: () => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -53,6 +58,9 @@ export const useAppStore = create<AppState>()(
       searchQuery: '',
       isSearching: false,
 
+      // Unread view snapshot (not persisted)
+      unreadViewArticleIds: null,
+
       // Initial API Configuration
       apiConfig: {
         backendUrl: import.meta.env.DEV ? '/api' : (import.meta.env.VITE_API_URL || ''),
@@ -61,13 +69,22 @@ export const useAppStore = create<AppState>()(
       // Actions
       setSidebarCollapsed: (collapsed) => set({ sidebarCollapsed: collapsed }),
       setTheme: (theme) => set({ theme }),
-      setSelectedFilter: (filter) => set({ selectedFilter: filter, selectedArticleId: null }),
+      setSelectedFilter: (filter) => set((state) => {
+        // Clear snapshot when leaving unread view
+        const clearSnapshot = state.selectedFilter === 'unread' && filter !== 'unread'
+        return {
+          selectedFilter: filter,
+          selectedArticleId: null,
+          unreadViewArticleIds: clearSnapshot ? null : state.unreadViewArticleIds,
+        }
+      }),
       setSelectedArticleId: (id) => set({ selectedArticleId: id }),
       setSelectedLibraryItemId: (id) => set({ selectedLibraryItemId: id }),
       setCurrentView: (view) => set({
         currentView: view,
         selectedArticleId: null,
         selectedLibraryItemId: null,
+        unreadViewArticleIds: null, // Clear snapshot when switching views
       }),
       setGroupBy: (groupBy) => set({ groupBy }),
       setSearchQuery: (query) => set({ searchQuery: query }),
@@ -83,6 +100,8 @@ export const useAppStore = create<AppState>()(
         localStorage.setItem('apiConfig', JSON.stringify(newConfig))
         set({ apiConfig: newConfig })
       },
+      captureUnreadSnapshot: (articleIds) => set({ unreadViewArticleIds: new Set(articleIds) }),
+      clearUnreadSnapshot: () => set({ unreadViewArticleIds: null }),
     }),
     {
       name: 'datapoints-app-storage',
