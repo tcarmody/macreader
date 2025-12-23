@@ -12,7 +12,7 @@ struct FeedListView: View {
     @State private var dropTargetCategory: String? = nil  // nil means uncategorized, empty string means no target
 
     var body: some View {
-        List(selection: $appState.selectedFilterStorage) {
+        List(selection: $appState.selectedFilter) {
             // Library section
             Section {
                 LibrarySidebarRow(isSelected: appState.showLibrary, count: appState.libraryItemCount)
@@ -157,19 +157,16 @@ struct FeedListView: View {
                 .disabled(appState.isLoading)
             }
         }
-        .onChange(of: appState.selectedFilterStorage) { oldValue, newValue in
+        .onChange(of: appState.selectedFilter) { oldValue, newValue in
             // Only react to actual filter changes
             guard oldValue != newValue else { return }
 
             // When a filter is selected, deselect library
             appState.deselectLibrary()
 
-            // Reload articles and capture snapshot when entering unread view
+            // Reload articles for the new filter
             Task {
                 await appState.reloadArticles()
-                if newValue == .unread {
-                    appState.captureUnreadSnapshot()
-                }
             }
         }
         .alert("Delete Feeds?", isPresented: $showDeleteConfirmation) {
