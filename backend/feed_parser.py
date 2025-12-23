@@ -6,6 +6,7 @@ Handles:
 - Feed autodiscovery from HTML pages
 - Error handling and retry logic
 - Rate limiting per domain
+- SSRF protection via URL validation
 """
 
 import feedparser
@@ -16,6 +17,8 @@ from dataclasses import dataclass
 from datetime import datetime
 from urllib.parse import urlparse, urljoin
 from bs4 import BeautifulSoup
+
+from .url_validator import validate_url
 
 
 @dataclass
@@ -50,6 +53,9 @@ class FeedParser:
 
     async def fetch(self, url: str) -> Feed:
         """Fetch and parse a feed URL."""
+        # Validate URL to prevent SSRF attacks
+        validate_url(url)
+
         # Rate limit per domain
         domain = urlparse(url).netloc
         await self._rate_limit(domain)
@@ -206,6 +212,9 @@ class FeedParser:
 
         Returns the discovered feed URL or None if not found.
         """
+        # Validate URL to prevent SSRF attacks
+        validate_url(url)
+
         headers = {"User-Agent": self.user_agent}
 
         async with aiohttp.ClientSession() as session:

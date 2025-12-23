@@ -5,6 +5,7 @@ Handles:
 - HTTP fetching with proper headers
 - HTML content extraction using trafilatura (reader-mode)
 - Fallback to BeautifulSoup for edge cases
+- SSRF protection via URL validation
 - Integration points for JS renderer and archive services (future)
 """
 
@@ -13,6 +14,8 @@ import re
 import hashlib
 from dataclasses import dataclass
 from bs4 import BeautifulSoup
+
+from .url_validator import validate_url, SSRFError
 
 try:
     import trafilatura
@@ -91,9 +94,15 @@ class Fetcher:
         Returns:
             FetchResult with extracted content
 
+        Raises:
+            SSRFError: If URL targets internal network or blocked resources
+
         Note: JS rendering and archive fallback are deferred to advanced/ module.
         This core implementation does simple HTTP fetch only.
         """
+        # Validate URL to prevent SSRF attacks
+        validate_url(url)
+
         result = await self._simple_fetch(url)
 
         # Check if content looks paywalled
