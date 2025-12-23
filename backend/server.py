@@ -32,6 +32,7 @@ from .routes import (
     misc_public_router,
     standalone_router,
 )
+from .rate_limit import setup_rate_limiting
 
 logger = logging.getLogger(__name__)
 
@@ -117,14 +118,32 @@ default_origins = [
 # Combine configured and default origins
 all_origins = list(set(cors_origins + default_origins))
 
+# Allowed HTTP methods (restrict to what the API actually uses)
+allowed_methods = ["GET", "POST", "PUT", "DELETE", "OPTIONS"]
+
+# Allowed headers (only what the frontend needs)
+allowed_headers = [
+    "Content-Type",
+    "Authorization",
+    "X-API-Key",           # Auth API key
+    "X-Anthropic-Key",     # LLM provider keys
+    "X-OpenAI-Key",
+    "X-Google-Key",
+    "X-Preferred-Provider",
+]
+
 app.add_middleware(
     CORSMiddleware,
     allow_origins=all_origins,
     allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-    expose_headers=["*"],
+    allow_methods=allowed_methods,
+    allow_headers=allowed_headers,
+    expose_headers=["Retry-After"],  # For rate limiting
 )
+
+# Setup rate limiting
+setup_rate_limiting(app)
+logger.info(f"Rate limiting: {config.RATE_LIMIT_PER_MINUTE} requests/minute per IP")
 
 
 @app.middleware("http")

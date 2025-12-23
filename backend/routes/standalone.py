@@ -159,6 +159,20 @@ async def upload_file_to_library(
     except ExtractionError as e:
         raise HTTPException(status_code=400, detail=str(e))
 
+    # Read file content and check size
+    try:
+        content = await file.read()
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"Failed to read file: {e}")
+
+    # Enforce file size limit
+    max_size_bytes = config.MAX_UPLOAD_SIZE_MB * 1024 * 1024
+    if len(content) > max_size_bytes:
+        raise HTTPException(
+            status_code=413,
+            detail=f"File too large. Maximum size is {config.MAX_UPLOAD_SIZE_MB}MB"
+        )
+
     # Save file with UUID name
     uploads_dir = ensure_uploads_dir()
     file_ext = Path(file.filename).suffix
@@ -166,7 +180,6 @@ async def upload_file_to_library(
     file_path = uploads_dir / unique_filename
 
     try:
-        content = await file.read()
         file_path.write_bytes(content)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to save file: {e}")

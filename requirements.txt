@@ -3,6 +3,7 @@ fastapi>=0.127.0
 uvicorn>=0.40.0
 python-dotenv>=1.2.1
 pydantic>=2.12.0
+slowapi>=0.1.9          # Rate limiting
 
 # HTTP & Parsing
 aiohttp>=3.13.0

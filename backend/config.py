@@ -57,6 +57,14 @@ class Config:
     PORT: int = int(os.getenv("PORT", "5005"))
     LOG_LEVEL: str = os.getenv("LOG_LEVEL", "INFO")
 
+    # Rate limiting
+    # Requests per minute per IP (0 = disabled)
+    RATE_LIMIT_PER_MINUTE: int = int(os.getenv("RATE_LIMIT_PER_MINUTE", "60"))
+
+    # File upload limits
+    # Maximum file size in MB (default 50MB)
+    MAX_UPLOAD_SIZE_MB: int = int(os.getenv("MAX_UPLOAD_SIZE_MB", "50"))
+
     # Advanced fetching features
     ENABLE_JS_RENDER: bool = _parse_bool(os.getenv("ENABLE_JS_RENDER"), default=True)
     ENABLE_ARCHIVE: bool = _parse_bool(os.getenv("ENABLE_ARCHIVE"), default=True)
