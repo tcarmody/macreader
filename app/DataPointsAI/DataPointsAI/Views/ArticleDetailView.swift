@@ -15,6 +15,12 @@ class ArticleScrollState: ObservableObject {
     /// ID for the top anchor element
     static let topAnchorID = "article-top"
 
+    /// Current scroll progress (0.0 to 1.0)
+    @Published var scrollProgress: CGFloat = 0
+
+    /// Observer for scroll position changes
+    private var scrollObserver: NSObjectProtocol?
+
     /// Whether we can scroll down (content below visible area)
     var canScrollDown: Bool {
         guard let scrollView = scrollView else { return false }
@@ -63,6 +69,61 @@ class ArticleScrollState: ObservableObject {
     /// Reset scroll position to top using ScrollViewProxy
     func scrollToTop() {
         scrollProxy?.scrollTo(Self.topAnchorID, anchor: .top)
+        scrollProgress = 0
+    }
+
+    /// Start observing scroll position changes
+    func startObservingScroll() {
+        guard scrollObserver == nil else { return }
+
+        scrollObserver = NotificationCenter.default.addObserver(
+            forName: NSView.boundsDidChangeNotification,
+            object: scrollView?.contentView,
+            queue: .main
+        ) { [weak self] _ in
+            self?.updateScrollProgress()
+        }
+
+        // Enable bounds change notifications
+        scrollView?.contentView.postsBoundsChangedNotifications = true
+    }
+
+    /// Stop observing scroll position
+    func stopObservingScroll() {
+        if let observer = scrollObserver {
+            NotificationCenter.default.removeObserver(observer)
+            scrollObserver = nil
+        }
+    }
+
+    /// Update the scroll progress value
+    private func updateScrollProgress() {
+        guard let scrollView = scrollView,
+              let docView = scrollView.documentView else {
+            scrollProgress = 0
+            return
+        }
+
+        let clipView = scrollView.contentView
+        let contentHeight = docView.frame.height
+        let viewHeight = clipView.bounds.height
+        let currentY = clipView.bounds.origin.y
+
+        // Calculate scrollable range
+        let scrollableHeight = contentHeight - viewHeight
+
+        if scrollableHeight <= 0 {
+            // Content fits in view, consider it 100% read
+            scrollProgress = 1
+        } else {
+            scrollProgress = min(1, max(0, currentY / scrollableHeight))
+        }
+    }
+
+    deinit {
+        if let observer = scrollObserver {
+            NotificationCenter.default.removeObserver(observer)
+        }
     }
 }
 
@@ -132,26 +193,45 @@ struct ArticleDetailView: View {
 
     @ViewBuilder
     private func articleContentView(article: ArticleDetail) -> some View {
-        ScrollViewReader { proxy in
-            ScrollView {
-                VStack(spacing: 0) {
-                    // Invisible anchor at the top for scroll-to-top functionality
-                    Color.clear
-                        .frame(height: 0)
-                        .id(ArticleScrollState.topAnchorID)
+        VStack(spacing: 0) {
+            // Reading progress bar
+            GeometryReader { geo in
+                Rectangle()
+                    .fill(Color.accentColor)
+                    .frame(width: geo.size.width * scrollState.scrollProgress)
+                    .animation(.easeOut(duration: 0.1), value: scrollState.scrollProgress)
+            }
+            .frame(height: 3)
+            .background(Color.accentColor.opacity(0.15))
 
-                    articleBody(article: article)
-                        .padding()
-                        .frame(maxWidth: appState.readerModeEnabled ? readerModeMaxWidth : .infinity)
+            ScrollViewReader { proxy in
+                ScrollView {
+                    VStack(spacing: 0) {
+                        // Invisible anchor at the top for scroll-to-top functionality
+                        Color.clear
+                            .frame(height: 0)
+                            .id(ArticleScrollState.topAnchorID)
+
+                        articleBody(article: article)
+                            .padding()
+                            .frame(maxWidth: appState.readerModeEnabled ? readerModeMaxWidth : .infinity)
+                    }
+                    .frame(maxWidth: .infinity) // Centers content when width is constrained
+                    .background(ScrollViewAccessor(scrollState: scrollState))
                 }
-                .frame(maxWidth: .infinity) // Centers content when width is constrained
-                .background(ScrollViewAccessor(scrollState: scrollState))
-            }
-            .onAppear {
-                scrollState.scrollProxy = proxy
-            }
-            .onChange(of: article.id) { _, _ in
-                scrollState.scrollToTop()
+                .onAppear {
+                    scrollState.scrollProxy = proxy
+                    // Start observing after a brief delay to ensure scrollView is set
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        scrollState.startObservingScroll()
+                    }
+                }
+                .onDisappear {
+                    scrollState.stopObservingScroll()
+                }
+                .onChange(of: article.id) { _, _ in
+                    scrollState.scrollToTop()
+                }
             }
         }
     }
@@ -219,6 +299,15 @@ struct ArticleDetailView: View {
                     .foregroundStyle(.secondary)
                 Text(article.timeAgo)
                     .foregroundStyle(.secondary)
+
+                if let readTime = article.estimatedReadTime {
+                    Text("·")
+                        .foregroundStyle(.tertiary)
+                    Image(systemName: "book")
+                        .foregroundStyle(.secondary)
+                    Text(readTime)
+                        .foregroundStyle(.secondary)
+                }
 
                 Spacer()
 

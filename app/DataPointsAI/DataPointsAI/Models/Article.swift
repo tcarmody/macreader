@@ -137,6 +137,41 @@ struct ArticleDetail: Identifiable, Codable, Sendable {
         formatter.timeStyle = .none
         return formatter.string(from: date)
     }
+
+    /// Estimated reading time based on content word count
+    /// Assumes average reading speed of 200 words per minute
+    var estimatedReadTime: String? {
+        guard let content = content, !content.isEmpty else { return nil }
+
+        // Strip HTML tags to get plain text
+        let plainText = content.replacingOccurrences(
+            of: "<[^>]+>",
+            with: " ",
+            options: .regularExpression
+        )
+
+        // Count words (split by whitespace)
+        let words = plainText.split { $0.isWhitespace }
+        let wordCount = words.count
+
+        // Calculate minutes at 200 wpm
+        let minutes = max(1, Int(ceil(Double(wordCount) / 200.0)))
+
+        return "\(minutes) min read"
+    }
+
+    /// Word count of the article content
+    var wordCount: Int? {
+        guard let content = content, !content.isEmpty else { return nil }
+
+        let plainText = content.replacingOccurrences(
+            of: "<[^>]+>",
+            with: " ",
+            options: .regularExpression
+        )
+
+        return plainText.split { $0.isWhitespace }.count
+    }
 }
 
 /// Group of articles for display
