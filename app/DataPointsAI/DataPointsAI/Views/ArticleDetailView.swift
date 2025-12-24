@@ -103,7 +103,7 @@ struct ArticleDetailView: View {
     @State private var isSummarizing: Bool = false
     @State private var isFetchingContent: Bool = false
     @State private var contentFetchError: String?
-    @State private var contentHeight: CGFloat = 200
+    @State private var contentHeight: CGFloat = 0
     @State private var summarizationError: String?
     @State private var summarizationElapsed: Int = 0
     @State private var summarizationTimer: Timer?

@@ -207,7 +207,7 @@ struct HTMLContentView: NSViewRepresentable {
                     )
                 """
                 webView.evaluateJavaScript(js) { [weak self] result, error in
-                    if let height = result as? CGFloat, height > 100 {
+                    if let height = result as? CGFloat, height > 0 {
                         DispatchQueue.main.async {
                             self?.parent.dynamicHeight = height
                         }
@@ -225,7 +225,7 @@ struct HTMLContentView: NSViewRepresentable {
         func userContentController(_ userContentController: WKUserContentController, didReceive message: WKScriptMessage) {
             if message.name == "heightHandler", let height = message.body as? CGFloat {
                 DispatchQueue.main.async {
-                    self.parent.dynamicHeight = max(height, 100)
+                    self.parent.dynamicHeight = height
                 }
             }
         }
