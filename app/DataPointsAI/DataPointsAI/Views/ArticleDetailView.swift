@@ -197,18 +197,25 @@ struct ArticleDetailView: View {
 
     @ViewBuilder
     private func articleHeader(article: ArticleDetail, fontSize: ArticleFontSize, lineSpacing: ArticleLineSpacing, appTypeface: AppTypeface) -> some View {
-        VStack(alignment: .leading, spacing: 8) {
+        VStack(alignment: .leading, spacing: 12) {
+            // Feed name pill
+            if let feedName = feedName(for: article.feedId) {
+                Text(feedName)
+                    .font(.caption.weight(.semibold))
+                    .foregroundStyle(.white)
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 4)
+                    .background(Capsule().fill(Color.accentColor))
+            }
+
             Text(article.title)
-                .font(appTypeface.font(size: fontSize.titleFontSize, weight: .bold))
+                .font(appTypeface.font(size: fontSize.titleFontSize + 4, weight: .bold))
                 .lineSpacing(fontSize.titleFontSize * (lineSpacing.multiplier - 1))
+                .foregroundStyle(.primary)
                 .textSelection(.enabled)
 
             HStack(spacing: 8) {
-                if let feedName = feedName(for: article.feedId) {
-                    Text(feedName)
-                        .foregroundStyle(.secondary)
-                }
-                Text("·")
+                Image(systemName: "clock")
                     .foregroundStyle(.secondary)
                 Text(article.timeAgo)
                     .foregroundStyle(.secondary)
@@ -222,6 +229,31 @@ struct ArticleDetailView: View {
             }
             .font(.subheadline)
         }
+        .padding(20)
+        .frame(maxWidth: .infinity, alignment: .leading)
+        .background(
+            LinearGradient(
+                colors: [
+                    Color.accentColor.opacity(0.15),
+                    Color.accentColor.opacity(0.05),
+                    Color.clear
+                ],
+                startPoint: .topLeading,
+                endPoint: .bottomTrailing
+            )
+        )
+        .clipShape(RoundedRectangle(cornerRadius: 12))
+        .overlay(
+            RoundedRectangle(cornerRadius: 12)
+                .strokeBorder(
+                    LinearGradient(
+                        colors: [Color.accentColor.opacity(0.3), Color.accentColor.opacity(0.1)],
+                        startPoint: .topLeading,
+                        endPoint: .bottomTrailing
+                    ),
+                    lineWidth: 1
+                )
+        )
     }
 
     // MARK: - Summary Section
