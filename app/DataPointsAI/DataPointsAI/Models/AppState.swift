@@ -24,7 +24,12 @@ class AppState: ObservableObject {
     @Published var serverStatus: ServerHealthStatus = .unknown
     @Published var lastRefreshTime: Date?
 
+    // Network state
+    let networkMonitor = NetworkMonitor.shared
+    @Published var isOffline: Bool = false
+
     private var healthCheckTask: Task<Void, Never>?
+    private var networkCancellable: AnyCancellable?
 
     // UI state
     @Published var showAddFeed: Bool = false
@@ -206,6 +211,13 @@ class AppState: ObservableObject {
 
         // Load client-side settings from UserDefaults
         loadLocalSettings()
+
+        // Monitor network connectivity
+        networkCancellable = networkMonitor.$isConnected
+            .receive(on: DispatchQueue.main)
+            .sink { [weak self] isConnected in
+                self?.isOffline = !isConnected
+            }
     }
 
     // MARK: - Server Management
@@ -338,7 +350,16 @@ class AppState: ObservableObject {
 
     func loadArticleDetail(for article: Article) async {
         do {
-            selectedArticleDetail = try await apiClient.getArticle(id: article.id)
+            var detail = try await apiClient.getArticle(id: article.id)
+
+            // Cache images for offline viewing (non-blocking)
+            if let content = detail.content, !content.isEmpty {
+                Task.detached {
+                    let _ = await ImageCacheService.shared.cacheImagesInContent(content)
+                }
+            }
+
+            selectedArticleDetail = detail
 
             // Mark as read if setting enabled
             if settings.markReadOnOpen && !article.isRead {

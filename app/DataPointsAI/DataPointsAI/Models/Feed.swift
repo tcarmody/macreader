@@ -11,6 +11,7 @@ struct Feed: Identifiable, Codable, Hashable, Sendable {
     var category: String?
     var unreadCount: Int
     let lastFetched: Date?
+    let fetchError: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -19,6 +20,57 @@ struct Feed: Identifiable, Codable, Hashable, Sendable {
         case category
         case unreadCount = "unread_count"
         case lastFetched = "last_fetched"
+        case fetchError = "fetch_error"
+    }
+
+    /// Health status of the feed based on fetch history
+    var healthStatus: FeedHealthStatus {
+        if let error = fetchError, !error.isEmpty {
+            return .error(error)
+        }
+        guard let lastFetch = lastFetched else {
+            return .neverFetched
+        }
+        let hoursSinceLastFetch = Date().timeIntervalSince(lastFetch) / 3600
+        if hoursSinceLastFetch > 48 {
+            return .stale
+        }
+        return .healthy
+    }
+}
+
+/// Health status for a feed
+enum FeedHealthStatus: Equatable {
+    case healthy
+    case stale  // Not updated in 48+ hours
+    case error(String)
+    case neverFetched
+
+    var iconName: String {
+        switch self {
+        case .healthy: return "checkmark.circle.fill"
+        case .stale: return "exclamationmark.triangle.fill"
+        case .error: return "xmark.circle.fill"
+        case .neverFetched: return "questionmark.circle.fill"
+        }
+    }
+
+    var color: String {
+        switch self {
+        case .healthy: return "green"
+        case .stale: return "yellow"
+        case .error: return "red"
+        case .neverFetched: return "gray"
+        }
+    }
+
+    var description: String {
+        switch self {
+        case .healthy: return "Healthy"
+        case .stale: return "Stale (not updated in 48+ hours)"
+        case .error(let msg): return "Error: \(msg)"
+        case .neverFetched: return "Never fetched"
+        }
     }
 }
 

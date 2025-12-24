@@ -60,6 +60,14 @@ struct MainView: View {
                 ServerStatusView()
             }
         }
+        .overlay(alignment: .top) {
+            // Offline mode banner
+            if appState.isOffline {
+                OfflineBanner()
+                    .transition(.move(edge: .top).combined(with: .opacity))
+            }
+        }
+        .animation(.easeInOut(duration: 0.3), value: appState.isOffline)
         .overlay(alignment: .bottom) {
             // Show pending key indicator for multi-key sequences
             if keyboardManager.pendingKey != nil {
@@ -449,6 +457,34 @@ struct AddFeedView: View {
             }
             isLoading = false
         }
+    }
+}
+
+/// Offline mode banner shown at top of window
+struct OfflineBanner: View {
+    @EnvironmentObject var appState: AppState
+
+    var body: some View {
+        HStack(spacing: 8) {
+            Image(systemName: "wifi.slash")
+                .font(.caption)
+
+            Text("You're offline. Reading cached articles.")
+                .font(.caption)
+
+            Spacer()
+
+            if let connectionType = appState.networkMonitor.connectionType.rawValue as String?,
+               connectionType != "Unknown" {
+                Text("Last: \(connectionType)")
+                    .font(.caption2)
+                    .foregroundStyle(.secondary)
+            }
+        }
+        .padding(.horizontal, 16)
+        .padding(.vertical, 8)
+        .background(.orange.opacity(0.9))
+        .foregroundStyle(.white)
     }
 }
 

@@ -115,6 +115,7 @@ class FeedResponse(BaseModel):
     category: str | None
     unread_count: int
     last_fetched: str | None
+    fetch_error: str | None = None
 
     @classmethod
     def from_db(cls, feed: DBFeed) -> "FeedResponse":
@@ -124,7 +125,8 @@ class FeedResponse(BaseModel):
             name=feed.name,
             category=feed.category,
             unread_count=feed.unread_count,
-            last_fetched=feed.last_fetched.isoformat() if feed.last_fetched else None
+            last_fetched=feed.last_fetched.isoformat() if feed.last_fetched else None,
+            fetch_error=feed.fetch_error
         )
 
 

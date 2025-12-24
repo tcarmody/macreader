@@ -487,10 +487,20 @@ struct FeedRow: View {
 
     var body: some View {
         Label {
-            HStack {
+            HStack(spacing: 6) {
                 Text(feed.name)
                     .lineLimit(1)
+
+                // Health status indicator (only show if not healthy)
+                if feed.healthStatus != .healthy {
+                    Image(systemName: feed.healthStatus.iconName)
+                        .font(.caption2)
+                        .foregroundStyle(healthStatusColor)
+                        .help(feed.healthStatus.description)
+                }
+
                 Spacer()
+
                 if feed.unreadCount > 0 {
                     Text("\(feed.unreadCount)")
                         .font(.caption)
@@ -506,6 +516,15 @@ struct FeedRow: View {
         }
         .background(isSelected ? Color.accentColor.opacity(0.1) : Color.clear)
         .cornerRadius(4)
+    }
+
+    private var healthStatusColor: Color {
+        switch feed.healthStatus {
+        case .healthy: return .green
+        case .stale: return .yellow
+        case .error: return .red
+        case .neverFetched: return .gray
+        }
     }
 }
 
@@ -751,9 +770,31 @@ struct RenameCategorySheet: View {
 struct ServerStatusIndicator: View {
     @EnvironmentObject var appState: AppState
     @State private var isRestarting = false
+    @State private var showHealthDashboard = false
 
     var body: some View {
         VStack(spacing: 4) {
+            // Feed health summary (if there are issues)
+            if feedsWithIssuesCount > 0 {
+                Button {
+                    showHealthDashboard = true
+                } label: {
+                    HStack(spacing: 4) {
+                        Image(systemName: "exclamationmark.triangle.fill")
+                            .font(.caption2)
+                            .foregroundStyle(.yellow)
+                        Text("\(feedsWithIssuesCount) feed\(feedsWithIssuesCount == 1 ? "" : "s") need\(feedsWithIssuesCount == 1 ? "s" : "") attention")
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
+                        Spacer()
+                        Image(systemName: "chevron.right")
+                            .font(.caption2)
+                            .foregroundStyle(.tertiary)
+                    }
+                }
+                .buttonStyle(.plain)
+            }
+
             // Last refresh time (if available)
             if let lastRefresh = appState.lastRefreshTime {
                 HStack(spacing: 4) {
@@ -803,6 +844,14 @@ struct ServerStatusIndicator: View {
         .background(.bar)
         .contextMenu {
             Button {
+                showHealthDashboard = true
+            } label: {
+                Label("Feed Health Dashboard...", systemImage: "heart.text.square")
+            }
+
+            Divider()
+
+            Button {
                 Task {
                     isRestarting = true
                     await appState.restartServer()
@@ -813,6 +862,20 @@ struct ServerStatusIndicator: View {
             }
             .disabled(isRestarting)
         }
+        .sheet(isPresented: $showHealthDashboard) {
+            FeedHealthDashboardView()
+        }
+    }
+
+    private var feedsWithIssuesCount: Int {
+        appState.feeds.filter { feed in
+            switch feed.healthStatus {
+            case .error, .stale:
+                return true
+            default:
+                return false
+            }
+        }.count
     }
 
     private func lastRefreshText(for date: Date) -> String {

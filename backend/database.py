@@ -41,6 +41,7 @@ class DBFeed:
     name: str
     category: str | None
     last_fetched: datetime | None
+    fetch_error: str | None = None
     unread_count: int = 0
 
 
@@ -665,11 +666,18 @@ class Database:
         except (IndexError, KeyError):
             unread_count = 0
 
+        # Handle fetch_error - may not be present in all queries
+        try:
+            fetch_error = row["fetch_error"]
+        except (IndexError, KeyError):
+            fetch_error = None
+
         return DBFeed(
             id=row["id"],
             url=row["url"],
             name=row["name"],
             category=row["category"],
             last_fetched=last_fetched,
+            fetch_error=fetch_error,
             unread_count=unread_count
         )
