@@ -2,6 +2,7 @@ import Foundation
 import AppKit
 
 /// Service for fetching and caching website favicons
+/// Caches favicons both in memory and on disk for persistence across app launches
 actor FaviconService {
     static let shared = FaviconService()
 
@@ -11,7 +12,23 @@ actor FaviconService {
     /// URLs currently being fetched (to avoid duplicate requests)
     private var inFlightRequests: Set<String> = []
 
-    private init() {}
+    /// Disk cache directory
+    private let cacheDirectory: URL
+
+    /// Maximum age for cached favicons (7 days)
+    private let maxCacheAge: TimeInterval = 7 * 24 * 60 * 60
+
+    private init() {
+        // Create cache directory
+        let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        cacheDirectory = appSupport.appendingPathComponent("DataPointsAI/FaviconCache", isDirectory: true)
+        try? FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
+
+        // Clean up old cache entries in the background
+        Task {
+            await cleanupOldCache()
+        }
+    }
 
     /// Get favicon for a feed URL, fetching if necessary
     /// - Parameter feedURL: The feed URL to get favicon for
@@ -20,9 +37,15 @@ actor FaviconService {
         // Extract the host from the URL
         guard let host = feedURL.host else { return nil }
 
-        // Check cache first
+        // Check memory cache first
         if let cached = cache[host] {
             return cached
+        }
+
+        // Check disk cache
+        if let diskCached = loadFromDisk(host: host) {
+            cache[host] = diskCached
+            return diskCached
         }
 
         // Check if already fetching
@@ -50,7 +73,9 @@ actor FaviconService {
             guard let url = URL(string: urlString) else { continue }
 
             if let image = await fetchImage(from: url) {
+                // Save to both memory and disk cache
                 cache[host] = image
+                saveToDisk(image: image, host: host)
                 return image
             }
         }
@@ -85,9 +110,11 @@ actor FaviconService {
         }
     }
 
-    /// Clear the favicon cache
+    /// Clear the favicon cache (both memory and disk)
     func clearCache() {
         cache.removeAll()
+        try? FileManager.default.removeItem(at: cacheDirectory)
+        try? FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
     }
 
     /// Prefetch favicons for a list of feed URLs
@@ -98,6 +125,62 @@ actor FaviconService {
                     _ = await self.favicon(for: url)
                 }
             }
+        }
+    }
+
+    // MARK: - Disk Cache
+
+    /// Generate a safe filename from a host
+    private func cacheFilePath(for host: String) -> URL {
+        // Use a sanitized version of the host as filename
+        let safeHost = host.replacingOccurrences(of: "/", with: "_")
+            .replacingOccurrences(of: ":", with: "_")
+        return cacheDirectory.appendingPathComponent("favicon_\(safeHost).png")
+    }
+
+    /// Save favicon to disk cache
+    private func saveToDisk(image: NSImage, host: String) {
+        guard let tiffData = image.tiffRepresentation,
+              let bitmap = NSBitmapImageRep(data: tiffData),
+              let pngData = bitmap.representation(using: .png, properties: [:]) else {
+            return
+        }
+
+        let path = cacheFilePath(for: host)
+        try? pngData.write(to: path)
+    }
+
+    /// Load favicon from disk cache
+    private func loadFromDisk(host: String) -> NSImage? {
+        let path = cacheFilePath(for: host)
+
+        // Check if file exists and is not too old
+        guard let attributes = try? FileManager.default.attributesOfItem(atPath: path.path),
+              let modDate = attributes[.modificationDate] as? Date,
+              Date().timeIntervalSince(modDate) < maxCacheAge else {
+            return nil
+        }
+
+        return NSImage(contentsOf: path)
+    }
+
+    /// Clean up old cache entries
+    private func cleanupOldCache() async {
+        guard let contents = try? FileManager.default.contentsOfDirectory(
+            at: cacheDirectory,
+            includingPropertiesForKeys: [.contentModificationDateKey]
+        ) else { return }
+
+        let cutoffDate = Date().addingTimeInterval(-maxCacheAge)
+
+        for fileURL in contents {
+            guard let attributes = try? FileManager.default.attributesOfItem(atPath: fileURL.path),
+                  let modDate = attributes[.modificationDate] as? Date,
+                  modDate < cutoffDate else {
+                continue
+            }
+
+            try? FileManager.default.removeItem(at: fileURL)
         }
     }
 }

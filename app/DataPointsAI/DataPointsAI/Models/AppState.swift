@@ -35,6 +35,7 @@ class AppState: ObservableObject {
     @Published var showAddFeed: Bool = false
     @Published var showSettings: Bool = false
     @Published var showImportOPML: Bool = false
+    @Published var showQuickOpen: Bool = false
     @Published var groupByMode: GroupByMode = .date
     @Published var sortOption: ArticleSortOption = .newestFirst
     @Published var hideReadArticles: Bool = false
@@ -231,6 +232,8 @@ class AppState: ObservableObject {
             startHealthChecks()
             // Load initial data after server starts
             await refresh()
+            // Archive old articles if enabled (before refresh to clean up space)
+            await archiveOldArticlesIfEnabled()
             // Refresh feeds to fetch new articles on launch
             try? await refreshFeeds()
         } catch {
@@ -305,6 +308,12 @@ class AppState: ObservableObject {
             articles = try await articlesTask
             settings = try await settingsTask
 
+            // Prefetch favicons for all feeds (non-blocking)
+            let feedURLs = feeds.map { $0.url }
+            Task.detached {
+                await FaviconService.shared.prefetch(feedURLs: feedURLs)
+            }
+
             // Update dock badge with unread count
             updateDockBadge()
 
@@ -318,25 +327,27 @@ class AppState: ObservableObject {
     }
 
     func loadArticlesForCurrentFilter() async throws -> [Article] {
+        let hideDupes = settings.hideDuplicates
+
         switch selectedFilter {
         case .all:
-            return try await apiClient.getArticles()
+            return try await apiClient.getArticles(hideDuplicates: hideDupes)
         case .unread:
-            return try await apiClient.getArticles(unreadOnly: true)
+            return try await apiClient.getArticles(unreadOnly: true, hideDuplicates: hideDupes)
         case .today:
             // Fetch all articles and filter to today client-side
-            let allArticles = try await apiClient.getArticles()
+            let allArticles = try await apiClient.getArticles(hideDuplicates: hideDupes)
             let calendar = Calendar.current
             let startOfToday = calendar.startOfDay(for: Date())
             return allArticles.filter { ($0.publishedAt ?? $0.createdAt) >= startOfToday }
         case .bookmarked:
-            return try await apiClient.getArticles(bookmarkedOnly: true)
+            return try await apiClient.getArticles(bookmarkedOnly: true, hideDuplicates: hideDupes)
         case .summarized:
-            return try await apiClient.getArticles(summarizedOnly: true)
+            return try await apiClient.getArticles(summarizedOnly: true, hideDuplicates: hideDupes)
         case .unsummarized:
-            return try await apiClient.getArticles(summarizedOnly: false)
+            return try await apiClient.getArticles(summarizedOnly: false, hideDuplicates: hideDupes)
         case .feed(let id):
-            return try await apiClient.getArticles(feedId: id)
+            return try await apiClient.getArticles(feedId: id, hideDuplicates: hideDupes)
         }
     }
 
@@ -834,6 +845,11 @@ class AppState: ObservableObject {
         UserDefaults.standard.set(settings.notificationsEnabled, forKey: "notificationsEnabled")
         UserDefaults.standard.set(settings.appTypeface.rawValue, forKey: "appTypeface")
         UserDefaults.standard.set(settings.contentTypeface.rawValue, forKey: "contentTypeface")
+        UserDefaults.standard.set(settings.hideDuplicates, forKey: "hideDuplicates")
+        UserDefaults.standard.set(settings.autoArchiveEnabled, forKey: "autoArchiveEnabled")
+        UserDefaults.standard.set(settings.autoArchiveDays, forKey: "autoArchiveDays")
+        UserDefaults.standard.set(settings.archiveKeepBookmarked, forKey: "archiveKeepBookmarked")
+        UserDefaults.standard.set(settings.archiveKeepUnread, forKey: "archiveKeepUnread")
 
         // Save window state
         saveWindowState()
@@ -875,6 +891,21 @@ class AppState: ObservableObject {
         if let contentTypefaceRaw = UserDefaults.standard.string(forKey: "contentTypeface"),
            let contentTypeface = ContentTypeface(rawValue: contentTypefaceRaw) {
             settings.contentTypeface = contentTypeface
+        }
+        if UserDefaults.standard.object(forKey: "hideDuplicates") != nil {
+            settings.hideDuplicates = UserDefaults.standard.bool(forKey: "hideDuplicates")
+        }
+        if UserDefaults.standard.object(forKey: "autoArchiveEnabled") != nil {
+            settings.autoArchiveEnabled = UserDefaults.standard.bool(forKey: "autoArchiveEnabled")
+        }
+        if UserDefaults.standard.object(forKey: "autoArchiveDays") != nil {
+            settings.autoArchiveDays = UserDefaults.standard.integer(forKey: "autoArchiveDays")
+        }
+        if UserDefaults.standard.object(forKey: "archiveKeepBookmarked") != nil {
+            settings.archiveKeepBookmarked = UserDefaults.standard.bool(forKey: "archiveKeepBookmarked")
+        }
+        if UserDefaults.standard.object(forKey: "archiveKeepUnread") != nil {
+            settings.archiveKeepUnread = UserDefaults.standard.bool(forKey: "archiveKeepUnread")
         }
 
         // Load window state
@@ -1036,5 +1067,28 @@ class AppState: ObservableObject {
     /// Request notification permission
     func requestNotificationPermission() async -> Bool {
         return await notificationService.requestAuthorization()
+    }
+
+    // MARK: - Archive
+
+    /// Archive old articles based on settings
+    func archiveOldArticlesIfEnabled() async {
+        guard settings.autoArchiveEnabled else { return }
+
+        do {
+            let result = try await apiClient.archiveOldArticles(
+                days: settings.autoArchiveDays,
+                keepBookmarked: settings.archiveKeepBookmarked,
+                keepUnread: settings.archiveKeepUnread
+            )
+
+            if result.archivedCount > 0 {
+                print("Archived \(result.archivedCount) old articles")
+                // Reload articles to reflect the changes
+                await reloadArticles()
+            }
+        } catch {
+            print("Failed to archive old articles: \(error)")
+        }
     }
 }

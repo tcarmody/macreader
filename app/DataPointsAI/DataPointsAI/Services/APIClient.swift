@@ -97,6 +97,7 @@ final class APIClient {
         unreadOnly: Bool = false,
         bookmarkedOnly: Bool = false,
         summarizedOnly: Bool? = nil,
+        hideDuplicates: Bool = false,
         limit: Int = 50
     ) async throws -> [Article] {
         var queryItems: [URLQueryItem] = []
@@ -112,6 +113,9 @@ final class APIClient {
         }
         if let summarizedOnly = summarizedOnly {
             queryItems.append(URLQueryItem(name: "summarized_only", value: String(summarizedOnly)))
+        }
+        if hideDuplicates {
+            queryItems.append(URLQueryItem(name: "hide_duplicates", value: "true"))
         }
         queryItems.append(URLQueryItem(name: "limit", value: String(limit)))
 
@@ -347,6 +351,61 @@ final class APIClient {
 
     func getStats() async throws -> Stats {
         return try await get(path: "/stats")
+    }
+
+    // MARK: - Article Stats & Archive
+
+    struct ArticleStats: Codable, Sendable {
+        let total: Int
+        let unread: Int
+        let bookmarked: Int
+        let lastWeek: Int
+        let lastMonth: Int
+        let olderThanMonth: Int
+        let oldestArticle: String?
+
+        enum CodingKeys: String, CodingKey {
+            case total
+            case unread
+            case bookmarked
+            case lastWeek = "last_week"
+            case lastMonth = "last_month"
+            case olderThanMonth = "older_than_month"
+            case oldestArticle = "oldest_article"
+        }
+    }
+
+    func getArticleStats() async throws -> ArticleStats {
+        return try await get(path: "/articles/stats")
+    }
+
+    struct ArchiveResponse: Codable, Sendable {
+        let success: Bool
+        let archivedCount: Int
+        let days: Int
+        let keptBookmarked: Bool
+        let keptUnread: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case success
+            case archivedCount = "archived_count"
+            case days
+            case keptBookmarked = "kept_bookmarked"
+            case keptUnread = "kept_unread"
+        }
+    }
+
+    func archiveOldArticles(
+        days: Int = 30,
+        keepBookmarked: Bool = true,
+        keepUnread: Bool = false
+    ) async throws -> ArchiveResponse {
+        var queryItems: [URLQueryItem] = [
+            URLQueryItem(name: "days", value: String(days)),
+            URLQueryItem(name: "keep_bookmarked", value: String(keepBookmarked)),
+            URLQueryItem(name: "keep_unread", value: String(keepUnread))
+        ]
+        return try await post(path: "/articles/archive", queryItems: queryItems)
     }
 
     // MARK: - Summarization

@@ -41,6 +41,9 @@ struct MainView: View {
         .sheet(isPresented: $appState.showAddToLibrary) {
             AddToLibraryView()
         }
+        .sheet(isPresented: $appState.showQuickOpen) {
+            QuickOpenView()
+        }
         .alert("Error", isPresented: Binding(
             get: { appState.error != nil },
             set: { if !$0 { appState.error = nil } }

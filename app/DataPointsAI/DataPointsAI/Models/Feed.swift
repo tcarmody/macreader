@@ -216,6 +216,13 @@ struct AppSettings: Codable, Sendable {
 
     // Client-side only settings (not synced with backend)
     var notificationsEnabled: Bool = true
+    var hideDuplicates: Bool = false  // Hide duplicate articles across feeds
+
+    // Auto-archive settings (client-side only)
+    var autoArchiveEnabled: Bool = false
+    var autoArchiveDays: Int = 30
+    var archiveKeepBookmarked: Bool = true
+    var archiveKeepUnread: Bool = false
 
     // Appearance settings (client-side only)
     var articleFontSize: ArticleFontSize = .medium
@@ -244,6 +251,11 @@ struct AppSettings: Codable, Sendable {
         defaultModel: "haiku",
         llmProvider: .anthropic,
         notificationsEnabled: true,
+        hideDuplicates: false,
+        autoArchiveEnabled: false,
+        autoArchiveDays: 30,
+        archiveKeepBookmarked: true,
+        archiveKeepUnread: false,
         articleFontSize: .medium,
         articleLineSpacing: .normal,
         listDensity: .comfortable,

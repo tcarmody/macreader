@@ -39,6 +39,7 @@ async def list_articles(
     unread_only: bool = False,
     bookmarked_only: bool = False,
     summarized_only: bool | None = None,
+    hide_duplicates: bool = False,
     limit: int = Query(default=50, le=200),
     offset: int = 0
 ) -> list[ArticleResponse]:
@@ -48,6 +49,7 @@ async def list_articles(
         summarized_only: If True, only return summarized articles.
                         If False, only return unsummarized articles.
                         If None, return all articles regardless of summary status.
+        hide_duplicates: If True, hide duplicate articles (same content across feeds).
     """
     articles = db.get_articles(
         feed_id=feed_id,
@@ -57,6 +59,12 @@ async def list_articles(
         limit=limit,
         offset=offset
     )
+
+    # Filter out duplicates if requested
+    if hide_duplicates:
+        duplicate_ids = db.get_duplicate_article_ids()
+        articles = [a for a in articles if a.id not in duplicate_ids]
+
     return [ArticleResponse.from_db(a) for a in articles]
 
 
@@ -190,6 +198,70 @@ async def mark_all_read(
     """Mark all articles as read/unread."""
     count = db.mark_all_read(is_read)
     return {"success": True, "count": count, "is_read": is_read}
+
+
+@router.get("/duplicates")
+async def get_duplicates(
+    db: Annotated[Database, Depends(get_db)]
+) -> dict:
+    """Get information about duplicate articles (same content across feeds).
+
+    Returns duplicate groups and IDs to hide.
+    """
+    duplicates = db.get_duplicate_articles()
+    duplicate_ids = db.get_duplicate_article_ids()
+
+    groups = []
+    for content_hash, articles in duplicates:
+        groups.append({
+            "content_hash": content_hash,
+            "count": len(articles),
+            "articles": [ArticleResponse.from_db(a) for a in articles]
+        })
+
+    return {
+        "total_duplicate_groups": len(groups),
+        "total_duplicate_articles": len(duplicate_ids),
+        "duplicate_ids": list(duplicate_ids),
+        "groups": groups
+    }
+
+
+@router.get("/stats")
+async def get_article_stats(
+    db: Annotated[Database, Depends(get_db)]
+) -> dict:
+    """Get statistics about articles in the database.
+
+    Returns counts and age distribution of articles.
+    """
+    return db.get_article_stats()
+
+
+@router.post("/archive")
+async def archive_old_articles(
+    db: Annotated[Database, Depends(get_db)],
+    days: int = Query(default=30, ge=1, le=365, description="Archive articles older than this many days"),
+    keep_bookmarked: bool = Query(default=True, description="Keep bookmarked articles"),
+    keep_unread: bool = Query(default=False, description="Keep unread articles")
+) -> dict:
+    """Archive (delete) old articles.
+
+    By default, keeps bookmarked articles and deletes read articles
+    older than 30 days.
+    """
+    count = db.archive_old_articles(
+        days=days,
+        keep_bookmarked=keep_bookmarked,
+        keep_unread=keep_unread
+    )
+    return {
+        "success": True,
+        "archived_count": count,
+        "days": days,
+        "kept_bookmarked": keep_bookmarked,
+        "kept_unread": keep_unread
+    }
 
 
 # ─────────────────────────────────────────────────────────────

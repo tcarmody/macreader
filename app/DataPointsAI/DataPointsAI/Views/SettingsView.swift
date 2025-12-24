@@ -7,6 +7,7 @@ struct SettingsView: View {
     @State private var refreshInterval: Int = 30
     @State private var autoSummarize: Bool = false
     @State private var markReadOnOpen: Bool = true
+    @State private var hideDuplicates: Bool = false
     @State private var defaultModel: String = "haiku"
     @State private var llmProvider: LLMProvider = .anthropic
     @State private var notificationsEnabled: Bool = true
@@ -22,13 +23,24 @@ struct SettingsView: View {
     @State private var readerModeFontSize: ArticleFontSize = .large
     @State private var readerModeLineSpacing: ArticleLineSpacing = .relaxed
 
+    // Auto-archive settings
+    @State private var autoArchiveEnabled: Bool = false
+    @State private var autoArchiveDays: Int = 30
+    @State private var archiveKeepBookmarked: Bool = true
+    @State private var archiveKeepUnread: Bool = false
+
     var body: some View {
         TabView {
             GeneralSettingsView(
                 refreshInterval: $refreshInterval,
                 autoSummarize: $autoSummarize,
                 markReadOnOpen: $markReadOnOpen,
-                notificationsEnabled: $notificationsEnabled
+                hideDuplicates: $hideDuplicates,
+                notificationsEnabled: $notificationsEnabled,
+                autoArchiveEnabled: $autoArchiveEnabled,
+                autoArchiveDays: $autoArchiveDays,
+                archiveKeepBookmarked: $archiveKeepBookmarked,
+                archiveKeepUnread: $archiveKeepUnread
             )
             .tabItem {
                 Label("General", systemImage: "gear")
@@ -68,6 +80,7 @@ struct SettingsView: View {
         .onChange(of: refreshInterval) { _, _ in saveSettings() }
         .onChange(of: autoSummarize) { _, _ in saveSettings() }
         .onChange(of: markReadOnOpen) { _, _ in saveSettings() }
+        .onChange(of: hideDuplicates) { _, _ in saveSettings() }
         .onChange(of: defaultModel) { _, _ in saveSettings() }
         .onChange(of: llmProvider) { _, newProvider in
             // Reset model to first option when provider changes
@@ -82,12 +95,17 @@ struct SettingsView: View {
         .onChange(of: contentTypeface) { _, _ in saveSettings() }
         .onChange(of: readerModeFontSize) { _, _ in saveSettings() }
         .onChange(of: readerModeLineSpacing) { _, _ in saveSettings() }
+        .onChange(of: autoArchiveEnabled) { _, _ in saveSettings() }
+        .onChange(of: autoArchiveDays) { _, _ in saveSettings() }
+        .onChange(of: archiveKeepBookmarked) { _, _ in saveSettings() }
+        .onChange(of: archiveKeepUnread) { _, _ in saveSettings() }
     }
 
     private func loadSettings() {
         refreshInterval = appState.settings.refreshIntervalMinutes
         autoSummarize = appState.settings.autoSummarize
         markReadOnOpen = appState.settings.markReadOnOpen
+        hideDuplicates = appState.settings.hideDuplicates
         defaultModel = appState.settings.defaultModel
         llmProvider = appState.settings.llmProvider
         notificationsEnabled = appState.settings.notificationsEnabled
@@ -98,6 +116,10 @@ struct SettingsView: View {
         contentTypeface = appState.settings.contentTypeface
         readerModeFontSize = appState.settings.readerModeFontSize
         readerModeLineSpacing = appState.settings.readerModeLineSpacing
+        autoArchiveEnabled = appState.settings.autoArchiveEnabled
+        autoArchiveDays = appState.settings.autoArchiveDays
+        archiveKeepBookmarked = appState.settings.archiveKeepBookmarked
+        archiveKeepUnread = appState.settings.archiveKeepUnread
     }
 
     private func saveSettings() {
@@ -109,6 +131,7 @@ struct SettingsView: View {
             llmProvider: llmProvider
         )
         newSettings.notificationsEnabled = notificationsEnabled
+        newSettings.hideDuplicates = hideDuplicates
         newSettings.articleFontSize = articleFontSize
         newSettings.articleLineSpacing = articleLineSpacing
         newSettings.listDensity = listDensity
@@ -116,6 +139,10 @@ struct SettingsView: View {
         newSettings.contentTypeface = contentTypeface
         newSettings.readerModeFontSize = readerModeFontSize
         newSettings.readerModeLineSpacing = readerModeLineSpacing
+        newSettings.autoArchiveEnabled = autoArchiveEnabled
+        newSettings.autoArchiveDays = autoArchiveDays
+        newSettings.archiveKeepBookmarked = archiveKeepBookmarked
+        newSettings.archiveKeepUnread = archiveKeepUnread
 
         Task {
             try? await appState.updateSettings(newSettings)
@@ -128,11 +155,17 @@ struct GeneralSettingsView: View {
     @Binding var refreshInterval: Int
     @Binding var autoSummarize: Bool
     @Binding var markReadOnOpen: Bool
+    @Binding var hideDuplicates: Bool
     @Binding var notificationsEnabled: Bool
+    @Binding var autoArchiveEnabled: Bool
+    @Binding var autoArchiveDays: Int
+    @Binding var archiveKeepBookmarked: Bool
+    @Binding var archiveKeepUnread: Bool
 
     @StateObject private var notificationService = NotificationService.shared
 
     let refreshOptions = [15, 30, 60, 120, 240]
+    let archiveDaysOptions = [7, 14, 30, 60, 90, 180, 365]
 
     var body: some View {
         Form {
@@ -148,6 +181,14 @@ struct GeneralSettingsView: View {
 
             Section {
                 Toggle("Mark articles as read when opened", isOn: $markReadOnOpen)
+
+                Toggle("Hide duplicate articles", isOn: $hideDuplicates)
+
+                if hideDuplicates {
+                    Text("Articles with identical content from different feeds will be hidden, keeping only the first occurrence.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
             } header: {
                 Text("Reading")
             }
@@ -195,10 +236,43 @@ struct GeneralSettingsView: View {
             } header: {
                 Text("Notifications")
             }
+
+            Section {
+                Toggle("Auto-archive old articles", isOn: $autoArchiveEnabled)
+
+                if autoArchiveEnabled {
+                    Picker("Archive articles older than", selection: $autoArchiveDays) {
+                        ForEach(archiveDaysOptions, id: \.self) { days in
+                            Text(formatDays(days)).tag(days)
+                        }
+                    }
+
+                    Toggle("Keep bookmarked articles", isOn: $archiveKeepBookmarked)
+                    Toggle("Keep unread articles", isOn: $archiveKeepUnread)
+
+                    Text("Articles will be automatically archived when the app launches.")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("Storage")
+            }
         }
         .formStyle(.grouped)
         .task {
             await notificationService.checkAuthorizationStatus()
+        }
+    }
+
+    private func formatDays(_ days: Int) -> String {
+        if days < 30 {
+            return days == 1 ? "1 day" : "\(days) days"
+        } else if days < 365 {
+            let months = days / 30
+            return months == 1 ? "1 month" : "\(months) months"
+        } else {
+            let years = days / 365
+            return years == 1 ? "1 year" : "\(years) years"
         }
     }
 

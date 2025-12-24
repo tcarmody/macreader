@@ -72,6 +72,16 @@ struct RSSReaderApp: App {
                 .keyboardShortcut("r", modifiers: [.command, .shift])
             }
 
+            // Go menu
+            CommandMenu("Go") {
+                Button("Quick Open...") {
+                    DispatchQueue.main.async {
+                        appState.showQuickOpen = true
+                    }
+                }
+                .keyboardShortcut("k", modifiers: .command)
+            }
+
             // View menu
             CommandGroup(after: .sidebar) {
                 Divider()

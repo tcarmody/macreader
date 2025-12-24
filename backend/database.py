@@ -515,6 +515,138 @@ class Database:
             """, (query, limit)).fetchall()
             return [self._row_to_article(row) for row in rows]
 
+    def get_duplicate_articles(self) -> list[tuple[str, list[DBArticle]]]:
+        """Find articles with duplicate content_hash across different feeds.
+
+        Returns list of (content_hash, [articles]) tuples for each duplicate group.
+        """
+        with self._conn() as conn:
+            # Find content hashes that appear in multiple articles
+            hash_rows = conn.execute("""
+                SELECT content_hash, COUNT(*) as cnt
+                FROM articles
+                WHERE content_hash IS NOT NULL AND content_hash != ''
+                GROUP BY content_hash
+                HAVING cnt > 1
+                ORDER BY cnt DESC
+            """).fetchall()
+
+            duplicates = []
+            for hash_row in hash_rows:
+                content_hash = hash_row["content_hash"]
+                article_rows = conn.execute(
+                    "SELECT * FROM articles WHERE content_hash = ? ORDER BY published_at DESC",
+                    (content_hash,)
+                ).fetchall()
+                articles = [self._row_to_article(row) for row in article_rows]
+                duplicates.append((content_hash, articles))
+
+            return duplicates
+
+    def get_duplicate_article_ids(self) -> set[int]:
+        """Get IDs of duplicate articles (keeping the oldest/first one).
+
+        For each group of duplicates, keeps the article with the earliest
+        published_at date and returns IDs of the rest to be hidden.
+        """
+        duplicates = self.get_duplicate_articles()
+        ids_to_hide = set()
+
+        for _, articles in duplicates:
+            if len(articles) <= 1:
+                continue
+            # Sort by published_at (oldest first), keep the first one
+            sorted_articles = sorted(
+                articles,
+                key=lambda a: a.published_at or a.created_at
+            )
+            # Mark all but the first as duplicates
+            for article in sorted_articles[1:]:
+                ids_to_hide.add(article.id)
+
+        return ids_to_hide
+
+    def archive_old_articles(
+        self,
+        days: int = 30,
+        keep_bookmarked: bool = True,
+        keep_unread: bool = False
+    ) -> int:
+        """Delete articles older than specified days.
+
+        Args:
+            days: Delete articles older than this many days
+            keep_bookmarked: Don't delete bookmarked articles
+            keep_unread: Don't delete unread articles
+
+        Returns:
+            Number of articles deleted
+        """
+        from datetime import timedelta
+        cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
+
+        with self._conn() as conn:
+            query = "DELETE FROM articles WHERE published_at < ? OR (published_at IS NULL AND created_at < ?)"
+            conditions = []
+            if keep_bookmarked:
+                conditions.append("is_bookmarked = 0")
+            if keep_unread:
+                conditions.append("is_read = 1")
+
+            if conditions:
+                query = f"DELETE FROM articles WHERE (published_at < ? OR (published_at IS NULL AND created_at < ?)) AND {' AND '.join(conditions)}"
+
+            cursor = conn.execute(query, (cutoff_date, cutoff_date))
+            return cursor.rowcount
+
+    def get_article_stats(self) -> dict:
+        """Get statistics about articles in the database.
+
+        Returns:
+            Dictionary with total, unread, bookmarked, and age distribution
+        """
+        from datetime import timedelta
+        now = datetime.now()
+        one_week_ago = (now - timedelta(days=7)).isoformat()
+        one_month_ago = (now - timedelta(days=30)).isoformat()
+
+        with self._conn() as conn:
+            # Total counts
+            total = conn.execute("SELECT COUNT(*) as cnt FROM articles").fetchone()["cnt"]
+            unread = conn.execute("SELECT COUNT(*) as cnt FROM articles WHERE is_read = 0").fetchone()["cnt"]
+            bookmarked = conn.execute("SELECT COUNT(*) as cnt FROM articles WHERE is_bookmarked = 1").fetchone()["cnt"]
+
+            # Age distribution
+            last_week = conn.execute(
+                "SELECT COUNT(*) as cnt FROM articles WHERE published_at >= ? OR (published_at IS NULL AND created_at >= ?)",
+                (one_week_ago, one_week_ago)
+            ).fetchone()["cnt"]
+
+            last_month = conn.execute(
+                "SELECT COUNT(*) as cnt FROM articles WHERE (published_at >= ? OR (published_at IS NULL AND created_at >= ?)) AND (published_at < ? OR (published_at IS NULL AND created_at < ?))",
+                (one_month_ago, one_month_ago, one_week_ago, one_week_ago)
+            ).fetchone()["cnt"]
+
+            older_than_month = conn.execute(
+                "SELECT COUNT(*) as cnt FROM articles WHERE published_at < ? OR (published_at IS NULL AND created_at < ?)",
+                (one_month_ago, one_month_ago)
+            ).fetchone()["cnt"]
+
+            # Oldest article date
+            oldest = conn.execute(
+                "SELECT MIN(COALESCE(published_at, created_at)) as oldest FROM articles"
+            ).fetchone()["oldest"]
+
+            return {
+                "total": total,
+                "unread": unread,
+                "bookmarked": bookmarked,
+                "last_week": last_week,
+                "last_month": last_month,
+                "older_than_month": older_than_month,
+                "oldest_article": oldest
+            }
+
     def get_unread_count(self, feed_id: int | None = None) -> int:
         """Get count of unread articles."""
         with self._conn() as conn:
