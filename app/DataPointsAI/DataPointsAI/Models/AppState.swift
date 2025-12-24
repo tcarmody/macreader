@@ -1054,7 +1054,9 @@ class AppState: ObservableObject {
                     isRead: detail.isRead,
                     isBookmarked: detail.isBookmarked,
                     publishedAt: detail.publishedAt,
-                    createdAt: detail.createdAt
+                    createdAt: detail.createdAt,
+                    readingTimeMinutes: detail.readingTimeMinutes,
+                    author: detail.author
                 )
                 selectedArticle = article
                 selectedArticleDetail = detail

@@ -24,6 +24,10 @@ class ArticleResponse(BaseModel):
     published_at: str | None
     created_at: str
 
+    # Useful metadata for list view
+    reading_time_minutes: int | None = None
+    author: str | None = None
+
     @classmethod
     def from_db(cls, article: DBArticle) -> "ArticleResponse":
         return cls(
@@ -36,7 +40,9 @@ class ArticleResponse(BaseModel):
             is_read=article.is_read,
             is_bookmarked=article.is_bookmarked,
             published_at=article.published_at.isoformat() if article.published_at else None,
-            created_at=article.created_at.isoformat()
+            created_at=article.created_at.isoformat(),
+            reading_time_minutes=article.reading_time_minutes,
+            author=article.author,
         )
 
 
@@ -56,6 +62,14 @@ class ArticleDetailResponse(BaseModel):
     published_at: str | None
     created_at: str
 
+    # Enhanced extraction metadata
+    author: str | None = None
+    reading_time_minutes: int | None = None
+    word_count: int | None = None
+    featured_image: str | None = None
+    has_code_blocks: bool = False
+    site_name: str | None = None
+
     @classmethod
     def from_db(cls, article: DBArticle) -> "ArticleDetailResponse":
         return cls(
@@ -71,7 +85,13 @@ class ArticleDetailResponse(BaseModel):
             is_read=article.is_read,
             is_bookmarked=article.is_bookmarked,
             published_at=article.published_at.isoformat() if article.published_at else None,
-            created_at=article.created_at.isoformat()
+            created_at=article.created_at.isoformat(),
+            author=article.author,
+            reading_time_minutes=article.reading_time_minutes,
+            word_count=article.word_count,
+            featured_image=article.featured_image,
+            has_code_blocks=article.has_code_blocks,
+            site_name=article.site_name,
         )
 
 

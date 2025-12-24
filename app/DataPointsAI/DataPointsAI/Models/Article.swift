@@ -13,6 +13,10 @@ struct Article: Identifiable, Codable, Hashable, Sendable {
     let publishedAt: Date?
     let createdAt: Date
 
+    // Enhanced metadata
+    let readingTimeMinutes: Int?
+    let author: String?
+
     enum CodingKeys: String, CodingKey {
         case id
         case feedId = "feed_id"
@@ -24,6 +28,8 @@ struct Article: Identifiable, Codable, Hashable, Sendable {
         case isBookmarked = "is_bookmarked"
         case publishedAt = "published_at"
         case createdAt = "created_at"
+        case readingTimeMinutes = "reading_time_minutes"
+        case author
     }
 
     /// The best URL to open - prefers source URL over aggregator URL
@@ -31,6 +37,12 @@ struct Article: Identifiable, Codable, Hashable, Sendable {
 
     /// Preview text for article list
     var summaryPreview: String? { summaryShort }
+
+    /// Formatted reading time string (e.g., "5 min")
+    var readingTimeDisplay: String? {
+        guard let minutes = readingTimeMinutes, minutes > 0 else { return nil }
+        return "\(minutes) min"
+    }
 
     /// Human-readable time since published
     var timeAgo: String {
@@ -84,6 +96,14 @@ struct ArticleDetail: Identifiable, Codable, Sendable {
     let publishedAt: Date?
     let createdAt: Date
 
+    // Enhanced extraction metadata
+    let author: String?
+    let readingTimeMinutes: Int?
+    let wordCountValue: Int?
+    let featuredImage: String?
+    let hasCodeBlocks: Bool?
+    let siteName: String?
+
     enum CodingKeys: String, CodingKey {
         case id
         case feedId = "feed_id"
@@ -98,6 +118,12 @@ struct ArticleDetail: Identifiable, Codable, Sendable {
         case isBookmarked = "is_bookmarked"
         case publishedAt = "published_at"
         case createdAt = "created_at"
+        case author
+        case readingTimeMinutes = "reading_time_minutes"
+        case wordCountValue = "word_count"
+        case featuredImage = "featured_image"
+        case hasCodeBlocks = "has_code_blocks"
+        case siteName = "site_name"
     }
 
     /// The best URL to open - prefers source URL over aggregator URL
@@ -138,9 +164,14 @@ struct ArticleDetail: Identifiable, Codable, Sendable {
         return formatter.string(from: date)
     }
 
-    /// Estimated reading time based on content word count
-    /// Assumes average reading speed of 200 words per minute
+    /// Estimated reading time - uses API-provided value or calculates from content
     var estimatedReadTime: String? {
+        // Prefer API-provided reading time
+        if let minutes = readingTimeMinutes, minutes > 0 {
+            return "\(minutes) min read"
+        }
+
+        // Fall back to calculating from content
         guard let content = content, !content.isEmpty else { return nil }
 
         // Strip HTML tags to get plain text
@@ -152,16 +183,22 @@ struct ArticleDetail: Identifiable, Codable, Sendable {
 
         // Count words (split by whitespace)
         let words = plainText.split { $0.isWhitespace }
-        let wordCount = words.count
+        let wc = words.count
 
-        // Calculate minutes at 200 wpm
-        let minutes = max(1, Int(ceil(Double(wordCount) / 200.0)))
+        // Calculate minutes at 225 wpm (matching backend)
+        let minutes = max(1, Int(ceil(Double(wc) / 225.0)))
 
         return "\(minutes) min read"
     }
 
-    /// Word count of the article content
+    /// Word count of the article content - uses API-provided value or calculates
     var wordCount: Int? {
+        // Prefer API-provided word count
+        if let wc = wordCountValue, wc > 0 {
+            return wc
+        }
+
+        // Fall back to calculating from content
         guard let content = content, !content.isEmpty else { return nil }
 
         let plainText = content.replacingOccurrences(

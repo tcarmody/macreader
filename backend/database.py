@@ -33,6 +33,14 @@ class DBArticle:
     file_name: str | None = None  # Original filename for uploads
     file_path: str | None = None  # Local storage path for files
 
+    # Enhanced extraction metadata
+    author: str | None = None
+    reading_time_minutes: int | None = None
+    word_count: int | None = None
+    featured_image: str | None = None
+    has_code_blocks: bool = False
+    site_name: str | None = None
+
 
 @dataclass
 class DBFeed:
@@ -152,6 +160,13 @@ class Database:
             self._migrate_add_column(conn, "articles", "content_type", "TEXT")
             self._migrate_add_column(conn, "articles", "file_name", "TEXT")
             self._migrate_add_column(conn, "articles", "file_path", "TEXT")
+
+            # Migration: Add enhanced extraction metadata columns
+            self._migrate_add_column(conn, "articles", "reading_time_minutes", "INTEGER")
+            self._migrate_add_column(conn, "articles", "word_count", "INTEGER")
+            self._migrate_add_column(conn, "articles", "featured_image", "TEXT")
+            self._migrate_add_column(conn, "articles", "has_code_blocks", "BOOLEAN DEFAULT FALSE")
+            self._migrate_add_column(conn, "articles", "site_name", "TEXT")
 
     # ─────────────────────────────────────────────────────────────
     # Feed operations
@@ -331,18 +346,25 @@ class Database:
         author: str | None = None,
         published_at: datetime | None = None,
         content_hash: str | None = None,
-        source_url: str | None = None
+        source_url: str | None = None,
+        reading_time_minutes: int | None = None,
+        word_count: int | None = None,
+        featured_image: str | None = None,
+        has_code_blocks: bool = False,
+        site_name: str | None = None,
     ) -> int | None:
         """Add a new article. Returns article ID or None if duplicate."""
         with self._conn() as conn:
             try:
                 cursor = conn.execute(
                     """INSERT INTO articles
-                       (feed_id, url, title, content, author, published_at, content_hash, source_url)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                       (feed_id, url, title, content, author, published_at, content_hash, source_url,
+                        reading_time_minutes, word_count, featured_image, has_code_blocks, site_name)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (feed_id, url, title, content, author,
                      published_at.isoformat() if published_at else None,
-                     content_hash, source_url)
+                     content_hash, source_url,
+                     reading_time_minutes, word_count, featured_image, has_code_blocks, site_name)
                 )
                 return cursor.lastrowid
             except sqlite3.IntegrityError:
@@ -765,6 +787,20 @@ class Database:
             except (IndexError, KeyError):
                 return None
 
+        # Handle optional integer columns
+        def safe_get_int(col: str) -> int | None:
+            try:
+                val = row[col]
+                return int(val) if val is not None else None
+            except (IndexError, KeyError, ValueError, TypeError):
+                return None
+
+        def safe_get_bool(col: str) -> bool:
+            try:
+                return bool(row[col])
+            except (IndexError, KeyError):
+                return False
+
         return DBArticle(
             id=row["id"],
             feed_id=row["feed_id"],
@@ -781,7 +817,14 @@ class Database:
             source_url=safe_get("source_url"),
             content_type=safe_get("content_type"),
             file_name=safe_get("file_name"),
-            file_path=safe_get("file_path")
+            file_path=safe_get("file_path"),
+            # Enhanced extraction metadata
+            author=safe_get("author"),
+            reading_time_minutes=safe_get_int("reading_time_minutes"),
+            word_count=safe_get_int("word_count"),
+            featured_image=safe_get("featured_image"),
+            has_code_blocks=safe_get_bool("has_code_blocks"),
+            site_name=safe_get("site_name"),
         )
 
     def _row_to_feed(self, row: sqlite3.Row) -> DBFeed:

@@ -256,7 +256,9 @@ struct ArticleRow: View {
         isRead: false,
         isBookmarked: true,
         publishedAt: Date().addingTimeInterval(-7200),
-        createdAt: Date()
+        createdAt: Date(),
+        readingTimeMinutes: 5,
+        author: "John Doe"
     )
 
     ArticleRow(article: article)

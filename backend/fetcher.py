@@ -16,6 +16,7 @@ from dataclasses import dataclass
 from bs4 import BeautifulSoup
 
 from .url_validator import validate_url, SSRFError
+from .site_extractors import extract_with_site_extractor, ExtractedContent
 
 try:
     import trafilatura
@@ -35,6 +36,18 @@ class FetchResult:
     published: str | None = None
     source: str = "direct"  # "direct", "archive", "js_render"
     content_hash: str | None = None
+
+    # Enhanced metadata (populated by site-specific extractors)
+    reading_time_minutes: int | None = None
+    word_count: int | None = None
+    categories: list[str] | None = None
+    tags: list[str] | None = None
+    featured_image: str | None = None
+    has_code_blocks: bool = False
+    code_languages: list[str] | None = None
+    is_paywalled: bool = False
+    site_name: str | None = None
+    extractor_used: str = "generic"
 
 
 class Fetcher:
@@ -127,8 +140,13 @@ class Fetcher:
         return result
 
     def _extract_content(self, url: str, html: str) -> FetchResult:
-        """Extract article content from HTML using trafilatura with BeautifulSoup fallback."""
-        # Try trafilatura first (reader-mode extraction)
+        """Extract article content from HTML using site-specific, trafilatura, or BeautifulSoup extraction."""
+        # Try site-specific extractor first (for Medium, Substack, GitHub, etc.)
+        site_result = extract_with_site_extractor(url, html)
+        if site_result and self.has_sufficient_content(site_result.content):
+            return self._convert_site_extraction(url, site_result)
+
+        # Try trafilatura (reader-mode extraction)
         if TRAFILATURA_AVAILABLE:
             result = self._extract_with_trafilatura(url, html)
             if result and self.has_sufficient_content(result.content):
@@ -136,6 +154,30 @@ class Fetcher:
 
         # Fallback to BeautifulSoup heuristics
         return self._extract_with_beautifulsoup(url, html)
+
+    def _convert_site_extraction(self, url: str, extracted: ExtractedContent) -> FetchResult:
+        """Convert site-specific extraction result to FetchResult."""
+        content_hash = hashlib.sha256(extracted.content.encode()).hexdigest()[:16]
+
+        return FetchResult(
+            url=extracted.canonical_url or url,
+            title=extracted.title or "Untitled",
+            content=extracted.content,
+            author=extracted.author,
+            published=extracted.published,
+            source="direct",
+            content_hash=content_hash,
+            reading_time_minutes=extracted.reading_time_minutes,
+            word_count=extracted.word_count,
+            categories=extracted.categories if extracted.categories else None,
+            tags=extracted.tags if extracted.tags else None,
+            featured_image=extracted.featured_image,
+            has_code_blocks=extracted.has_code_blocks,
+            code_languages=extracted.code_languages if extracted.code_languages else None,
+            is_paywalled=extracted.is_paywalled,
+            site_name=extracted.site_name,
+            extractor_used=extracted.extractor_used,
+        )
 
     def _extract_with_trafilatura(self, url: str, html: str) -> FetchResult | None:
         """Extract content using trafilatura (Mozilla Readability-style extraction)."""
@@ -172,11 +214,39 @@ class Fetcher:
             content_hash = hashlib.sha256(content.encode()).hexdigest()[:16]
 
             # Fall back to BeautifulSoup for title if not found
+            soup = BeautifulSoup(html, "html.parser")
             if not title:
-                soup = BeautifulSoup(html, "html.parser")
                 if title_tag := soup.find("title"):
                     title = title_tag.get_text(strip=True)
                     title = re.sub(r"\s*[|\-–—]\s*[^|\-–—]+$", "", title)
+
+            # Calculate word count and reading time
+            text_content = BeautifulSoup(content, "html.parser").get_text()
+            word_count = len(text_content.split())
+            reading_time = max(1, round(word_count / 225))
+
+            # Check for code blocks
+            has_code = bool(soup.find("pre") or soup.find("code"))
+            code_languages = self._extract_code_languages(soup) if has_code else None
+
+            # Extract featured image
+            featured_image = None
+            if og_image := soup.find("meta", property="og:image"):
+                featured_image = og_image.get("content")
+
+            # Extract site name
+            site_name = None
+            if og_site := soup.find("meta", property="og:site_name"):
+                site_name = og_site.get("content")
+
+            # Extract categories from meta tags
+            categories = None
+            if article_section := soup.find("meta", property="article:section"):
+                categories = [article_section.get("content")]
+            elif keywords := soup.find("meta", {"name": "keywords"}):
+                kw_content = keywords.get("content", "")
+                if kw_content:
+                    categories = [k.strip() for k in kw_content.split(",")[:5]]
 
             return FetchResult(
                 url=url,
@@ -186,6 +256,14 @@ class Fetcher:
                 published=published,
                 source="direct",
                 content_hash=content_hash,
+                reading_time_minutes=reading_time,
+                word_count=word_count,
+                categories=categories,
+                featured_image=featured_image,
+                has_code_blocks=has_code,
+                code_languages=code_languages,
+                site_name=site_name,
+                extractor_used="trafilatura",
             )
         except Exception:
             # If trafilatura fails, return None to trigger fallback
@@ -387,6 +465,38 @@ class Fetcher:
     def has_sufficient_content(self, content: str) -> bool:
         """Check if extracted content meets minimum threshold."""
         return len(content) >= self.min_content_length
+
+    def _extract_code_languages(self, soup: BeautifulSoup) -> list[str]:
+        """Extract programming languages from code blocks in the HTML."""
+        languages = set()
+
+        # Check class names on pre/code blocks
+        for code in soup.find_all(['pre', 'code']):
+            classes = code.get('class', [])
+            if isinstance(classes, str):
+                classes = [classes]
+            for cls in classes:
+                # Common patterns: language-python, lang-js, highlight-ruby, hljs-javascript
+                match = re.match(r'(?:language-|lang-|highlight-|hljs-)(\w+)', cls)
+                if match:
+                    lang = match.group(1).lower()
+                    # Normalize common variants
+                    lang_map = {
+                        'js': 'javascript',
+                        'ts': 'typescript',
+                        'py': 'python',
+                        'rb': 'ruby',
+                        'yml': 'yaml',
+                        'sh': 'bash',
+                        'shell': 'bash',
+                    }
+                    languages.add(lang_map.get(lang, lang))
+
+        # Also check data-language attributes
+        for elem in soup.find_all(attrs={'data-language': True}):
+            languages.add(elem['data-language'].lower())
+
+        return list(languages) if languages else None
 
 
 async def fetch_url(url: str, timeout: int = 30) -> FetchResult:

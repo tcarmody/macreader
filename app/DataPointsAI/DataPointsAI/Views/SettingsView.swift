@@ -30,6 +30,38 @@ struct SettingsView: View {
     @State private var archiveKeepUnread: Bool = false
 
     var body: some View {
+        settingsTabView
+            .padding(20)
+            .frame(width: 480, height: 500)
+            .onAppear { loadSettings() }
+            .onChange(of: refreshInterval) { _, _ in saveSettings() }
+            .onChange(of: autoSummarize) { _, _ in saveSettings() }
+            .onChange(of: markReadOnOpen) { _, _ in saveSettings() }
+            .onChange(of: hideDuplicates) { _, _ in saveSettings() }
+            .onChange(of: defaultModel) { _, _ in saveSettings() }
+            .onChange(of: llmProvider) { _, newProvider in
+                defaultModel = newProvider.modelOptions.first?.value ?? "haiku"
+                saveSettings()
+            }
+            .applySettingsChangeHandlers(
+                notificationsEnabled: notificationsEnabled,
+                articleFontSize: articleFontSize,
+                articleLineSpacing: articleLineSpacing,
+                listDensity: listDensity,
+                appTypeface: appTypeface,
+                contentTypeface: contentTypeface,
+                readerModeFontSize: readerModeFontSize,
+                readerModeLineSpacing: readerModeLineSpacing,
+                autoArchiveEnabled: autoArchiveEnabled,
+                autoArchiveDays: autoArchiveDays,
+                archiveKeepBookmarked: archiveKeepBookmarked,
+                archiveKeepUnread: archiveKeepUnread,
+                saveSettings: saveSettings
+            )
+    }
+
+    @ViewBuilder
+    private var settingsTabView: some View {
         TabView {
             GeneralSettingsView(
                 refreshInterval: $refreshInterval,
@@ -42,9 +74,7 @@ struct SettingsView: View {
                 archiveKeepBookmarked: $archiveKeepBookmarked,
                 archiveKeepUnread: $archiveKeepUnread
             )
-            .tabItem {
-                Label("General", systemImage: "gear")
-            }
+            .tabItem { Label("General", systemImage: "gear") }
 
             AppearanceSettingsView(
                 articleFontSize: $articleFontSize,
@@ -55,50 +85,17 @@ struct SettingsView: View {
                 readerModeFontSize: $readerModeFontSize,
                 readerModeLineSpacing: $readerModeLineSpacing
             )
-            .tabItem {
-                Label("Appearance", systemImage: "textformat.size")
-            }
+            .tabItem { Label("Appearance", systemImage: "textformat.size") }
 
             AISettingsView(
                 llmProvider: $llmProvider,
                 defaultModel: $defaultModel
             )
-            .tabItem {
-                Label("AI", systemImage: "sparkles")
-            }
+            .tabItem { Label("AI", systemImage: "sparkles") }
 
             AboutView(llmProvider: llmProvider)
-                .tabItem {
-                    Label("About", systemImage: "info.circle")
-                }
+                .tabItem { Label("About", systemImage: "info.circle") }
         }
-        .padding(20)
-        .frame(width: 480, height: 500)
-        .onAppear {
-            loadSettings()
-        }
-        .onChange(of: refreshInterval) { _, _ in saveSettings() }
-        .onChange(of: autoSummarize) { _, _ in saveSettings() }
-        .onChange(of: markReadOnOpen) { _, _ in saveSettings() }
-        .onChange(of: hideDuplicates) { _, _ in saveSettings() }
-        .onChange(of: defaultModel) { _, _ in saveSettings() }
-        .onChange(of: llmProvider) { _, newProvider in
-            // Reset model to first option when provider changes
-            defaultModel = newProvider.modelOptions.first?.value ?? "haiku"
-            saveSettings()
-        }
-        .onChange(of: notificationsEnabled) { _, _ in saveSettings() }
-        .onChange(of: articleFontSize) { _, _ in saveSettings() }
-        .onChange(of: articleLineSpacing) { _, _ in saveSettings() }
-        .onChange(of: listDensity) { _, _ in saveSettings() }
-        .onChange(of: appTypeface) { _, _ in saveSettings() }
-        .onChange(of: contentTypeface) { _, _ in saveSettings() }
-        .onChange(of: readerModeFontSize) { _, _ in saveSettings() }
-        .onChange(of: readerModeLineSpacing) { _, _ in saveSettings() }
-        .onChange(of: autoArchiveEnabled) { _, _ in saveSettings() }
-        .onChange(of: autoArchiveDays) { _, _ in saveSettings() }
-        .onChange(of: archiveKeepBookmarked) { _, _ in saveSettings() }
-        .onChange(of: archiveKeepUnread) { _, _ in saveSettings() }
     }
 
     private func loadSettings() {
@@ -599,6 +596,41 @@ struct AboutView: View {
             Spacer()
         }
         .padding()
+    }
+}
+
+// MARK: - View Extension for Settings Change Handlers
+
+extension View {
+    /// Applies onChange handlers for settings that would otherwise cause compiler complexity issues
+    func applySettingsChangeHandlers(
+        notificationsEnabled: Bool,
+        articleFontSize: ArticleFontSize,
+        articleLineSpacing: ArticleLineSpacing,
+        listDensity: ListDensity,
+        appTypeface: AppTypeface,
+        contentTypeface: ContentTypeface,
+        readerModeFontSize: ArticleFontSize,
+        readerModeLineSpacing: ArticleLineSpacing,
+        autoArchiveEnabled: Bool,
+        autoArchiveDays: Int,
+        archiveKeepBookmarked: Bool,
+        archiveKeepUnread: Bool,
+        saveSettings: @escaping () -> Void
+    ) -> some View {
+        self
+            .onChange(of: notificationsEnabled) { _, _ in saveSettings() }
+            .onChange(of: articleFontSize) { _, _ in saveSettings() }
+            .onChange(of: articleLineSpacing) { _, _ in saveSettings() }
+            .onChange(of: listDensity) { _, _ in saveSettings() }
+            .onChange(of: appTypeface) { _, _ in saveSettings() }
+            .onChange(of: contentTypeface) { _, _ in saveSettings() }
+            .onChange(of: readerModeFontSize) { _, _ in saveSettings() }
+            .onChange(of: readerModeLineSpacing) { _, _ in saveSettings() }
+            .onChange(of: autoArchiveEnabled) { _, _ in saveSettings() }
+            .onChange(of: autoArchiveDays) { _, _ in saveSettings() }
+            .onChange(of: archiveKeepBookmarked) { _, _ in saveSettings() }
+            .onChange(of: archiveKeepUnread) { _, _ in saveSettings() }
     }
 }
 

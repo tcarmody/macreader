@@ -190,10 +190,22 @@ async def fetch_feed_articles(feed_id: int, feed):
 
         # Fetch full content if feed only has summary
         content = item.content
+        reading_time = None
+        word_count = None
+        featured_image = None
+        has_code_blocks = False
+        site_name = None
+
         if len(content) < 500 and state.fetcher:
             try:
                 result = await state.fetcher.fetch(item.url)
                 content = result.content
+                # Extract enhanced metadata from fetcher result
+                reading_time = result.reading_time_minutes
+                word_count = result.word_count
+                featured_image = result.featured_image
+                has_code_blocks = result.has_code_blocks
+                site_name = result.site_name
             except Exception:
                 pass  # Use feed content as fallback
 
@@ -205,7 +217,12 @@ async def fetch_feed_articles(feed_id: int, feed):
             content=content,
             author=item.author,
             published_at=item.published,
-            source_url=item.source_url
+            source_url=item.source_url,
+            reading_time_minutes=reading_time,
+            word_count=word_count,
+            featured_image=featured_image,
+            has_code_blocks=has_code_blocks,
+            site_name=site_name,
         )
 
         # Auto-summarize only if setting is enabled and API key configured
