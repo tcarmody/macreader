@@ -331,3 +331,24 @@ class LibraryStatsResponse(BaseModel):
     """Library statistics."""
     total_items: int
     by_type: dict[str, int]  # count by content_type
+
+
+# ─────────────────────────────────────────────────────────────
+# Newsletter Import Schemas
+# ─────────────────────────────────────────────────────────────
+
+class NewsletterImportResult(BaseModel):
+    """Result of importing a single newsletter email."""
+    success: bool
+    title: str | None = None
+    author: str | None = None
+    item_id: int | None = None
+    error: str | None = None
+
+
+class NewsletterImportResponse(BaseModel):
+    """Response from newsletter import."""
+    total: int
+    imported: int
+    failed: int
+    results: list[NewsletterImportResult]

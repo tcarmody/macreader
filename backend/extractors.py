@@ -6,6 +6,7 @@ Supports:
 - DOCX (via python-docx)
 - HTML (via BeautifulSoup)
 - TXT/MD (plain text)
+- EML (email files for newsletter import)
 """
 
 import re
@@ -193,6 +194,7 @@ def detect_content_type(filename: str) -> str:
         ".md": "md",
         ".markdown": "md",
         ".text": "txt",
+        ".eml": "eml",
     }
 
     if ext in mapping:

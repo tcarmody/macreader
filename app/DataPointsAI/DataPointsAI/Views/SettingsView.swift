@@ -1,4 +1,5 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 /// Preferences window
 struct SettingsView: View {
@@ -92,6 +93,9 @@ struct SettingsView: View {
                 defaultModel: $defaultModel
             )
             .tabItem { Label("AI", systemImage: "sparkles") }
+
+            NewsletterSettingsView()
+                .tabItem { Label("Newsletters", systemImage: "envelope") }
 
             AboutView(llmProvider: llmProvider)
                 .tabItem { Label("About", systemImage: "info.circle") }
@@ -561,6 +565,245 @@ struct AISettingsView: View {
             }
             // Restart the server to pick up the change
             await appState.restartServer()
+        }
+    }
+}
+
+/// Newsletter settings tab
+struct NewsletterSettingsView: View {
+    @State private var watchFolderPath: String = ""
+    @State private var autoImportEnabled: Bool = false
+    @State private var autoSummarizeNewsletter: Bool = false
+    @State private var deleteAfterImport: Bool = false
+    @State private var isSelectingFolder: Bool = false
+    @State private var importResults: [NewsletterWatcherService.ImportResult] = []
+
+    var body: some View {
+        Form {
+            Section {
+                HStack {
+                    TextField("Watch folder", text: $watchFolderPath)
+                        .textFieldStyle(.roundedBorder)
+                        .disabled(true)
+
+                    Button("Choose...") {
+                        selectFolder()
+                    }
+
+                    if !watchFolderPath.isEmpty {
+                        Button("Reveal") {
+                            if let url = URL(string: "file://\(watchFolderPath)") {
+                                NSWorkspace.shared.selectFile(nil, inFileViewerRootedAtPath: url.path)
+                            }
+                        }
+                    }
+                }
+
+                if watchFolderPath.isEmpty {
+                    Button("Use Default Folder") {
+                        let defaultFolder = NewsletterWatcherService.suggestedWatchFolder()
+                        watchFolderPath = defaultFolder.path
+                        Task {
+                            await NewsletterWatcherService.shared.setWatchFolder(defaultFolder)
+                        }
+                    }
+
+                    Text("Default: ~/Documents/DataPointsAI Newsletters/")
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("Watch Folder")
+            } footer: {
+                Text("Place .eml files in this folder to import them. You can set up a Mail.app rule to automatically export emails here.")
+            }
+
+            Section {
+                Toggle("Auto-import new .eml files", isOn: $autoImportEnabled)
+                    .disabled(watchFolderPath.isEmpty)
+                    .onChange(of: autoImportEnabled) { _, newValue in
+                        Task {
+                            await NewsletterWatcherService.shared.setAutoImportEnabled(newValue)
+                        }
+                    }
+
+                if autoImportEnabled {
+                    Toggle("Auto-summarize imported newsletters", isOn: $autoSummarizeNewsletter)
+                        .onChange(of: autoSummarizeNewsletter) { _, newValue in
+                            Task {
+                                await NewsletterWatcherService.shared.setAutoSummarizeEnabled(newValue)
+                            }
+                        }
+
+                    Toggle("Delete .eml files after import", isOn: $deleteAfterImport)
+                        .onChange(of: deleteAfterImport) { _, newValue in
+                            Task {
+                                await NewsletterWatcherService.shared.setDeleteAfterImportEnabled(newValue)
+                            }
+                        }
+                }
+            } header: {
+                Text("Auto Import")
+            }
+
+            Section {
+                Button("Import .eml Files...") {
+                    importEmlFiles()
+                }
+
+                if !importResults.isEmpty {
+                    VStack(alignment: .leading, spacing: 4) {
+                        ForEach(importResults.prefix(5), id: \.filename) { result in
+                            HStack {
+                                Image(systemName: result.success ? "checkmark.circle.fill" : "xmark.circle.fill")
+                                    .foregroundStyle(result.success ? .green : .red)
+                                Text(result.title ?? result.filename)
+                                    .lineLimit(1)
+                            }
+                            .font(.caption)
+                        }
+                        if importResults.count > 5 {
+                            Text("...and \(importResults.count - 5) more")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                }
+            } header: {
+                Text("Manual Import")
+            }
+
+            Section {
+                Button("Show Mail.app Setup Instructions") {
+                    showMailAppInstructions()
+                }
+            } header: {
+                Text("Mail.app Integration")
+            } footer: {
+                Text("Set up a Mail.app rule to automatically export newsletter emails to your watch folder.")
+            }
+        }
+        .formStyle(.grouped)
+        .onAppear {
+            loadSettings()
+        }
+    }
+
+    private func loadSettings() {
+        Task {
+            if let folder = await NewsletterWatcherService.shared.watchFolder {
+                await MainActor.run {
+                    watchFolderPath = folder.path
+                }
+            }
+            let autoImport = await NewsletterWatcherService.shared.isAutoImportEnabled
+            let autoSum = await NewsletterWatcherService.shared.isAutoSummarizeEnabled
+            let deleteAfter = await NewsletterWatcherService.shared.isDeleteAfterImportEnabled
+
+            await MainActor.run {
+                autoImportEnabled = autoImport
+                autoSummarizeNewsletter = autoSum
+                deleteAfterImport = deleteAfter
+            }
+        }
+    }
+
+    private func selectFolder() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = false
+        panel.canChooseDirectories = true
+        panel.allowsMultipleSelection = false
+        panel.canCreateDirectories = true
+        panel.prompt = "Select Folder"
+        panel.message = "Select a folder to watch for newsletter .eml files"
+
+        if panel.runModal() == .OK, let url = panel.url {
+            watchFolderPath = url.path
+            Task {
+                await NewsletterWatcherService.shared.setWatchFolder(url)
+            }
+        }
+    }
+
+    private func importEmlFiles() {
+        let panel = NSOpenPanel()
+        panel.canChooseFiles = true
+        panel.canChooseDirectories = false
+        panel.allowsMultipleSelection = true
+        panel.allowedContentTypes = [.init(filenameExtension: "eml")!]
+        panel.prompt = "Import"
+        panel.message = "Select .eml files to import as newsletters"
+
+        if panel.runModal() == .OK {
+            let urls = panel.urls
+            Task {
+                do {
+                    let results = try await NewsletterWatcherService.shared.importFiles(
+                        urls: urls,
+                        autoSummarize: autoSummarizeNewsletter
+                    )
+                    await MainActor.run {
+                        importResults = results.map {
+                            NewsletterWatcherService.ImportResult(
+                                filename: $0.filename,
+                                success: $0.success,
+                                title: $0.title,
+                                error: $0.error
+                            )
+                        }
+                    }
+                } catch {
+                    print("Import failed: \(error)")
+                }
+            }
+        }
+    }
+
+    private func showMailAppInstructions() {
+        let alert = NSAlert()
+        alert.messageText = "Mail.app Newsletter Import Setup"
+        alert.informativeText = """
+        To automatically import newsletters from Mail.app:
+
+        1. Open Mail.app → Preferences → Rules
+        2. Create a new rule with conditions to match your newsletters
+           (e.g., "From contains newsletter" or specific sender addresses)
+        3. Set the action to "Run AppleScript"
+        4. Create an AppleScript that exports the email to:
+           \(watchFolderPath.isEmpty ? "~/Documents/DataPointsAI Newsletters/" : watchFolderPath)
+
+        Sample AppleScript:
+        ---
+        on perform mail action with messages theMessages
+            repeat with theMessage in theMessages
+                set theSubject to subject of theMessage
+                set thePath to "\(watchFolderPath.isEmpty ? "~/Documents/DataPointsAI Newsletters/" : watchFolderPath)" & theSubject & ".eml"
+                set theSource to source of theMessage
+                do shell script "echo " & quoted form of theSource & " > " & quoted form of thePath
+            end repeat
+        end perform mail action with messages
+        ---
+
+        Would you like to copy the AppleScript to clipboard?
+        """
+        alert.addButton(withTitle: "Copy AppleScript")
+        alert.addButton(withTitle: "Close")
+
+        if alert.runModal() == .alertFirstButtonReturn {
+            let script = """
+            on perform mail action with messages theMessages
+                repeat with theMessage in theMessages
+                    set theSubject to subject of theMessage
+                    -- Sanitize filename
+                    set cleanSubject to do shell script "echo " & quoted form of theSubject & " | tr -d '/:*?\"<>|' | head -c 100"
+                    set thePath to "\(watchFolderPath.isEmpty ? "~/Documents/DataPointsAI Newsletters/" : watchFolderPath)" & cleanSubject & ".eml"
+                    set theSource to source of theMessage
+                    do shell script "echo " & quoted form of theSource & " > " & quoted form of thePath
+                end repeat
+            end perform mail action with messages
+            """
+            NSPasteboard.general.clearContents()
+            NSPasteboard.general.setString(script, forType: .string)
         }
     }
 }

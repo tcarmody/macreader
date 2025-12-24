@@ -1,5 +1,7 @@
 """
 Standalone (Library) routes: add URLs, upload files, list/manage items.
+
+Includes newsletter email import support.
 """
 
 import uuid
@@ -11,6 +13,11 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Qu
 from ..auth import verify_api_key
 from ..config import state, get_db, config
 from ..database import Database
+from ..email_parser import (
+    parse_eml_bytes,
+    extract_article_content,
+    EmailParseError,
+)
 from ..extractors import extract_text, detect_content_type, ExtractionError
 from ..schemas import (
     AddStandaloneURLRequest,
@@ -18,6 +25,8 @@ from ..schemas import (
     StandaloneItemDetailResponse,
     StandaloneListResponse,
     LibraryStatsResponse,
+    NewsletterImportResult,
+    NewsletterImportResponse,
 )
 from ..tasks import summarize_article
 
@@ -329,3 +338,184 @@ async def summarize_standalone_item(
     )
 
     return {"success": True, "message": "Summarization started"}
+
+
+# ─────────────────────────────────────────────────────────────
+# Newsletter Import
+# ─────────────────────────────────────────────────────────────
+
+@router.post("/newsletter/import")
+async def import_newsletters(
+    files: list[UploadFile] = File(...),
+    db: Database = Depends(get_db),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    auto_summarize: bool = Query(default=False, description="Automatically summarize after import")
+) -> NewsletterImportResponse:
+    """
+    Import newsletter emails from .eml files.
+
+    Accepts multiple .eml files and imports them as library items.
+    Extracts newsletter content, subject, sender, and date.
+    """
+    results: list[NewsletterImportResult] = []
+    imported = 0
+    failed = 0
+
+    for file in files:
+        if not file.filename:
+            results.append(NewsletterImportResult(
+                success=False,
+                error="No filename provided"
+            ))
+            failed += 1
+            continue
+
+        # Verify it's an .eml file
+        if not file.filename.lower().endswith(".eml"):
+            results.append(NewsletterImportResult(
+                success=False,
+                error=f"Not an .eml file: {file.filename}"
+            ))
+            failed += 1
+            continue
+
+        try:
+            # Read and parse the email
+            content = await file.read()
+            parsed = parse_eml_bytes(content)
+
+            # Extract article content from the newsletter
+            article_html = extract_article_content(parsed)
+            if not article_html or len(article_html.strip()) < 50:
+                results.append(NewsletterImportResult(
+                    success=False,
+                    title=parsed.title,
+                    author=parsed.author,
+                    error="Newsletter has insufficient content"
+                ))
+                failed += 1
+                continue
+
+            # Generate a unique URL for this newsletter
+            # Use sender email + date + subject hash for deduplication
+            date_str = parsed.date.strftime("%Y%m%d%H%M%S") if parsed.date else "unknown"
+            newsletter_id = f"{parsed.sender_email}_{date_str}"
+            newsletter_url = f"newsletter://{newsletter_id}"
+
+            # Add to database
+            item_id = db.add_standalone_item(
+                url=newsletter_url,
+                title=parsed.title,
+                content=article_html,
+                content_type="newsletter",
+                file_name=file.filename,
+                author=parsed.author,
+                published_at=parsed.date,
+            )
+
+            if not item_id:
+                results.append(NewsletterImportResult(
+                    success=False,
+                    title=parsed.title,
+                    author=parsed.author,
+                    error="Newsletter already exists in library"
+                ))
+                failed += 1
+                continue
+
+            results.append(NewsletterImportResult(
+                success=True,
+                title=parsed.title,
+                author=parsed.author,
+                item_id=item_id,
+            ))
+            imported += 1
+
+            # Auto-summarize if requested
+            if auto_summarize and state.summarizer:
+                background_tasks.add_task(
+                    summarize_article,
+                    item_id,
+                    article_html,
+                    newsletter_url,
+                    parsed.title
+                )
+
+        except EmailParseError as e:
+            results.append(NewsletterImportResult(
+                success=False,
+                error=f"Failed to parse email: {e}"
+            ))
+            failed += 1
+        except Exception as e:
+            results.append(NewsletterImportResult(
+                success=False,
+                error=f"Import error: {e}"
+            ))
+            failed += 1
+
+    return NewsletterImportResponse(
+        total=len(files),
+        imported=imported,
+        failed=failed,
+        results=results
+    )
+
+
+@router.post("/newsletter/import-raw")
+async def import_newsletter_raw(
+    content: str,
+    db: Database = Depends(get_db),
+    background_tasks: BackgroundTasks = BackgroundTasks(),
+    auto_summarize: bool = Query(default=False, description="Automatically summarize after import")
+) -> StandaloneItemDetailResponse:
+    """
+    Import a newsletter from raw .eml content (e.g., from clipboard).
+
+    Accepts the raw email content as a string and imports it as a library item.
+    """
+    from ..email_parser import parse_eml_string
+
+    try:
+        parsed = parse_eml_string(content)
+    except EmailParseError as e:
+        raise HTTPException(status_code=400, detail=f"Failed to parse email: {e}")
+
+    # Extract article content
+    article_html = extract_article_content(parsed)
+    if not article_html or len(article_html.strip()) < 50:
+        raise HTTPException(status_code=400, detail="Newsletter has insufficient content")
+
+    # Generate unique URL
+    date_str = parsed.date.strftime("%Y%m%d%H%M%S") if parsed.date else "unknown"
+    newsletter_id = f"{parsed.sender_email}_{date_str}"
+    newsletter_url = f"newsletter://{newsletter_id}"
+
+    # Add to database
+    item_id = db.add_standalone_item(
+        url=newsletter_url,
+        title=parsed.title,
+        content=article_html,
+        content_type="newsletter",
+        author=parsed.author,
+        published_at=parsed.date,
+    )
+
+    if not item_id:
+        raise HTTPException(status_code=409, detail="Newsletter already exists in library")
+
+    item = db.get_article(item_id)
+    if not item:
+        raise HTTPException(status_code=500, detail="Failed to retrieve item")
+
+    # Auto-summarize if requested
+    if auto_summarize and state.summarizer:
+        background_tasks.add_task(
+            summarize_article,
+            item_id,
+            article_html,
+            newsletter_url,
+            parsed.title
+        )
+
+    return StandaloneItemDetailResponse.from_db(item)

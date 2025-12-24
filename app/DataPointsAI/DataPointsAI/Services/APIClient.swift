@@ -630,6 +630,65 @@ final class APIClient {
         let _: EmptyResponse = try await post(path: "/standalone/\(id)/summarize")
     }
 
+    // MARK: - Newsletter Import
+
+    struct NewsletterImportResult: Codable, Sendable {
+        let success: Bool
+        let title: String?
+        let author: String?
+        let itemId: Int?
+        let error: String?
+
+        enum CodingKeys: String, CodingKey {
+            case success
+            case title
+            case author
+            case itemId = "item_id"
+            case error
+        }
+    }
+
+    struct NewsletterImportResponse: Codable, Sendable {
+        let total: Int
+        let imported: Int
+        let failed: Int
+        let results: [NewsletterImportResult]
+    }
+
+    /// Import newsletter emails from .eml file data
+    func importNewsletters(files: [(filename: String, data: Data)], autoSummarize: Bool = false) async throws -> NewsletterImportResponse {
+        // Build multipart form data
+        let boundary = UUID().uuidString
+        var body = Data()
+
+        for file in files {
+            body.append("--\(boundary)\r\n".data(using: .utf8)!)
+            body.append("Content-Disposition: form-data; name=\"files\"; filename=\"\(file.filename)\"\r\n".data(using: .utf8)!)
+            body.append("Content-Type: message/rfc822\r\n\r\n".data(using: .utf8)!)
+            body.append(file.data)
+            body.append("\r\n".data(using: .utf8)!)
+        }
+
+        body.append("--\(boundary)--\r\n".data(using: .utf8)!)
+
+        // Build URL with query params
+        var queryItems: [URLQueryItem] = []
+        if autoSummarize {
+            queryItems.append(URLQueryItem(name: "auto_summarize", value: "true"))
+        }
+
+        let url = buildURL(path: "/standalone/newsletter/import", queryItems: queryItems)
+        var request = URLRequest(url: url)
+        request.httpMethod = "POST"
+        request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.httpBody = body
+        request.timeoutInterval = 120
+
+        let (responseData, response) = try await session.data(for: request)
+        try validateResponse(response, data: responseData)
+        return try JSONHelper.decode(NewsletterImportResponse.self, from: responseData)
+    }
+
     // MARK: - HTTP Methods
 
     private func get<T: Decodable>(

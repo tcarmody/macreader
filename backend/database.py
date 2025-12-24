@@ -265,18 +265,21 @@ class Database:
         content: str | None = None,
         content_type: str = "url",
         file_name: str | None = None,
-        file_path: str | None = None
+        file_path: str | None = None,
+        author: str | None = None,
+        published_at: datetime | None = None,
     ) -> int | None:
         """Add a standalone item to the library. Returns item ID or None if duplicate."""
         feed_id = self.get_or_create_standalone_feed()
+        pub_date = published_at or datetime.now()
         with self._conn() as conn:
             try:
                 cursor = conn.execute(
                     """INSERT INTO articles
-                       (feed_id, url, title, content, content_type, file_name, file_path, published_at)
-                       VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+                       (feed_id, url, title, content, content_type, file_name, file_path, author, published_at)
+                       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)""",
                     (feed_id, url, title, content, content_type, file_name, file_path,
-                     datetime.now().isoformat())
+                     author, pub_date.isoformat())
                 )
                 return cursor.lastrowid
             except sqlite3.IntegrityError:
