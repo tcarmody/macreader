@@ -3,11 +3,17 @@ import WebKit
 import Combine
 
 /// Manages scroll state for the article detail view
-/// Inspired by NetNewsWire's approach: query NSScrollView directly for scroll info
+/// Uses ScrollViewProxy for reliable scroll-to-top and NSScrollView for page up/down
 @MainActor
 class ArticleScrollState: ObservableObject {
     /// Reference to the underlying NSScrollView (set by ScrollViewAccessor)
     weak var scrollView: NSScrollView?
+
+    /// ScrollViewProxy for reliable scroll-to-top (set by ArticleDetailView)
+    var scrollProxy: ScrollViewProxy?
+
+    /// ID for the top anchor element
+    static let topAnchorID = "article-top"
 
     /// Whether we can scroll down (content below visible area)
     var canScrollDown: Bool {
@@ -54,15 +60,13 @@ class ArticleScrollState: ObservableObject {
         scrollView.pageUp(nil)
     }
 
-    /// Reset scroll position when article changes
-    func reset() {
-        guard let scrollView = scrollView else { return }
-        scrollView.contentView.setBoundsOrigin(.zero)
-        scrollView.reflectScrolledClipView(scrollView.contentView)
+    /// Reset scroll position to top using ScrollViewProxy
+    func scrollToTop() {
+        scrollProxy?.scrollTo(Self.topAnchorID, anchor: .top)
     }
 }
 
-/// Helper to find and store reference to NSScrollView
+/// Helper to find and store reference to NSScrollView for page up/down functionality
 struct ScrollViewAccessor: NSViewRepresentable {
     let scrollState: ArticleScrollState
 
@@ -128,17 +132,27 @@ struct ArticleDetailView: View {
 
     @ViewBuilder
     private func articleContentView(article: ArticleDetail) -> some View {
-        ScrollView {
-            VStack(spacing: 0) {
-                articleBody(article: article)
-                    .padding()
-                    .frame(maxWidth: appState.readerModeEnabled ? readerModeMaxWidth : .infinity)
+        ScrollViewReader { proxy in
+            ScrollView {
+                VStack(spacing: 0) {
+                    // Invisible anchor at the top for scroll-to-top functionality
+                    Color.clear
+                        .frame(height: 0)
+                        .id(ArticleScrollState.topAnchorID)
+
+                    articleBody(article: article)
+                        .padding()
+                        .frame(maxWidth: appState.readerModeEnabled ? readerModeMaxWidth : .infinity)
+                }
+                .frame(maxWidth: .infinity) // Centers content when width is constrained
+                .background(ScrollViewAccessor(scrollState: scrollState))
             }
-            .frame(maxWidth: .infinity) // Centers content when width is constrained
-            .background(ScrollViewAccessor(scrollState: scrollState))
-        }
-        .onChange(of: article.id) { _, _ in
-            scrollState.reset()
+            .onAppear {
+                scrollState.scrollProxy = proxy
+            }
+            .onChange(of: article.id) { _, _ in
+                scrollState.scrollToTop()
+            }
         }
     }
 
