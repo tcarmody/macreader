@@ -1,10 +1,17 @@
 import Foundation
 import WebKit
 
-/// Fetches web pages using WKWebView to leverage Safari's cookie store.
-/// This allows fetching content from sites where the user is logged in via Safari.
+/// Fetches web pages using WKWebView with persistent cookie storage.
+/// The app maintains its own session - users need to log in once via the app's WebView.
+///
+/// Note: Safari's cookies cannot be accessed by other apps due to macOS sandboxing.
+/// Instead, this uses a persistent WKWebsiteDataStore that preserves cookies across app launches.
 @MainActor
 final class AuthenticatedFetcher: NSObject {
+
+    /// Shared data store that persists cookies across fetches
+    /// Using .default() persists cookies to disk for this app
+    private static let sharedDataStore = WKWebsiteDataStore.default()
 
     /// Result of an authenticated fetch operation
     struct FetchResult {
@@ -42,9 +49,12 @@ final class AuthenticatedFetcher: NSObject {
         super.init()
     }
 
-    /// Fetch a URL using Safari's authentication cookies
+    /// Fetch a URL using the app's persistent cookie store
     /// - Parameter url: The URL to fetch
     /// - Returns: FetchResult containing the page HTML or error
+    ///
+    /// Note: If you need to access a paywalled site, first use `createLoginWebView()`
+    /// to get a WebView where you can log in. The session will persist.
     func fetch(url: URL) async -> FetchResult {
         // Clean up any previous state
         cleanup()
@@ -52,10 +62,9 @@ final class AuthenticatedFetcher: NSObject {
         return await withCheckedContinuation { continuation in
             self.continuation = continuation
 
-            // Create WebView configuration that uses default (shared) data store
-            // This shares cookies with Safari on macOS
+            // Create WebView configuration with shared persistent data store
             let configuration = WKWebViewConfiguration()
-            configuration.websiteDataStore = WKWebsiteDataStore.default()
+            configuration.websiteDataStore = Self.sharedDataStore
 
             // Set preferences
             let preferences = WKWebpagePreferences()
@@ -79,6 +88,37 @@ final class AuthenticatedFetcher: NSObject {
             // Start loading
             let request = URLRequest(url: url)
             webView.load(request)
+        }
+    }
+
+    /// Create a WKWebView that can be displayed for user login.
+    /// The WebView shares the same cookie store, so logging in here
+    /// will make authenticated fetches work.
+    static func createLoginWebView() -> WKWebView {
+        let configuration = WKWebViewConfiguration()
+        configuration.websiteDataStore = sharedDataStore
+
+        let preferences = WKWebpagePreferences()
+        preferences.allowsContentJavaScript = true
+        configuration.defaultWebpagePreferences = preferences
+
+        let webView = WKWebView(frame: .zero, configuration: configuration)
+        webView.customUserAgent = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/17.0 Safari/605.1.15"
+
+        return webView
+    }
+
+    /// Check if we have any cookies for a given domain
+    static func hasCookies(for domain: String) async -> Bool {
+        let cookies = await sharedDataStore.httpCookieStore.allCookies()
+        return cookies.contains { $0.domain.contains(domain) }
+    }
+
+    /// Clear all cookies (useful for "log out" functionality)
+    static func clearAllCookies() async {
+        let cookies = await sharedDataStore.httpCookieStore.allCookies()
+        for cookie in cookies {
+            await sharedDataStore.httpCookieStore.deleteCookie(cookie)
         }
     }
 

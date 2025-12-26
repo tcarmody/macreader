@@ -169,6 +169,9 @@ struct ArticleDetailView: View {
     @State private var summarizationError: String?
     @State private var summarizationElapsed: Int = 0
     @State private var summarizationTimer: Timer?
+    @State private var showingLoginSheet: Bool = false
+    @State private var loginURL: URL?
+    @State private var loginSiteTitle: String = ""
 
     var body: some View {
         Group {
@@ -184,6 +187,20 @@ struct ArticleDetailView: View {
         }
         .toolbar {
             toolbarContent
+        }
+        .sheet(isPresented: $showingLoginSheet) {
+            if let url = loginURL {
+                SiteLoginView(
+                    initialURL: url,
+                    siteTitle: loginSiteTitle,
+                    onComplete: {
+                        // After login, try fetching again if we have an article
+                        if let article = appState.selectedArticleDetail {
+                            fetchContentAuthenticated(article: article)
+                        }
+                    }
+                )
+            }
         }
     }
 
@@ -500,7 +517,7 @@ struct ArticleDetailView: View {
                 .padding(.vertical, 6)
                 .background(.regularMaterial)
                 .cornerRadius(6)
-                .help(isFetchingAuthenticated ? "Using WebView to load the page with your Safari cookies. This may take a few seconds to load all content." : "Fetching article content")
+                .help(isFetchingAuthenticated ? "Loading page with your app session. This may take a few seconds to load all content." : "Fetching article content")
             } else {
                 Menu {
                     Button {
@@ -509,10 +526,18 @@ struct ArticleDetailView: View {
                         Label("Standard Fetch", systemImage: "arrow.down.doc")
                     }
 
+                    Divider()
+
                     Button {
                         fetchContentAuthenticated(article: article)
                     } label: {
-                        Label("Fetch with Safari Cookies", systemImage: "safari")
+                        Label("Fetch with App Session", systemImage: "key.fill")
+                    }
+
+                    Button {
+                        showLoginSheet(for: article)
+                    } label: {
+                        Label("Log in to Site...", systemImage: "person.badge.key.fill")
                     }
                 } label: {
                     Label("Fetch Full Article", systemImage: "arrow.down.doc")
@@ -521,6 +546,7 @@ struct ArticleDetailView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .fixedSize()
+                .help("For paywalled sites: first use 'Log in to Site' to authenticate, then use 'Fetch with App Session'")
             }
 
             Button {
@@ -737,6 +763,18 @@ struct ArticleDetailView: View {
                 contentFetchError = error.localizedDescription
             }
             isFetchingAuthenticated = false
+        }
+    }
+
+    private func showLoginSheet(for article: ArticleDetail) {
+        // Use source URL for aggregators, otherwise use the article URL
+        let fetchURL = article.sourceUrl ?? article.originalUrl
+
+        // Extract the base URL (scheme + host) for login
+        if let host = fetchURL.host {
+            loginURL = URL(string: "\(fetchURL.scheme ?? "https")://\(host)")
+            loginSiteTitle = host.replacingOccurrences(of: "www.", with: "")
+            showingLoginSheet = true
         }
     }
 
