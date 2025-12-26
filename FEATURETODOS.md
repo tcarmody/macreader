@@ -4,13 +4,43 @@ This document contains detailed implementation plans for future features in the 
 
 ---
 
+## Implementation Status
+
+| Feature | Status | Notes |
+|---------|--------|-------|
+| Reading Time Estimates | ✅ Done | Auto-calculated, displayed in article list/detail |
+| Full-Text Extraction | ✅ Done | Site-specific extractors for Medium, Substack, GitHub, YouTube, Twitter, Wikipedia, Bloomberg |
+| Newsletter Email Import | ✅ Done | Gmail IMAP with OAuth2, scheduled polling |
+| OPML Export | ✅ Done | Export endpoint with categorization |
+| Lazy Loading | ⚠️ Partial | Pagination in backend, needs infinite scroll in UI |
+| Smart Notifications | ⚠️ Partial | Swift NotificationService exists, needs backend rules engine |
+| Article Sharing | ❌ Not Started | |
+| Smart Folders | ❌ Not Started | |
+| Saved Searches | ❌ Not Started | |
+| Article Tagging | ❌ Not Started | |
+| Reading Lists | ❌ Not Started | |
+| Background App Refresh | ❌ Not Started | |
+| Reading Statistics | ❌ Not Started | |
+| Feed Analytics | ❌ Not Started | |
+| Feed Discovery | ❌ Not Started | |
+| iCloud Sync | ❌ Not Started | |
+| Third-Party Sync | ❌ Not Started | |
+| Podcast/Video Support | ❌ Not Started | |
+
+---
+
 ## Advanced Features
 
-### 1. Smart Notifications
+### 1. Smart Notifications ⚠️ PARTIAL
 
 **Goal:** Alert users to important or trending articles based on configurable criteria.
 
-**Backend Changes:**
+**Current Status:**
+- ✅ Swift `NotificationService.swift` exists with authorization, delivery, categories, and actions
+- ❌ Backend rules engine not implemented
+- ❌ Notification preferences table not created
+
+**Remaining Backend Changes:**
 - Add `notifications` table to track notification preferences and history
   ```sql
   CREATE TABLE notifications (
@@ -29,9 +59,7 @@ This document contains detailed implementation plans for future features in the 
 - Create endpoints: `POST /notifications/rules`, `GET /notifications/rules`, `DELETE /notifications/rules/{id}`
 - Add background job to evaluate new articles against rules
 
-**Swift App Changes:**
-- Create `NotificationService.swift` using `UserNotifications` framework
-- Request notification permissions on first launch
+**Remaining Swift App Changes:**
 - Add Notifications section to SettingsView with:
   - Master toggle for notifications
   - Per-feed notification settings
@@ -46,35 +74,20 @@ This document contains detailed implementation plans for future features in the 
 
 ---
 
-### 2. Reading Time Estimates
+### 2. Reading Time Estimates ✅ DONE
 
 **Goal:** Show estimated reading time for each article.
 
-**Backend Changes:**
-- Add `reading_time_minutes` column to `articles` table
-- Calculate on article insertion using word count formula:
-  ```python
-  def estimate_reading_time(content: str) -> int:
-      words = len(content.split())
-      # Average reading speed: 200-250 words per minute
-      return max(1, round(words / 225))
-  ```
-- Run migration to backfill existing articles
-
-**Swift App Changes:**
-- Add `readingTimeMinutes: Int?` to `Article` model
-- Display in article list rows: "5 min read"
-- Display in article header view
-- Add filter option: "Quick reads (< 5 min)"
-
-**UI Placement:**
-- Article list: Show as subtle text next to date
-- Article view: Show in header metadata area
-- Consider color coding: green (< 3 min), yellow (3-10 min), orange (> 10 min)
+**Implementation Complete:**
+- ✅ `reading_time_minutes` column in `articles` table
+- ✅ Auto-calculated during feed parsing (word count / 225 WPM)
+- ✅ Exposed in ArticleResponse and ArticleDetailResponse schemas
+- ✅ Swift `Article` model has `readingTimeMinutes` with display helper
+- ✅ Site extractors calculate reading time for all supported sites
 
 ---
 
-### 3. Article Sharing
+### 3. Article Sharing ❌ NOT STARTED
 
 **Goal:** Enable sharing articles via system share sheet and custom integrations.
 
@@ -101,7 +114,7 @@ This document contains detailed implementation plans for future features in the 
 
 ---
 
-### 4. Feed Discovery
+### 4. Feed Discovery ❌ NOT STARTED
 
 **Goal:** Help users find new feeds related to their interests.
 
@@ -137,41 +150,26 @@ This document contains detailed implementation plans for future features in the 
 
 ## Content Enhancements
 
-### 5. Full-Text Extraction Improvements
+### 5. Full-Text Extraction Improvements ✅ DONE
 
 **Goal:** Better extract article content from various website formats.
 
-**Backend Changes:**
-- Enhance `ContentExtractor` class:
-  - Add site-specific extractors for common publishers
-  - Improve image extraction and proxying
-  - Handle paywalled content detection (show notice)
-  - Extract article metadata: author, publish date, categories
-- Add fallback chain:
-  1. Site-specific extractor
-  2. Mozilla Readability (current)
-  3. Basic HTML parsing
-- Cache extracted content to avoid re-fetching
-
-**Site-Specific Handlers:**
-```python
-SITE_HANDLERS = {
-    'medium.com': MediumExtractor,
-    'substack.com': SubstackExtractor,
-    'github.com': GitHubExtractor,  # For release notes, etc.
-    'youtube.com': YouTubeExtractor,  # Extract description, embed
-}
-```
-
-**Content Improvements:**
-- Preserve code blocks with syntax highlighting hints
-- Extract and display article series/part information
-- Handle multi-page articles
-- Improve table rendering
+**Implementation Complete:**
+- ✅ Site-specific extractors in `backend/site_extractors.py`:
+  - Medium (handles paywalls, reading time, series info)
+  - Substack (newsletter metadata, featured images)
+  - GitHub (releases, discussions, code blocks)
+  - YouTube (video metadata, descriptions)
+  - Twitter/X (tweets via meta tags)
+  - Wikipedia (categories, content extraction)
+  - Bloomberg (article body extraction, paywall detection)
+- ✅ Enhanced metadata: reading time, word count, categories, featured images
+- ✅ Extractor registry with automatic site detection
+- ✅ Fallback chain: site-specific → generic extraction
 
 ---
 
-### 6. Podcast/Video Feed Support
+### 6. Podcast/Video Feed Support ❌ NOT STARTED
 
 **Goal:** Support audio and video enclosures in RSS feeds.
 
@@ -209,48 +207,26 @@ SITE_HANDLERS = {
 
 ---
 
-### 7. Newsletter Email Import
+### 7. Newsletter Email Import ✅ DONE
 
 **Goal:** Import newsletters from email into the RSS reader.
 
-**Approach Options:**
-
-**Option A: Email Forwarding Service**
-- Generate unique email address per user: `user123@datapointsai.app`
-- Run email receiving service (complex infrastructure)
-- Parse incoming emails, convert to articles
-
-**Option B: IMAP Connection**
-- Connect to user's email account via IMAP
-- Scan specific folder/label for newsletters
-- Import as feed items
-
-**Option C: Manual Import (Simpler)**
-- Allow drag-and-drop of .eml files
-- Parse and display as articles
-- Create "Email Imports" virtual feed
-
-**Recommended: Option C for MVP**
-
-**Backend Changes:**
-- Add `POST /articles/import/email` endpoint
-- Create `EmailParser` class to extract content from .eml
-- Map email fields to article fields:
-  - From → Author
-  - Subject → Title
-  - Date → Published
-  - Body → Content
-
-**Swift App Changes:**
-- Add drop zone in feed list or toolbar
-- Create "Imported" feed category
-- Show import confirmation with preview
+**Implementation Complete:**
+- ✅ Gmail IMAP integration with OAuth2 authentication
+- ✅ `GmailIMAPClient` for IMAP connections
+- ✅ Email parsing with `parse_eml_bytes()`
+- ✅ Database table `gmail_config` for credentials and settings
+- ✅ Endpoints: auth URL, callback, status, labels, config, fetch, disconnect
+- ✅ Scheduled polling via `gmail_scheduler.py`
+- ✅ Swift `NewsletterWatcherService` for monitoring
+- ✅ Swift `GmailSetupWizardView` for OAuth flow
+- ✅ Newsletters tab with Gmail integration UI
 
 ---
 
 ## Organization Features
 
-### 8. Smart Folders
+### 8. Smart Folders ❌ NOT STARTED
 
 **Goal:** Create dynamic folders based on rules/filters.
 
@@ -296,7 +272,7 @@ SITE_HANDLERS = {
 
 ---
 
-### 9. Saved Searches
+### 9. Saved Searches ❌ NOT STARTED
 
 **Goal:** Save and quickly access frequent search queries.
 
@@ -329,7 +305,7 @@ SITE_HANDLERS = {
 
 ---
 
-### 10. Article Tagging
+### 10. Article Tagging ❌ NOT STARTED
 
 **Goal:** Allow users to add custom tags to articles for organization.
 
@@ -373,7 +349,7 @@ SITE_HANDLERS = {
 
 ---
 
-### 11. Reading Lists
+### 11. Reading Lists ❌ NOT STARTED
 
 **Goal:** Create curated collections of articles for later reading.
 
@@ -416,7 +392,7 @@ SITE_HANDLERS = {
 
 ## Sync & Export
 
-### 12. iCloud Sync
+### 12. iCloud Sync ❌ NOT STARTED
 
 **Goal:** Sync reading state, bookmarks, and settings across devices.
 
@@ -453,7 +429,7 @@ SITE_HANDLERS = {
 
 ---
 
-### 13. Third-Party Sync Services
+### 13. Third-Party Sync Services ❌ NOT STARTED
 
 **Goal:** Integrate with popular RSS sync services.
 
@@ -489,29 +465,22 @@ SITE_HANDLERS = {
 
 ---
 
-### 14. Export Options
+### 14. Export Options ⚠️ PARTIAL
 
 **Goal:** Allow users to export their data in various formats.
 
-**Backend Changes:**
+**Current Status:**
+- ✅ OPML export endpoint at `/feeds/export-opml`
+- ✅ Full OPML generation with categorization
+- ❌ JSON/CSV/HTML article exports not implemented
+
+**Remaining Backend Changes:**
 - Add export endpoints:
-  - `GET /export/opml` - Feed list as OPML
   - `GET /export/articles?format=json|csv|html`
   - `GET /export/bookmarks?format=json|html`
 - Generate files on-demand or queue for large exports
 
 **Export Formats:**
-
-**OPML (Feeds):**
-```xml
-<?xml version="1.0" encoding="UTF-8"?>
-<opml version="2.0">
-  <head><title>DataPointsAI Feeds</title></head>
-  <body>
-    <outline type="rss" text="Feed Title" xmlUrl="..." htmlUrl="..."/>
-  </body>
-</opml>
-```
 
 **JSON (Articles):**
 ```json
@@ -537,7 +506,7 @@ SITE_HANDLERS = {
 
 ## Analytics
 
-### 15. Reading Statistics
+### 15. Reading Statistics ❌ NOT STARTED
 
 **Goal:** Show users insights about their reading habits.
 
@@ -580,7 +549,7 @@ SITE_HANDLERS = {
 
 ---
 
-### 16. Feed Analytics
+### 16. Feed Analytics ❌ NOT STARTED
 
 **Goal:** Provide insights about feed quality and engagement.
 
@@ -613,7 +582,7 @@ SITE_HANDLERS = {
 
 ## Performance
 
-### 17. Background App Refresh
+### 17. Background App Refresh ❌ NOT STARTED
 
 **Goal:** Keep feeds updated even when app is in background.
 
@@ -651,18 +620,17 @@ SITE_HANDLERS = {
 
 ---
 
-### 18. Lazy Loading for Large Feeds
+### 18. Lazy Loading for Large Feeds ⚠️ PARTIAL
 
 **Goal:** Improve performance when viewing feeds with many articles.
 
-**Backend Changes:**
-- Ensure pagination is efficient:
-  - Use cursor-based pagination for consistency
-  - Index commonly queried columns
-  - Optimize FTS queries for large result sets
-- Add `GET /articles?cursor=X&limit=50` pagination
+**Current Status:**
+- ✅ Pagination with limit/offset in backend
+- ✅ Database indexes on commonly queried columns
+- ✅ FTS5 full-text search with proper indexing
+- ❌ True infinite scroll in Swift UI not implemented
 
-**Swift App Changes:**
+**Remaining Swift App Changes:**
 - Implement infinite scroll in article list:
   ```swift
   struct ArticleListView: View {
@@ -701,7 +669,7 @@ SITE_HANDLERS = {
 ## Implementation Priority Recommendation
 
 ### Phase 1 - Core Improvements (High Value, Medium Effort)
-1. Reading Time Estimates
+1. ~~Reading Time Estimates~~ ✅
 2. Article Sharing
 3. Smart Folders
 4. Saved Searches
@@ -709,24 +677,24 @@ SITE_HANDLERS = {
 ### Phase 2 - Organization (Medium Value, Medium Effort)
 5. Article Tagging
 6. Reading Lists
-7. Full-Text Extraction Improvements
+7. ~~Full-Text Extraction Improvements~~ ✅
 
 ### Phase 3 - Performance & Analytics (High Value, Higher Effort)
-8. Lazy Loading for Large Feeds
+8. Lazy Loading for Large Feeds (partial)
 9. Background App Refresh
 10. Reading Statistics
 11. Feed Analytics
 
 ### Phase 4 - Advanced Features (Variable Value, Higher Effort)
-12. Smart Notifications
-13. Export Options
+12. Smart Notifications (partial)
+13. Export Options (partial)
 14. Feed Discovery
 
 ### Phase 5 - Sync & Media (High Effort)
 15. iCloud Sync
 16. Third-Party Sync Services
 17. Podcast/Video Feed Support
-18. Newsletter Email Import
+18. ~~Newsletter Email Import~~ ✅
 
 ---
 
