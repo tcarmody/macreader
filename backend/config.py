@@ -72,9 +72,14 @@ class Config:
     ARCHIVE_MAX_AGE_DAYS: int = int(os.getenv("ARCHIVE_MAX_AGE_DAYS", "30"))
 
     # OAuth Configuration
-    # Google OAuth
+    # Google OAuth (for general login)
     GOOGLE_CLIENT_ID: str = os.getenv("GOOGLE_CLIENT_ID", "")
     GOOGLE_CLIENT_SECRET: str = os.getenv("GOOGLE_CLIENT_SECRET", "")
+
+    # Gmail IMAP OAuth (separate credentials for IMAP access)
+    # Falls back to GOOGLE_CLIENT_ID/SECRET if not set
+    GMAIL_CLIENT_ID: str = os.getenv("GMAIL_CLIENT_ID", "") or os.getenv("GOOGLE_CLIENT_ID", "")
+    GMAIL_CLIENT_SECRET: str = os.getenv("GMAIL_CLIENT_SECRET", "") or os.getenv("GOOGLE_CLIENT_SECRET", "")
 
     # GitHub OAuth
     GITHUB_CLIENT_ID: str = os.getenv("GITHUB_CLIENT_ID", "")

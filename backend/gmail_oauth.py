@@ -67,11 +67,11 @@ def get_auth_url(state: str) -> str:
     Returns:
         Authorization URL to redirect user to
     """
-    if not config.GOOGLE_CLIENT_ID:
-        raise GmailOAuthError("Google OAuth client ID not configured")
+    if not config.GMAIL_CLIENT_ID:
+        raise GmailOAuthError("GMAIL_CLIENT_ID not configured")
 
     params = {
-        "client_id": config.GOOGLE_CLIENT_ID,
+        "client_id": config.GMAIL_CLIENT_ID,
         "redirect_uri": GMAIL_REDIRECT_URI,
         "response_type": "code",
         "scope": " ".join(GMAIL_SCOPES),
@@ -93,16 +93,16 @@ async def exchange_code_for_tokens(code: str) -> GmailTokens:
     Returns:
         GmailTokens with access token, refresh token, and user info
     """
-    if not config.GOOGLE_CLIENT_ID or not config.GOOGLE_CLIENT_SECRET:
-        raise GmailOAuthError("Google OAuth credentials not configured")
+    if not config.GMAIL_CLIENT_ID or not config.GMAIL_CLIENT_SECRET:
+        raise GmailOAuthError("GMAIL_CLIENT_ID or GMAIL_CLIENT_SECRET not configured")
 
     async with httpx.AsyncClient() as client:
         # Exchange code for tokens
         token_response = await client.post(
             GOOGLE_TOKEN_URL,
             data={
-                "client_id": config.GOOGLE_CLIENT_ID,
-                "client_secret": config.GOOGLE_CLIENT_SECRET,
+                "client_id": config.GMAIL_CLIENT_ID,
+                "client_secret": config.GMAIL_CLIENT_SECRET,
                 "code": code,
                 "grant_type": "authorization_code",
                 "redirect_uri": GMAIL_REDIRECT_URI,
@@ -156,15 +156,15 @@ async def refresh_access_token(refresh_token: str) -> GmailTokens:
     Returns:
         New GmailTokens with fresh access token
     """
-    if not config.GOOGLE_CLIENT_ID or not config.GOOGLE_CLIENT_SECRET:
-        raise GmailOAuthError("Google OAuth credentials not configured")
+    if not config.GMAIL_CLIENT_ID or not config.GMAIL_CLIENT_SECRET:
+        raise GmailOAuthError("GMAIL_CLIENT_ID or GMAIL_CLIENT_SECRET not configured")
 
     async with httpx.AsyncClient() as client:
         response = await client.post(
             GOOGLE_TOKEN_URL,
             data={
-                "client_id": config.GOOGLE_CLIENT_ID,
-                "client_secret": config.GOOGLE_CLIENT_SECRET,
+                "client_id": config.GMAIL_CLIENT_ID,
+                "client_secret": config.GMAIL_CLIENT_SECRET,
                 "refresh_token": refresh_token,
                 "grant_type": "refresh_token",
             },
