@@ -55,10 +55,10 @@ async def get_gmail_auth_url() -> GmailAuthURLResponse:
     The client should redirect the user to this URL to initiate OAuth.
     After authentication, Google will redirect to /gmail/auth/callback.
     """
-    if not config.GOOGLE_CLIENT_ID or not config.GOOGLE_CLIENT_SECRET:
+    if not config.GMAIL_CLIENT_ID or not config.GMAIL_CLIENT_SECRET:
         raise HTTPException(
             status_code=400,
-            detail="Google OAuth not configured. Set GOOGLE_CLIENT_ID and GOOGLE_CLIENT_SECRET."
+            detail="Gmail OAuth not configured. Set GMAIL_CLIENT_ID and GMAIL_CLIENT_SECRET."
         )
 
     state = generate_state()
