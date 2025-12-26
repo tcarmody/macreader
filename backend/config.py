@@ -18,8 +18,11 @@ if TYPE_CHECKING:
     from .clustering import Clusterer
     from .providers import LLMProvider
 
-# Load environment variables
-load_dotenv()
+# Load environment variables from project root
+# Use the backend directory's parent to find .env
+_backend_dir = Path(__file__).parent
+_project_root = _backend_dir.parent
+load_dotenv(_project_root / ".env")
 
 
 def _parse_bool(value: str | None, default: bool = False) -> bool:
