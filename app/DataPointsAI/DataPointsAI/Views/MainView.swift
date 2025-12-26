@@ -12,13 +12,15 @@ struct MainView: View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             FeedListView()
         } content: {
-            if appState.showLibrary {
+            if appState.showNewsletters {
+                NewslettersView()
+            } else if appState.showLibrary {
                 LibraryView()
             } else {
                 ArticleListView()
             }
         } detail: {
-            if appState.showLibrary {
+            if appState.showNewsletters || appState.showLibrary {
                 LibraryItemDetailView()
             } else {
                 ArticleDetailView(scrollState: articleScrollState)

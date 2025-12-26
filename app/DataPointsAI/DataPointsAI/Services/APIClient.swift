@@ -28,14 +28,28 @@ enum APIError: Error, LocalizedError, Sendable {
 private enum JSONHelper {
     private static let decoder: JSONDecoder = {
         let decoder = JSONDecoder()
-        // Use custom date decoding to handle both formats:
+        // Use custom date decoding to handle multiple formats:
         // - "yyyy-MM-dd'T'HH:mm:ss" (articles)
         // - "yyyy-MM-dd'T'HH:mm:ss.SSSSSS" (feeds with microseconds)
+        // - "yyyy-MM-dd'T'HH:mm:ss+HH:mm" (ISO 8601 with timezone offset)
         decoder.dateDecodingStrategy = .custom { decoder in
             let container = try decoder.singleValueContainer()
             let dateString = try container.decode(String.self)
 
-            // Try format with microseconds first (more specific)
+            // Try ISO 8601 formatter first (handles timezone offsets like +00:00)
+            let isoFormatter = ISO8601DateFormatter()
+            isoFormatter.formatOptions = [.withInternetDateTime, .withFractionalSeconds]
+            if let date = isoFormatter.date(from: dateString) {
+                return date
+            }
+
+            // Try without fractional seconds
+            isoFormatter.formatOptions = [.withInternetDateTime]
+            if let date = isoFormatter.date(from: dateString) {
+                return date
+            }
+
+            // Try format with microseconds (no timezone)
             let formatterWithMicroseconds = DateFormatter()
             formatterWithMicroseconds.dateFormat = "yyyy-MM-dd'T'HH:mm:ss.SSSSSS"
             formatterWithMicroseconds.timeZone = TimeZone(identifier: "UTC")
@@ -43,7 +57,7 @@ private enum JSONHelper {
                 return date
             }
 
-            // Try format without microseconds
+            // Try format without microseconds (no timezone)
             let formatterWithoutMicroseconds = DateFormatter()
             formatterWithoutMicroseconds.dateFormat = "yyyy-MM-dd'T'HH:mm:ss"
             formatterWithoutMicroseconds.timeZone = TimeZone(identifier: "UTC")

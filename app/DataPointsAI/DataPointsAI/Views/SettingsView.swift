@@ -577,9 +577,35 @@ struct NewsletterSettingsView: View {
     @State private var deleteAfterImport: Bool = false
     @State private var isSelectingFolder: Bool = false
     @State private var importResults: [NewsletterWatcherService.ImportResult] = []
+    @State private var showSetupWizard: Bool = false
 
     var body: some View {
         Form {
+            // Setup Wizard Section - shown prominently if not configured
+            if watchFolderPath.isEmpty || !autoImportEnabled {
+                Section {
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Mail.app Integration")
+                                .fontWeight(.semibold)
+                            Text("Set up automatic newsletter import from Mail.app")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        Button("Setup Wizard") {
+                            showSetupWizard = true
+                        }
+                        .buttonStyle(.borderedProminent)
+                    }
+                    .padding(.vertical, 4)
+                } header: {
+                    Text("Quick Setup")
+                }
+            }
+
             Section {
                 HStack {
                     TextField("Watch folder", text: $watchFolderPath)
@@ -674,7 +700,11 @@ struct NewsletterSettingsView: View {
             }
 
             Section {
-                Button("Show Mail.app Setup Instructions") {
+                Button("Run Setup Wizard...") {
+                    showSetupWizard = true
+                }
+
+                Button("Show Setup Instructions") {
                     showMailAppInstructions()
                 }
             } header: {
@@ -686,6 +716,12 @@ struct NewsletterSettingsView: View {
         .formStyle(.grouped)
         .onAppear {
             loadSettings()
+        }
+        .sheet(isPresented: $showSetupWizard) {
+            NewsletterSetupWizardView {
+                // Reload settings after wizard completes
+                loadSettings()
+            }
         }
     }
 

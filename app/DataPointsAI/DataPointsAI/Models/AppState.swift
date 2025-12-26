@@ -63,6 +63,11 @@ class AppState: ObservableObject {
     @Published var showAddToLibrary: Bool = false
     @Published var showLibrary: Bool = false  // Whether Library is selected in sidebar
 
+    // Newsletters state
+    @Published var newsletterItems: [LibraryItem] = []
+    @Published var newsletterCount: Int = 0
+    @Published var showNewsletters: Bool = false  // Whether Newsletters is selected in sidebar
+
     // MARK: - Dependencies
 
     let apiClient: APIClient
@@ -573,6 +578,7 @@ class AppState: ObservableObject {
 
     func selectLibrary() {
         showLibrary = true
+        showNewsletters = false
         selectedFilter = .all  // Reset filter when switching to library
         selectedArticle = nil
         selectedArticleDetail = nil
@@ -583,6 +589,37 @@ class AppState: ObservableObject {
 
     func deselectLibrary() {
         showLibrary = false
+        selectedLibraryItem = nil
+        selectedLibraryItemDetail = nil
+    }
+
+    // MARK: - Newsletter Actions
+
+    func loadNewsletterItems() async {
+        do {
+            let response = try await apiClient.getLibraryItems(contentType: "newsletter")
+            newsletterItems = response.items
+            newsletterCount = response.total
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    func selectNewsletters() {
+        showNewsletters = true
+        showLibrary = false
+        selectedFilter = .all
+        selectedArticle = nil
+        selectedArticleDetail = nil
+        selectedLibraryItem = nil
+        selectedLibraryItemDetail = nil
+        Task {
+            await loadNewsletterItems()
+        }
+    }
+
+    func deselectNewsletters() {
+        showNewsletters = false
         selectedLibraryItem = nil
         selectedLibraryItemDetail = nil
     }
