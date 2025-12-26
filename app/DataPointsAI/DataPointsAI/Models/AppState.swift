@@ -450,6 +450,25 @@ class AppState: ObservableObject {
         selectedArticleDetail = detail
     }
 
+    /// Fetch article content using Safari's authentication cookies (for paywalled sites)
+    func fetchArticleContentAuthenticated(articleId: Int, url: URL) async throws {
+        // Use AuthenticatedFetcher to fetch with Safari cookies
+        let fetcher = AuthenticatedFetcher()
+        let result = await fetcher.fetch(url: url)
+
+        if result.success {
+            // Send the HTML to the backend for content extraction
+            let detail = try await apiClient.extractFromHTML(
+                articleId: articleId,
+                html: result.html,
+                url: result.finalURL.absoluteString
+            )
+            selectedArticleDetail = detail
+        } else {
+            throw APIError.networkError(result.error ?? "Failed to fetch page with authentication")
+        }
+    }
+
     // MARK: - Library Actions
 
     func loadLibraryItems() async {

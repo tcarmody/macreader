@@ -595,6 +595,213 @@ class WikipediaExtractor(SiteExtractor):
         )
 
 
+class BloombergExtractor(SiteExtractor):
+    """Extractor for Bloomberg articles."""
+
+    DOMAINS = ['bloomberg.com']
+
+    def extract(self, url: str, html: str) -> ExtractedContent:
+        soup = BeautifulSoup(html, 'html.parser')
+
+        # Title
+        title = ""
+        if h1 := soup.find('h1'):
+            title = h1.get_text(strip=True)
+        elif og_title := soup.find('meta', property='og:title'):
+            title = og_title.get('content', '')
+        elif title_tag := soup.find('title'):
+            title = title_tag.get_text(strip=True)
+            title = re.sub(r'\s*-\s*Bloomberg.*$', '', title)
+
+        # Author
+        author = None
+        # Bloomberg uses various author selectors
+        if author_elem := soup.select_one('[class*="author"], .byline, [data-component="byline"]'):
+            author = author_elem.get_text(strip=True)
+            # Clean up "By Author Name" format
+            author = re.sub(r'^By\s+', '', author, flags=re.I)
+        elif author_meta := soup.find('meta', {'name': 'author'}):
+            author = author_meta.get('content')
+
+        # Published date
+        published = None
+        if time_elem := soup.find('time', datetime=True):
+            published = time_elem.get('datetime')
+        elif date_meta := soup.find('meta', property='article:published_time'):
+            published = date_meta.get('content')
+
+        # Try to extract content from JSON-LD first (Bloomberg stores article text here)
+        content = ""
+        content = self._extract_from_json_ld(soup)
+
+        # Main content - Bloomberg uses various article body selectors
+        if not content or len(content) < 500:
+            # Bloomberg-specific: look for the main story body
+            # They often use data attributes or specific class patterns
+            content_selectors = [
+                '[data-component="body-content"]',
+                '[data-component="article-body"]',
+                '[class*="body-content"]',
+                '[class*="article-body"]',
+                '[class*="story-body"]',
+                '[class*="ArticleBody"]',
+                '.body-content',
+                'article .content',
+                '.article-body__content',
+            ]
+
+            for selector in content_selectors:
+                if article_body := soup.select_one(selector):
+                    # Check if this has meaningful content (multiple paragraphs)
+                    paragraphs = article_body.find_all('p')
+                    if len(paragraphs) >= 2:
+                        # Clone to avoid modifying original
+                        from copy import copy
+                        body_copy = copy(article_body)
+
+                        # Remove Bloomberg's UI elements
+                        for noise_selector in [
+                            '[class*="newsletter"]', '[class*="subscribe"]',
+                            '[class*="related"]', '[class*="recommended"]',
+                            '[class*="ad-"]', '[class*="promo"]', '[class*="Promo"]',
+                            '[class*="recirc"]', '[class*="Recirc"]',
+                            '[class*="terminal"]', '[class*="Terminal"]',
+                            'aside', 'nav', 'footer', 'script', 'style',
+                            '[data-component="related"]', '[data-component="newsletter"]',
+                        ]:
+                            for elem in body_copy.select(noise_selector):
+                                elem.decompose()
+                        content = str(body_copy)
+                        break
+
+            # If we still don't have content, try finding article tag and extracting just paragraphs
+            if not content or len(content) < 500:
+                if article := soup.find('article'):
+                    # Get only direct paragraph children or paragraphs in the main content area
+                    article_paragraphs = []
+                    for p in article.find_all('p'):
+                        text = p.get_text(strip=True)
+                        # Only substantial paragraphs that look like article content
+                        if len(text) > 100:
+                            article_paragraphs.append(str(p))
+                    if article_paragraphs:
+                        content = '\n'.join(article_paragraphs)
+
+        # If still no content, try to grab article paragraphs more carefully
+        if not content or len(content) < 500:
+            # Find all paragraphs that look like article content
+            # but filter out navigation/related content more aggressively
+            all_paragraphs = []
+            noise_phrases = [
+                'subscribe', 'sign up', 'newsletter', 'cookie', 'privacy',
+                'more from bloomberg', 'top reads', 'related', 'before it\'s here',
+                'bloomberg terminal', 'learn more', 'gift this article',
+                'add us on', 'contact us', 'send a tip', 'site feedback',
+                'take our survey', 'provide news feedback', 'report an error',
+                'by bloomberg', 'updated', 'read more', 'see also'
+            ]
+
+            for p in soup.find_all('p'):
+                text = p.get_text(strip=True)
+                text_lower = text.lower()
+
+                # Skip short paragraphs
+                if len(text) < 80:
+                    continue
+
+                # Skip paragraphs with noise phrases
+                if any(phrase in text_lower for phrase in noise_phrases):
+                    continue
+
+                # Skip if parent is likely navigation/sidebar
+                parent_classes = ' '.join(p.parent.get('class', [])).lower() if p.parent else ''
+                if any(x in parent_classes for x in ['related', 'sidebar', 'nav', 'footer', 'promo', 'ad-']):
+                    continue
+
+                all_paragraphs.append(str(p))
+
+            if all_paragraphs:
+                content = '\n'.join(all_paragraphs)
+
+        # Check for paywall
+        is_paywalled = any(x in html.lower() for x in [
+            'subscribe to continue', 'subscription required',
+            'paywall', 'sign in to read', 'subscriber-only'
+        ])
+
+        # Featured image
+        featured_image = None
+        if og_image := soup.find('meta', property='og:image'):
+            featured_image = og_image.get('content')
+
+        # Word count and reading time
+        text_content = BeautifulSoup(content, 'html.parser').get_text() if content else ""
+        word_count = len(text_content.split())
+        reading_time = self._estimate_reading_time(text_content) if text_content else None
+
+        # Categories from meta
+        categories = []
+        if section := soup.find('meta', property='article:section'):
+            categories.append(section.get('content'))
+
+        return ExtractedContent(
+            title=title,
+            content=content,
+            author=author,
+            published=published,
+            reading_time_minutes=reading_time,
+            word_count=word_count,
+            categories=categories,
+            featured_image=featured_image,
+            is_paywalled=is_paywalled,
+            site_name="Bloomberg",
+            extractor_used="bloomberg",
+        )
+
+    def _extract_from_json_ld(self, soup: BeautifulSoup) -> str:
+        """Extract article body from JSON-LD structured data."""
+        for script in soup.find_all('script', type='application/ld+json'):
+            try:
+                data = json.loads(script.string)
+
+                # Handle array of JSON-LD objects
+                if isinstance(data, list):
+                    for item in data:
+                        if content := self._extract_article_body_from_jsonld(item):
+                            return content
+                else:
+                    if content := self._extract_article_body_from_jsonld(data):
+                        return content
+            except (json.JSONDecodeError, TypeError):
+                continue
+
+        return ""
+
+    def _extract_article_body_from_jsonld(self, data: dict) -> str:
+        """Extract articleBody from a JSON-LD object."""
+        if not isinstance(data, dict):
+            return ""
+
+        # Check for articleBody directly
+        if article_body := data.get('articleBody'):
+            # Convert plain text to paragraphs
+            paragraphs = article_body.split('\n\n')
+            html_paragraphs = [f'<p>{p.strip()}</p>' for p in paragraphs if p.strip()]
+            return '\n'.join(html_paragraphs)
+
+        # Check for @graph which may contain the article
+        if graph := data.get('@graph'):
+            if isinstance(graph, list):
+                for item in graph:
+                    if item.get('@type') in ('NewsArticle', 'Article', 'WebPage'):
+                        if article_body := item.get('articleBody'):
+                            paragraphs = article_body.split('\n\n')
+                            html_paragraphs = [f'<p>{p.strip()}</p>' for p in paragraphs if p.strip()]
+                            return '\n'.join(html_paragraphs)
+
+        return ""
+
+
 # Registry of all extractors
 SITE_EXTRACTORS: list[type[SiteExtractor]] = [
     MediumExtractor,
@@ -603,6 +810,7 @@ SITE_EXTRACTORS: list[type[SiteExtractor]] = [
     YouTubeExtractor,
     TwitterExtractor,
     WikipediaExtractor,
+    BloombergExtractor,
 ]
 
 

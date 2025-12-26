@@ -17,6 +17,7 @@ from ..schemas import (
     GroupedArticlesResponse,
     BulkMarkReadRequest,
     ExtractSourceResponse,
+    ExtractFromHTMLRequest,
 )
 from ..tasks import summarize_article
 from ..source_extractor import SourceExtractor
@@ -375,6 +376,52 @@ async def fetch_article_content(
         raise
     except Exception as e:
         raise HTTPException(status_code=400, detail=f"Failed to fetch content: {e}")
+
+
+@router.post("/{article_id}/extract-from-html")
+async def extract_from_html(
+    article_id: int,
+    request: ExtractFromHTMLRequest,
+    db: Annotated[Database, Depends(get_db)],
+) -> ArticleDetailResponse:
+    """
+    Extract article content from pre-fetched HTML.
+
+    This endpoint is used when the client fetches the page with browser
+    authentication (e.g., Safari cookies for paywalled sites) and sends
+    the HTML to the backend for content extraction only.
+
+    The backend does NOT fetch the URL - it only extracts content from
+    the provided HTML using the same extraction pipeline as fetch-content.
+    """
+    article = db.get_article(article_id)
+    if not article:
+        raise HTTPException(status_code=404, detail="Article not found")
+
+    if not request.html or len(request.html) < 100:
+        raise HTTPException(status_code=400, detail="HTML content is too short or empty")
+
+    try:
+        # Use the fetcher's extraction method directly on the provided HTML
+        if state.fetcher:
+            result = state.fetcher._extract_content(request.url, request.html)
+        else:
+            raise HTTPException(status_code=503, detail="Fetcher not configured")
+
+        if result.content:
+            db.update_article_content(article_id, result.content)
+            article = db.get_article(article_id)
+            if not article:
+                raise HTTPException(status_code=500, detail="Failed to retrieve article")
+
+            return ArticleDetailResponse.from_db(article)
+        else:
+            raise HTTPException(status_code=400, detail="Failed to extract content from HTML")
+
+    except HTTPException:
+        raise
+    except Exception as e:
+        raise HTTPException(status_code=400, detail=f"Failed to extract content: {e}")
 
 
 @router.post("/{article_id}/summarize")

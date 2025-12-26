@@ -159,6 +159,20 @@ final class APIClient {
         return try await post(path: "/articles/\(articleId)/fetch-content")
     }
 
+    /// Extract article content from pre-fetched HTML (for authenticated fetching)
+    struct ExtractFromHTMLRequest: Encodable {
+        let html: String
+        let url: String
+    }
+
+    func extractFromHTML(articleId: Int, html: String, url: String) async throws -> ArticleDetail {
+        return try await post(
+            path: "/articles/\(articleId)/extract-from-html",
+            body: ExtractFromHTMLRequest(html: html, url: url),
+            timeout: 60  // Content extraction can take time for large pages
+        )
+    }
+
     func markRead(articleId: Int, isRead: Bool = true) async throws {
         var queryItems: [URLQueryItem] = []
         queryItems.append(URLQueryItem(name: "is_read", value: String(isRead)))

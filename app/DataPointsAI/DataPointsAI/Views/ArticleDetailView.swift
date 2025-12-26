@@ -163,6 +163,7 @@ struct ArticleDetailView: View {
     @ObservedObject var scrollState: ArticleScrollState
     @State private var isSummarizing: Bool = false
     @State private var isFetchingContent: Bool = false
+    @State private var isFetchingAuthenticated: Bool = false
     @State private var contentFetchError: String?
     @State private var contentHeight: CGFloat = 0
     @State private var summarizationError: String?
@@ -488,24 +489,38 @@ struct ArticleDetailView: View {
     @ViewBuilder
     private func actionsSection(article: ArticleDetail) -> some View {
         HStack(spacing: 12) {
-            // Fetch Full Article button
-            if isFetchingContent {
+            // Fetch Full Article button with menu for authenticated fetch
+            if isFetchingContent || isFetchingAuthenticated {
                 HStack(spacing: 6) {
                     ProgressView()
                         .scaleEffect(0.7)
-                    Text("Fetching...")
+                    Text(isFetchingAuthenticated ? "Loading page with Safari..." : "Fetching...")
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
                 .background(.regularMaterial)
                 .cornerRadius(6)
+                .help(isFetchingAuthenticated ? "Using WebView to load the page with your Safari cookies. This may take a few seconds to load all content." : "Fetching article content")
             } else {
-                Button {
-                    fetchContent(articleId: article.id)
+                Menu {
+                    Button {
+                        fetchContent(articleId: article.id)
+                    } label: {
+                        Label("Standard Fetch", systemImage: "arrow.down.doc")
+                    }
+
+                    Button {
+                        fetchContentAuthenticated(article: article)
+                    } label: {
+                        Label("Fetch with Safari Cookies", systemImage: "safari")
+                    }
                 } label: {
                     Label("Fetch Full Article", systemImage: "arrow.down.doc")
+                } primaryAction: {
+                    fetchContent(articleId: article.id)
                 }
                 .buttonStyle(.borderedProminent)
+                .fixedSize()
             }
 
             Button {
@@ -707,6 +722,21 @@ struct ArticleDetailView: View {
                 contentFetchError = error.localizedDescription
             }
             isFetchingContent = false
+        }
+    }
+
+    private func fetchContentAuthenticated(article: ArticleDetail) {
+        contentFetchError = nil
+        Task {
+            isFetchingAuthenticated = true
+            do {
+                // Use source URL for aggregators, otherwise use the article URL
+                let fetchURL = article.sourceUrl ?? article.originalUrl
+                try await appState.fetchArticleContentAuthenticated(articleId: article.id, url: fetchURL)
+            } catch {
+                contentFetchError = error.localizedDescription
+            }
+            isFetchingAuthenticated = false
         }
     }
 

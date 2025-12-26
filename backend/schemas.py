@@ -401,3 +401,17 @@ class GmailFetchResponse(BaseModel):
     skipped: int = 0
     errors: list[str] | None = None
     message: str | None = None
+
+
+# ─────────────────────────────────────────────────────────────
+# Authenticated Fetch Schemas
+# ─────────────────────────────────────────────────────────────
+
+class ExtractFromHTMLRequest(BaseModel):
+    """Request to extract article content from pre-fetched HTML.
+
+    Used when the client fetches the page (e.g., with browser cookies)
+    and sends the HTML to the backend for content extraction.
+    """
+    html: str
+    url: str  # The URL the HTML was fetched from (for context)
