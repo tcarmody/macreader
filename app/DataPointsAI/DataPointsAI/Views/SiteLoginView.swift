@@ -97,6 +97,14 @@ struct SiteLoginView: View {
         }
         .frame(minWidth: 800, minHeight: 600)
         .navigationTitle("Log in to \(siteTitle)")
+        .onAppear {
+            // Disable keyboard shortcuts while login sheet is open
+            KeyboardShortcutManager.shared.isEnabled = false
+        }
+        .onDisappear {
+            // Re-enable keyboard shortcuts when sheet closes
+            KeyboardShortcutManager.shared.isEnabled = true
+        }
     }
 }
 

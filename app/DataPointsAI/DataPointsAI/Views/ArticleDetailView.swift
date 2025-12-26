@@ -511,7 +511,7 @@ struct ArticleDetailView: View {
                 HStack(spacing: 6) {
                     ProgressView()
                         .scaleEffect(0.7)
-                    Text(isFetchingAuthenticated ? "Loading page with Safari..." : "Fetching...")
+                    Text(isFetchingAuthenticated ? "Loading with app session..." : "Fetching...")
                 }
                 .padding(.horizontal, 10)
                 .padding(.vertical, 6)
