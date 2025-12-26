@@ -2,23 +2,21 @@
 Gmail OAuth 2.0 Authentication for IMAP Access.
 
 Handles the OAuth flow to get tokens for Gmail IMAP access.
-Uses the same Google OAuth credentials as the main OAuth module.
 """
 
 import base64
-import hashlib
-import secrets
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+import secrets
 from typing import TYPE_CHECKING
 from urllib.parse import urlencode
 
 import httpx
 
-from .config import config
+from ..config import config
 
 if TYPE_CHECKING:
-    from .database import Database
+    from ..database import Database
 
 
 # Gmail IMAP requires full mail access scope

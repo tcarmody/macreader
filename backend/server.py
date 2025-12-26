@@ -35,7 +35,7 @@ from .routes import (
 from .routes.gmail import router as gmail_router
 from .rate_limit import setup_rate_limiting
 from .oauth import router as oauth_router, setup_oauth
-from .gmail_scheduler import start_gmail_scheduler, stop_gmail_scheduler
+from .gmail import start_gmail_scheduler, stop_gmail_scheduler
 
 logger = logging.getLogger(__name__)
 

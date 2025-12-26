@@ -10,11 +10,11 @@ import logging
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from .gmail_oauth import generate_xoauth2_string, get_valid_access_token, GmailOAuthError
-from .email_parser import parse_eml_bytes, extract_article_content, EmailParseError
+from .oauth import generate_xoauth2_string, get_valid_access_token, GmailOAuthError
+from ..email_parser import parse_eml_bytes, extract_article_content, EmailParseError
 
 if TYPE_CHECKING:
-    from .database import Database
+    from ..database import Database
 
 
 logger = logging.getLogger(__name__)

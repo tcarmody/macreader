@@ -9,10 +9,10 @@ import logging
 from datetime import datetime
 from typing import TYPE_CHECKING
 
-from .gmail_imap import fetch_newsletters_from_gmail
+from .imap import fetch_newsletters_from_gmail
 
 if TYPE_CHECKING:
-    from .database import Database
+    from ..database import Database
 
 
 logger = logging.getLogger(__name__)

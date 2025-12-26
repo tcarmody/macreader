@@ -14,14 +14,12 @@ from fastapi.responses import HTMLResponse
 from ..auth import verify_api_key
 from ..config import config, state, get_db
 from ..database import Database
-from ..gmail_oauth import (
+from ..gmail import (
     get_auth_url,
     exchange_code_for_tokens,
     get_valid_access_token,
     GmailOAuthError,
     generate_state,
-)
-from ..gmail_imap import (
     GmailIMAPClient,
     GmailIMAPError,
     fetch_newsletters_from_gmail,
@@ -193,7 +191,7 @@ async def update_gmail_config(
 
     # Restart scheduler if interval changed
     if request.poll_interval_minutes is not None or request.is_enabled is not None:
-        from ..gmail_scheduler import gmail_scheduler
+        from ..gmail import gmail_scheduler
         if gmail_scheduler:
             await gmail_scheduler.restart()
 
@@ -233,7 +231,7 @@ async def disconnect_gmail(
     db.delete_gmail_config()
 
     # Stop scheduler
-    from ..gmail_scheduler import gmail_scheduler
+    from ..gmail import gmail_scheduler
     if gmail_scheduler:
         await gmail_scheduler.stop()
 
