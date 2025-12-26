@@ -32,8 +32,10 @@ from .routes import (
     misc_public_router,
     standalone_router,
 )
+from .routes.gmail import router as gmail_router
 from .rate_limit import setup_rate_limiting
 from .oauth import router as oauth_router, setup_oauth
+from .gmail_scheduler import start_gmail_scheduler, stop_gmail_scheduler
 
 logger = logging.getLogger(__name__)
 
@@ -92,7 +94,13 @@ async def lifespan(app: FastAPI):
         if config.OAUTH_ENABLED:
             logger.info("OAuth authentication enabled")
 
+        # Start Gmail polling scheduler
+        await start_gmail_scheduler(state.db)
+
     yield
+
+    # Shutdown Gmail scheduler
+    await stop_gmail_scheduler()
 
     # Shutdown
     if state.enhanced_fetcher:
@@ -222,3 +230,4 @@ app.include_router(articles_router)
 app.include_router(feeds_router)
 app.include_router(summarization_router)
 app.include_router(standalone_router)
+app.include_router(gmail_router)

@@ -571,6 +571,8 @@ struct AISettingsView: View {
 
 /// Newsletter settings tab
 struct NewsletterSettingsView: View {
+    @EnvironmentObject var appState: AppState
+
     @State private var watchFolderPath: String = ""
     @State private var autoImportEnabled: Bool = false
     @State private var autoSummarizeNewsletter: Bool = false
@@ -578,6 +580,17 @@ struct NewsletterSettingsView: View {
     @State private var isSelectingFolder: Bool = false
     @State private var importResults: [NewsletterWatcherService.ImportResult] = []
     @State private var showSetupWizard: Bool = false
+
+    // Gmail integration state
+    @State private var showGmailSetupWizard: Bool = false
+    @State private var gmailConnected: Bool = false
+    @State private var gmailEmail: String = ""
+    @State private var gmailLabel: String = "Newsletters"
+    @State private var gmailPollInterval: Int = 30
+    @State private var gmailEnabled: Bool = true
+    @State private var isLoadingGmailStatus: Bool = false
+    @State private var isFetchingGmail: Bool = false
+    @State private var gmailFetchResult: String?
 
     var body: some View {
         Form {
@@ -603,6 +616,105 @@ struct NewsletterSettingsView: View {
                     .padding(.vertical, 4)
                 } header: {
                     Text("Quick Setup")
+                }
+            }
+
+            // Gmail Integration Section
+            Section {
+                if isLoadingGmailStatus {
+                    HStack {
+                        ProgressView()
+                            .scaleEffect(0.8)
+                        Text("Loading Gmail status...")
+                            .foregroundStyle(.secondary)
+                    }
+                } else if gmailConnected {
+                    // Connected state
+                    HStack {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        VStack(alignment: .leading, spacing: 2) {
+                            Text("Connected")
+                                .fontWeight(.medium)
+                            Text(gmailEmail)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                        Spacer()
+                        Button("Disconnect") {
+                            disconnectGmail()
+                        }
+                        .foregroundStyle(.red)
+                    }
+
+                    HStack {
+                        Text("Monitored label:")
+                        Spacer()
+                        Text(gmailLabel)
+                            .foregroundStyle(.secondary)
+                    }
+
+                    Picker("Check every", selection: $gmailPollInterval) {
+                        Text("15 minutes").tag(15)
+                        Text("30 minutes").tag(30)
+                        Text("1 hour").tag(60)
+                        Text("2 hours").tag(120)
+                        Text("4 hours").tag(240)
+                    }
+                    .onChange(of: gmailPollInterval) { _, newValue in
+                        updateGmailConfig()
+                    }
+
+                    Toggle("Enable automatic fetching", isOn: $gmailEnabled)
+                        .onChange(of: gmailEnabled) { _, _ in
+                            updateGmailConfig()
+                        }
+
+                    HStack {
+                        Button {
+                            fetchGmailNow()
+                        } label: {
+                            if isFetchingGmail {
+                                ProgressView()
+                                    .scaleEffect(0.8)
+                            } else {
+                                Label("Fetch Now", systemImage: "arrow.down.circle")
+                            }
+                        }
+                        .disabled(isFetchingGmail)
+
+                        if let result = gmailFetchResult {
+                            Text(result)
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
+                } else {
+                    // Not connected state
+                    HStack {
+                        VStack(alignment: .leading, spacing: 4) {
+                            Text("Gmail IMAP")
+                                .fontWeight(.semibold)
+                            Text("Automatically fetch newsletters from Gmail")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+
+                        Spacer()
+
+                        Button("Connect Gmail") {
+                            showGmailSetupWizard = true
+                        }
+                        .buttonStyle(.borderedProminent)
+                        .tint(.red)
+                    }
+                    .padding(.vertical, 4)
+                }
+            } header: {
+                Label("Gmail Integration", systemImage: "envelope.badge.fill")
+            } footer: {
+                if !gmailConnected {
+                    Text("Connect your Gmail account to automatically import newsletters from a specific label.")
                 }
             }
 
@@ -716,12 +828,20 @@ struct NewsletterSettingsView: View {
         .formStyle(.grouped)
         .onAppear {
             loadSettings()
+            loadGmailStatus()
         }
         .sheet(isPresented: $showSetupWizard) {
             NewsletterSetupWizardView {
                 // Reload settings after wizard completes
                 loadSettings()
             }
+        }
+        .sheet(isPresented: $showGmailSetupWizard) {
+            GmailSetupWizardView {
+                // Reload Gmail status after wizard completes
+                loadGmailStatus()
+            }
+            .environmentObject(appState)
         }
     }
 
@@ -840,6 +960,95 @@ struct NewsletterSettingsView: View {
             """
             NSPasteboard.general.clearContents()
             NSPasteboard.general.setString(script, forType: .string)
+        }
+    }
+
+    // MARK: - Gmail Functions
+
+    private func loadGmailStatus() {
+        isLoadingGmailStatus = true
+
+        Task {
+            do {
+                let status = try await appState.apiClient.getGmailStatus()
+
+                await MainActor.run {
+                    gmailConnected = status.connected
+                    gmailEmail = status.email ?? ""
+                    gmailLabel = status.monitoredLabel ?? "Newsletters"
+                    gmailPollInterval = status.pollIntervalMinutes
+                    gmailEnabled = status.isPollingEnabled
+                    isLoadingGmailStatus = false
+                }
+            } catch {
+                await MainActor.run {
+                    gmailConnected = false
+                    isLoadingGmailStatus = false
+                }
+            }
+        }
+    }
+
+    private func updateGmailConfig() {
+        Task {
+            do {
+                _ = try await appState.apiClient.updateGmailConfig(
+                    label: nil,
+                    interval: gmailPollInterval,
+                    enabled: gmailEnabled
+                )
+            } catch {
+                print("Failed to update Gmail config: \(error)")
+            }
+        }
+    }
+
+    private func fetchGmailNow() {
+        isFetchingGmail = true
+        gmailFetchResult = nil
+
+        Task {
+            do {
+                let response = try await appState.apiClient.triggerGmailFetch()
+
+                await MainActor.run {
+                    isFetchingGmail = false
+                    if response.imported > 0 {
+                        gmailFetchResult = "Imported \(response.imported) newsletter(s)"
+                        // Reload newsletters list
+                        Task {
+                            await appState.loadNewsletterItems()
+                        }
+                    } else if response.success {
+                        gmailFetchResult = "No new newsletters"
+                    } else {
+                        gmailFetchResult = response.message ?? "Fetch failed"
+                    }
+                }
+            } catch {
+                await MainActor.run {
+                    isFetchingGmail = false
+                    gmailFetchResult = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func disconnectGmail() {
+        Task {
+            do {
+                try await appState.apiClient.disconnectGmail()
+
+                await MainActor.run {
+                    gmailConnected = false
+                    gmailEmail = ""
+                    gmailLabel = "Newsletters"
+                    gmailPollInterval = 30
+                    gmailEnabled = true
+                }
+            } catch {
+                print("Failed to disconnect Gmail: \(error)")
+            }
         }
     }
 }

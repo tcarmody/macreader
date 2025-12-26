@@ -352,3 +352,52 @@ class NewsletterImportResponse(BaseModel):
     imported: int
     failed: int
     results: list[NewsletterImportResult]
+
+
+# ─────────────────────────────────────────────────────────────
+# Gmail IMAP Schemas
+# ─────────────────────────────────────────────────────────────
+
+class GmailAuthURLResponse(BaseModel):
+    """Response containing Gmail OAuth authorization URL."""
+    auth_url: str
+    state: str
+
+
+class GmailAuthCallbackRequest(BaseModel):
+    """Request to complete Gmail OAuth flow."""
+    code: str
+    state: str
+
+
+class GmailStatusResponse(BaseModel):
+    """Gmail connection status."""
+    connected: bool
+    email: str | None = None
+    monitored_label: str | None = None
+    poll_interval_minutes: int = 30
+    last_fetched_uid: int = 0
+    is_polling_enabled: bool = True
+    last_fetch: str | None = None
+
+
+class GmailConfigUpdateRequest(BaseModel):
+    """Request to update Gmail configuration."""
+    monitored_label: str | None = None
+    poll_interval_minutes: int | None = None
+    is_enabled: bool | None = None
+
+
+class GmailLabelResponse(BaseModel):
+    """Response containing available Gmail labels."""
+    labels: list[str]
+
+
+class GmailFetchResponse(BaseModel):
+    """Response from Gmail fetch operation."""
+    success: bool
+    imported: int = 0
+    failed: int = 0
+    skipped: int = 0
+    errors: list[str] | None = None
+    message: str | None = None

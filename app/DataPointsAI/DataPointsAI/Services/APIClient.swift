@@ -669,6 +669,98 @@ final class APIClient {
         let results: [NewsletterImportResult]
     }
 
+    // MARK: - Gmail IMAP Integration
+
+    struct GmailAuthURLResponse: Codable, Sendable {
+        let authUrl: String
+        let state: String
+
+        enum CodingKeys: String, CodingKey {
+            case authUrl = "auth_url"
+            case state
+        }
+    }
+
+    struct GmailStatusResponse: Codable, Sendable {
+        let connected: Bool
+        let email: String?
+        let monitoredLabel: String?
+        let pollIntervalMinutes: Int
+        let lastFetchedUid: Int
+        let isPollingEnabled: Bool
+        let lastFetch: String?
+
+        enum CodingKeys: String, CodingKey {
+            case connected
+            case email
+            case monitoredLabel = "monitored_label"
+            case pollIntervalMinutes = "poll_interval_minutes"
+            case lastFetchedUid = "last_fetched_uid"
+            case isPollingEnabled = "is_polling_enabled"
+            case lastFetch = "last_fetch"
+        }
+    }
+
+    struct GmailLabelResponse: Codable, Sendable {
+        let labels: [String]
+    }
+
+    struct GmailConfigUpdateRequest: Codable, Sendable {
+        let monitoredLabel: String?
+        let pollIntervalMinutes: Int?
+        let isEnabled: Bool?
+
+        enum CodingKeys: String, CodingKey {
+            case monitoredLabel = "monitored_label"
+            case pollIntervalMinutes = "poll_interval_minutes"
+            case isEnabled = "is_enabled"
+        }
+    }
+
+    struct GmailFetchResponse: Codable, Sendable {
+        let success: Bool
+        let imported: Int
+        let failed: Int
+        let skipped: Int
+        let errors: [String]?
+        let message: String?
+    }
+
+    /// Get Gmail OAuth authorization URL
+    func getGmailAuthURL() async throws -> GmailAuthURLResponse {
+        return try await get(path: "/gmail/auth/url")
+    }
+
+    /// Get Gmail connection status
+    func getGmailStatus() async throws -> GmailStatusResponse {
+        return try await get(path: "/gmail/status")
+    }
+
+    /// Get available Gmail labels
+    func getGmailLabels() async throws -> GmailLabelResponse {
+        return try await get(path: "/gmail/labels")
+    }
+
+    /// Update Gmail configuration
+    func updateGmailConfig(label: String? = nil, interval: Int? = nil, enabled: Bool? = nil) async throws -> GmailStatusResponse {
+        let request = GmailConfigUpdateRequest(
+            monitoredLabel: label,
+            pollIntervalMinutes: interval,
+            isEnabled: enabled
+        )
+        return try await put(path: "/gmail/config", body: request)
+    }
+
+    /// Trigger Gmail newsletter fetch
+    func triggerGmailFetch() async throws -> GmailFetchResponse {
+        return try await post(path: "/gmail/fetch")
+    }
+
+    /// Disconnect Gmail account
+    func disconnectGmail() async throws {
+        let _: EmptyResponse = try await delete(path: "/gmail/disconnect")
+    }
+
     /// Import newsletter emails from .eml file data
     func importNewsletters(files: [(filename: String, data: Data)], autoSummarize: Bool = false) async throws -> NewsletterImportResponse {
         // Build multipart form data
