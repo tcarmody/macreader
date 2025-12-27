@@ -170,6 +170,8 @@ class SourceExtractor:
         Extract source URL from Techmeme.
 
         Techmeme RSS includes the source link in the description HTML.
+        Techmeme URLs often have a fragment like #a251224p15 that identifies
+        the specific article on the page.
         """
         if content:
             soup = BeautifulSoup(content, "html.parser")
@@ -185,6 +187,10 @@ class SourceExtractor:
 
         # Fallback: fetch the Techmeme page and find the source link
         try:
+            # Extract fragment from URL (e.g., #a251224p15 -> a251224p15)
+            parsed = urlparse(url)
+            fragment = parsed.fragment  # e.g., "a251224p15"
+
             async with aiohttp.ClientSession(headers=self.headers) as session:
                 async with session.get(
                     url,
@@ -194,23 +200,48 @@ class SourceExtractor:
                         html = await resp.text()
                         soup = BeautifulSoup(html, "html.parser")
 
-                        # Techmeme uses .ourhead class for main story links
-                        link = soup.select_one("a.ourhead[href^='http']")
+                        # If we have a fragment, find the specific article section
+                        if fragment:
+                            # Find the anchor element for this article
+                            anchor = soup.find("a", {"name": fragment})
+                            if anchor:
+                                # The anchor is inside the cluster div
+                                # First try to find the parent cluster
+                                cluster = anchor.find_parent("div", class_="clus")
+                                if not cluster:
+                                    # Fallback: maybe the cluster follows the anchor
+                                    cluster = anchor.find_next("div", class_="clus")
+                                if cluster:
+                                    # Find the main article link (in .ii div or with .ourh class)
+                                    link = cluster.select_one(".ii a[href^='http']")
+                                    if not link:
+                                        link = cluster.select_one("a.ourh[href^='http']")
+                                    if link:
+                                        href = link.get("href", "")
+                                        if href and "techmeme.com" not in href.lower():
+                                            return ExtractionResult(
+                                                source_url=href,
+                                                aggregator="techmeme",
+                                                confidence=0.95
+                                            )
+
+                        # Fallback: Try .ourh class for main story links (homepage)
+                        link = soup.select_one("a.ourh[href^='http']")
                         if link and "techmeme.com" not in link["href"].lower():
                             return ExtractionResult(
                                 source_url=link["href"],
                                 aggregator="techmeme",
-                                confidence=0.9
+                                confidence=0.7
                             )
 
-                        # Fallback to any external link in story area
-                        for link in soup.select(".itemdesc a[href^='http']"):
+                        # Last fallback: first external link in any .ii div
+                        for link in soup.select(".ii a[href^='http']"):
                             href = link.get("href", "")
                             if href and "techmeme.com" not in href.lower():
                                 return ExtractionResult(
                                     source_url=href,
                                     aggregator="techmeme",
-                                    confidence=0.7
+                                    confidence=0.5
                                 )
         except Exception as e:
             logger.warning(f"Techmeme fetch failed: {e}")
