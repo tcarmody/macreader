@@ -301,6 +301,32 @@ enum ArticleFontSize: String, Codable, CaseIterable, Sendable {
         case .extraLarge: return 30
         }
     }
+
+    /// Returns the next larger font size, or nil if already at maximum
+    var larger: ArticleFontSize? {
+        switch self {
+        case .small: return .medium
+        case .medium: return .large
+        case .large: return .extraLarge
+        case .extraLarge: return nil
+        }
+    }
+
+    /// Returns the next smaller font size, or nil if already at minimum
+    var smaller: ArticleFontSize? {
+        switch self {
+        case .small: return nil
+        case .medium: return .small
+        case .large: return .medium
+        case .extraLarge: return .large
+        }
+    }
+
+    /// Whether a larger size is available
+    var canIncrease: Bool { larger != nil }
+
+    /// Whether a smaller size is available
+    var canDecrease: Bool { smaller != nil }
 }
 
 /// Line spacing options for article content

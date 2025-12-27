@@ -110,6 +110,30 @@ extension AppState {
         }
     }
 
+    // MARK: - Font Size Shortcuts
+
+    /// Increases the article font size if possible
+    func increaseFontSize() {
+        if let larger = settings.articleFontSize.larger {
+            settings.articleFontSize = larger
+            saveLocalSettings()
+        }
+    }
+
+    /// Decreases the article font size if possible
+    func decreaseFontSize() {
+        if let smaller = settings.articleFontSize.smaller {
+            settings.articleFontSize = smaller
+            saveLocalSettings()
+        }
+    }
+
+    /// Resets the article font size to the default (medium)
+    func resetFontSize() {
+        settings.articleFontSize = .medium
+        saveLocalSettings()
+    }
+
     // MARK: - Archive
 
     func archiveOldArticlesIfEnabled() async {

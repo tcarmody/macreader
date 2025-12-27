@@ -130,6 +130,25 @@ struct RSSReaderApp: App {
                     appState.readerModeEnabled.toggle()
                 }
                 .keyboardShortcut("f", modifiers: [.command, .shift])
+
+                Divider()
+
+                Button("Increase Font Size") {
+                    appState.increaseFontSize()
+                }
+                .keyboardShortcut("+", modifiers: .command)
+                .disabled(!appState.settings.articleFontSize.canIncrease)
+
+                Button("Decrease Font Size") {
+                    appState.decreaseFontSize()
+                }
+                .keyboardShortcut("-", modifiers: .command)
+                .disabled(!appState.settings.articleFontSize.canDecrease)
+
+                Button("Reset Font Size") {
+                    appState.resetFontSize()
+                }
+                .keyboardShortcut("0", modifiers: .command)
             }
 
             // Edit menu - Selection commands
