@@ -15,6 +15,8 @@ A modern RSS reader with AI-powered summarization, available as a native macOS a
 - **Multi-Provider LLM Support** - Choose between Anthropic Claude, OpenAI GPT, or Google Gemini
 - **Library** - Save URLs and upload documents (PDF, DOCX, TXT) for summarization
 - **Full-Text Search** - Fast search across all articles with SQLite FTS5
+- **Article Themes** - 7 reading themes including Auto, Manuscript, Noir, Ember, Forest, Ocean, and Midnight
+- **Typography Options** - 28 fonts across sans-serif, serif, slab-serif, and monospace families
 - **Native macOS App** - SwiftUI interface with Keychain, Spotlight, and notification integration
 - **Web PWA** - Cross-platform Progressive Web App with offline support
 - **Security** - API key auth, OAuth login (Google/GitHub), rate limiting, SSRF protection
@@ -182,15 +184,58 @@ macreader/
 
 ### macOS App
 
+#### File & Feeds
 | Shortcut | Action |
 |----------|--------|
 | `⌘N` | Add new feed |
-| `⌘R` | Refresh feeds |
+| `⌘⇧R` | Refresh all feeds |
 | `⌘⇧I` | Import OPML |
 | `⌘⇧E` | Export OPML |
 | `⌘,` | Settings |
-| `j` / `k` | Navigate articles |
+
+#### Navigation
+| Shortcut | Action |
+|----------|--------|
+| `⌘K` | Quick open |
+| `⌘]` | Next article |
+| `⌘[` | Previous article |
+| `j` / `k` | Navigate articles (vim-style) |
 | `n` | Next unread |
+
+#### Filters
+| Shortcut | Action |
+|----------|--------|
+| `⌘1` | Show All |
+| `⌘2` | Show Unread |
+| `⌘3` | Show Saved |
+| `⌘4` | Show Today |
+
+#### Article Actions
+| Shortcut | Action |
+|----------|--------|
+| `⌘↩` | Open in browser |
+| `⌘O` | Open original |
+| `⌘⇧S` | Summarize article |
+| `⌘B` | Toggle bookmark |
+| `⌘L` | Copy link |
+| `⌘⇧C` | Copy article URL |
+| `⌘R` | Mark as read |
+| `⌘U` | Mark as unread |
+| `⌘⇧K` | Mark all as read |
+
+#### View
+| Shortcut | Action |
+|----------|--------|
+| `⌘⇧F` | Toggle reader mode |
+| `⌘+` | Increase font size |
+| `⌘-` | Decrease font size |
+| `⌘0` | Reset font size |
+
+#### Selection
+| Shortcut | Action |
+|----------|--------|
+| `⌘A` | Select all articles |
+| `Esc` | Clear selection |
 
 ### Web App
 

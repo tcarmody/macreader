@@ -140,11 +140,11 @@ Every feature must justify its existence. The redesign reduced backend code from
 
 **Rationale**: The original use case is reading AI and technology news. The prompts emphasize technical details (benchmarks, pricing, availability), avoid marketing language, and assume reader expertise. See SUMMARIZATION_PROMPTS.md for the full prompt engineering rationale.
 
-### Keyboard Navigation: Vim-Style
+### Keyboard Navigation: Vim-Style + Standard Shortcuts
 
-**Decision**: Support vim-style navigation (j/k, g g, G, n) alongside arrow keys.
+**Decision**: Support vim-style navigation (j/k, g g, G, n) alongside standard macOS shortcuts (⌘], ⌘[) and arrow keys.
 
-**Rationale**: RSS readers are keyboard-heavy applications. Technical users often prefer vim bindings. Supporting both vim-style and standard navigation accommodates all users.
+**Rationale**: RSS readers are keyboard-heavy applications. Technical users often prefer vim bindings. Standard macOS users expect familiar shortcuts. Supporting both vim-style and standard navigation accommodates all users. The macOS app provides 25+ keyboard shortcuts covering navigation, filters, article actions, and view controls.
 
 ### Smart Feeds: Today, Unread, Bookmarked, Summarized
 
@@ -157,6 +157,28 @@ Every feature must justify its existence. The redesign reduced backend code from
 **Decision**: Support standard OPML format for feed portability.
 
 **Rationale**: OPML is the universal RSS feed exchange format. Users switching from other readers expect to import their subscriptions. Users may want to backup or migrate to other readers.
+
+### Article Themes
+
+**Decision**: Provide 7 stylized reading themes (Auto, Manuscript, Noir, Ember, Forest, Ocean, Midnight) instead of just light/dark mode.
+
+**Alternatives Considered**:
+- Light/dark only: Too limited for reading-focused app
+- Full custom theme builder: Over-engineered for the use case
+- CSS file uploads: Too technical for most users
+
+**Rationale**: Reading is a personal experience. Some users prefer warm sepia tones (Manuscript) for long reading sessions. Others want high contrast (Noir) or calming colors (Forest, Ocean). Each theme is carefully designed with coordinated background, text, link, and accent colors. CSS variables enable the themes to work in both the native WebView and the web PWA.
+
+### Typography Options
+
+**Decision**: Offer 28 fonts across four categories (sans-serif, serif, slab-serif, monospace).
+
+**Alternatives Considered**:
+- System fonts only: Too limiting
+- User-installed fonts: Complex to enumerate and may break
+- Web fonts: Adds latency and external dependencies
+
+**Rationale**: Typography significantly affects reading comfort and speed. The font selection includes macOS system fonts that are guaranteed to be available (SF Pro, New York, SF Mono) plus classic fonts (Georgia, Palatino, Helvetica Neue). Categories help users find appropriate fonts: serif for long-form reading, sans-serif for scanning, monospace for code-heavy content.
 
 ### JavaScript Rendering (Optional)
 
@@ -252,8 +274,16 @@ This setup requires no DevOps expertise and costs ~$0-5/month for personal use.
 - Shared backend with native app
 - User-provided API keys via headers
 
+### Phase 5: Reading Experience Polish
+- Article themes (7 stylized themes with CSS variables)
+- Expanded typography (28 fonts across 4 categories)
+- Comprehensive keyboard shortcuts (25+ shortcuts)
+- Font size controls (⌘+/⌘-/⌘0)
+- Reader mode toggle
+
 ### Current: Stable Platform
 - Native macOS app + Web PWA
 - Railway backend + Vercel frontend
 - Multi-provider LLM support
+- Polished reading experience with themes and typography
 - ~2,500 lines of Python backend
