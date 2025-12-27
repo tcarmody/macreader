@@ -10,7 +10,8 @@ extension AppState {
             listDensity: newSettings.listDensity,
             notifications: newSettings.notificationsEnabled,
             appTypeface: newSettings.appTypeface,
-            contentTypeface: newSettings.contentTypeface
+            contentTypeface: newSettings.contentTypeface,
+            articleTheme: newSettings.articleTheme
         )
 
         var updatedSettings = try await apiClient.updateSettings(newSettings)
@@ -21,6 +22,7 @@ extension AppState {
         updatedSettings.notificationsEnabled = savedAppearance.notifications
         updatedSettings.appTypeface = savedAppearance.appTypeface
         updatedSettings.contentTypeface = savedAppearance.contentTypeface
+        updatedSettings.articleTheme = savedAppearance.articleTheme
 
         settings = updatedSettings
         saveLocalSettings()
@@ -33,6 +35,7 @@ extension AppState {
         UserDefaults.standard.set(settings.notificationsEnabled, forKey: "notificationsEnabled")
         UserDefaults.standard.set(settings.appTypeface.rawValue, forKey: "appTypeface")
         UserDefaults.standard.set(settings.contentTypeface.rawValue, forKey: "contentTypeface")
+        UserDefaults.standard.set(settings.articleTheme.rawValue, forKey: "articleTheme")
         UserDefaults.standard.set(settings.hideDuplicates, forKey: "hideDuplicates")
         UserDefaults.standard.set(settings.autoArchiveEnabled, forKey: "autoArchiveEnabled")
         UserDefaults.standard.set(settings.autoArchiveDays, forKey: "autoArchiveDays")
@@ -72,6 +75,10 @@ extension AppState {
         if let contentTypefaceRaw = UserDefaults.standard.string(forKey: "contentTypeface"),
            let contentTypeface = ContentTypeface(rawValue: contentTypefaceRaw) {
             settings.contentTypeface = contentTypeface
+        }
+        if let articleThemeRaw = UserDefaults.standard.string(forKey: "articleTheme"),
+           let articleTheme = ArticleTheme(rawValue: articleThemeRaw) {
+            settings.articleTheme = articleTheme
         }
         if UserDefaults.standard.object(forKey: "hideDuplicates") != nil {
             settings.hideDuplicates = UserDefaults.standard.bool(forKey: "hideDuplicates")

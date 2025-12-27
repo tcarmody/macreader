@@ -19,6 +19,7 @@ struct SettingsView: View {
     @State private var listDensity: ListDensity = .comfortable
     @State private var appTypeface: AppTypeface = .system
     @State private var contentTypeface: ContentTypeface = .system
+    @State private var articleTheme: ArticleTheme = .auto
 
     // Reader mode settings
     @State private var readerModeFontSize: ArticleFontSize = .large
@@ -54,6 +55,7 @@ struct SettingsView: View {
                 listDensity: listDensity,
                 appTypeface: appTypeface,
                 contentTypeface: contentTypeface,
+                articleTheme: articleTheme,
                 readerModeFontSize: readerModeFontSize,
                 readerModeLineSpacing: readerModeLineSpacing,
                 autoArchiveEnabled: autoArchiveEnabled,
@@ -87,6 +89,7 @@ struct SettingsView: View {
                 listDensity: $listDensity,
                 appTypeface: $appTypeface,
                 contentTypeface: $contentTypeface,
+                articleTheme: $articleTheme,
                 readerModeFontSize: $readerModeFontSize,
                 readerModeLineSpacing: $readerModeLineSpacing
             )
@@ -122,6 +125,7 @@ struct SettingsView: View {
         listDensity = appState.settings.listDensity
         appTypeface = appState.settings.appTypeface
         contentTypeface = appState.settings.contentTypeface
+        articleTheme = appState.settings.articleTheme
         readerModeFontSize = appState.settings.readerModeFontSize
         readerModeLineSpacing = appState.settings.readerModeLineSpacing
         autoArchiveEnabled = appState.settings.autoArchiveEnabled
@@ -146,6 +150,7 @@ struct SettingsView: View {
         newSettings.listDensity = listDensity
         newSettings.appTypeface = appTypeface
         newSettings.contentTypeface = contentTypeface
+        newSettings.articleTheme = articleTheme
         newSettings.readerModeFontSize = readerModeFontSize
         newSettings.readerModeLineSpacing = readerModeLineSpacing
         newSettings.autoArchiveEnabled = autoArchiveEnabled
@@ -330,11 +335,41 @@ struct AppearanceSettingsView: View {
     @Binding var listDensity: ListDensity
     @Binding var appTypeface: AppTypeface
     @Binding var contentTypeface: ContentTypeface
+    @Binding var articleTheme: ArticleTheme
     @Binding var readerModeFontSize: ArticleFontSize
     @Binding var readerModeLineSpacing: ArticleLineSpacing
 
     var body: some View {
         Form {
+            Section {
+                // Theme picker with visual previews
+                VStack(alignment: .leading, spacing: 8) {
+                    Text("Theme")
+                        .font(.headline)
+
+                    LazyVGrid(columns: [
+                        GridItem(.flexible()),
+                        GridItem(.flexible()),
+                        GridItem(.flexible())
+                    ], spacing: 12) {
+                        ForEach(ArticleTheme.allCases, id: \.self) { theme in
+                            ThemePreviewButton(
+                                theme: theme,
+                                isSelected: articleTheme == theme,
+                                action: { articleTheme = theme }
+                            )
+                        }
+                    }
+                }
+                .padding(.vertical, 4)
+
+                Text(articleTheme.description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Article Theme")
+            }
+
             Section {
                 Picker("App typeface", selection: $appTypeface) {
                     ForEach(AppTypeface.allCases, id: \.self) { typeface in
@@ -1678,6 +1713,51 @@ struct AboutView: View {
     }
 }
 
+// MARK: - Theme Preview Button
+
+/// Visual button for selecting an article theme
+struct ThemePreviewButton: View {
+    let theme: ArticleTheme
+    let isSelected: Bool
+    let action: () -> Void
+
+    var body: some View {
+        Button(action: action) {
+            VStack(spacing: 6) {
+                // Theme preview swatch
+                ZStack {
+                    RoundedRectangle(cornerRadius: 8)
+                        .fill(theme.backgroundColor)
+                        .frame(height: 50)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 8)
+                                .strokeBorder(
+                                    isSelected ? Color.accentColor : Color.gray.opacity(0.3),
+                                    lineWidth: isSelected ? 2 : 1
+                                )
+                        )
+
+                    // Sample text lines
+                    VStack(alignment: .leading, spacing: 4) {
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(theme.textColor)
+                            .frame(width: 40, height: 4)
+                        RoundedRectangle(cornerRadius: 2)
+                            .fill(theme.secondaryTextColor)
+                            .frame(width: 30, height: 3)
+                    }
+                }
+
+                // Theme label
+                Text(theme.label)
+                    .font(.caption)
+                    .foregroundStyle(isSelected ? .primary : .secondary)
+            }
+        }
+        .buttonStyle(.plain)
+    }
+}
+
 // MARK: - View Extension for Settings Change Handlers
 
 extension View {
@@ -1689,6 +1769,7 @@ extension View {
         listDensity: ListDensity,
         appTypeface: AppTypeface,
         contentTypeface: ContentTypeface,
+        articleTheme: ArticleTheme,
         readerModeFontSize: ArticleFontSize,
         readerModeLineSpacing: ArticleLineSpacing,
         autoArchiveEnabled: Bool,
@@ -1704,6 +1785,7 @@ extension View {
             .onChange(of: listDensity) { _, _ in saveSettings() }
             .onChange(of: appTypeface) { _, _ in saveSettings() }
             .onChange(of: contentTypeface) { _, _ in saveSettings() }
+            .onChange(of: articleTheme) { _, _ in saveSettings() }
             .onChange(of: readerModeFontSize) { _, _ in saveSettings() }
             .onChange(of: readerModeLineSpacing) { _, _ in saveSettings() }
             .onChange(of: autoArchiveEnabled) { _, _ in saveSettings() }

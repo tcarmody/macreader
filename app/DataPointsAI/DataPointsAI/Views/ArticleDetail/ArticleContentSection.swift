@@ -7,6 +7,7 @@ struct ArticleContentSection: View {
     let lineSpacing: ArticleLineSpacing
     let appTypeface: AppTypeface
     let contentTypeface: ContentTypeface
+    let theme: ArticleTheme
 
     @Binding var contentHeight: CGFloat
 
@@ -40,7 +41,8 @@ struct ArticleContentSection: View {
                 dynamicHeight: $contentHeight,
                 fontSize: fontSize.bodyFontSize,
                 lineHeight: lineSpacing.multiplier,
-                fontFamily: contentTypeface.cssFontFamily
+                fontFamily: contentTypeface.cssFontFamily,
+                theme: theme
             )
             .frame(height: contentHeight)
         }

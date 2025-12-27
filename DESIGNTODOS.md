@@ -74,6 +74,7 @@ Future UI/UX improvements to consider for the macOS RSS reader app.
 
 ### Visual Polish
 - [x] **Transition Animations** - Article selection slide-in transition, fade when switching grouping modes, smooth scroll-to-selection
+- [x] **Article Themes** - Six built-in themes (Auto, Light, Dark, Sepia, Paper, Night) with visual picker in Appearance settings
 
 ---
 
@@ -106,11 +107,6 @@ Expand the server status indicator to show:
 - "Subscribe to Feed" from Safari toolbar
 - Auto-detect RSS feeds on web pages
 - Add directly to selected folder
-
-#### Article Themes
-- Multiple built-in reading themes
-- Support custom CSS themes
-- Dark mode specific themes
 
 #### Widgets
 - macOS widget showing unread count

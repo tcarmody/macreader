@@ -389,7 +389,8 @@ struct LibraryItemDetailView: View {
                         dynamicHeight: $contentHeight,
                         fontSize: fontSize.bodyFontSize,
                         lineHeight: lineSpacing.multiplier,
-                        fontFamily: contentTypeface.cssFontFamily
+                        fontFamily: contentTypeface.cssFontFamily,
+                        theme: appState.settings.articleTheme
                     )
                     .frame(height: contentHeight)
                 } else {

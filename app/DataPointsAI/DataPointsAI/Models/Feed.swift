@@ -230,6 +230,7 @@ struct AppSettings: Codable, Sendable {
     var listDensity: ListDensity = .comfortable
     var appTypeface: AppTypeface = .system
     var contentTypeface: ContentTypeface = .system
+    var articleTheme: ArticleTheme = .auto
 
     // Reader mode settings (client-side only, defaults to larger/more relaxed)
     var readerModeFontSize: ArticleFontSize = .large
@@ -261,6 +262,7 @@ struct AppSettings: Codable, Sendable {
         listDensity: .comfortable,
         appTypeface: .system,
         contentTypeface: .system,
+        articleTheme: .auto,
         readerModeFontSize: .large,
         readerModeLineSpacing: .relaxed
     )

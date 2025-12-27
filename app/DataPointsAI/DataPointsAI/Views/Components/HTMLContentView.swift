@@ -16,6 +16,7 @@ struct HTMLContentView: NSViewRepresentable {
     var fontSize: CGFloat = 14
     var lineHeight: CGFloat = 1.6
     var fontFamily: String = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
+    var theme: ArticleTheme = .auto
 
     func makeNSView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
@@ -49,36 +50,22 @@ struct HTMLContentView: NSViewRepresentable {
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
-                :root {
-                    color-scheme: light dark;
-                }
+                \(theme.cssStyles)
                 body {
                     font-family: \(fontFamily);
                     font-size: \(Int(fontSize))px;
                     line-height: \(lineHeight);
-                    color: var(--text-color, #333);
-                    background: transparent;
+                    color: var(--text-color);
+                    background: var(--bg-color);
                     margin: 0;
-                    padding: 0;
+                    padding: 12px;
                     word-wrap: break-word;
                     overflow-wrap: break-word;
                     overflow: hidden;
+                    border-radius: 8px;
                 }
-                @media (prefers-color-scheme: dark) {
-                    body {
-                        --text-color: #e0e0e0;
-                    }
-                    a {
-                        color: #6cb6ff;
-                    }
-                }
-                @media (prefers-color-scheme: light) {
-                    body {
-                        --text-color: #333;
-                    }
-                    a {
-                        color: #0066cc;
-                    }
+                a {
+                    color: var(--link-color);
                 }
                 img {
                     max-width: 100%;
@@ -86,7 +73,7 @@ struct HTMLContentView: NSViewRepresentable {
                     border-radius: 4px;
                 }
                 pre, code {
-                    background: rgba(128, 128, 128, 0.1);
+                    background: var(--code-bg);
                     border-radius: 4px;
                     padding: 2px 6px;
                     font-family: "SF Mono", Monaco, Menlo, monospace;
@@ -101,10 +88,10 @@ struct HTMLContentView: NSViewRepresentable {
                     background: none;
                 }
                 blockquote {
-                    border-left: 3px solid rgba(128, 128, 128, 0.4);
+                    border-left: 3px solid var(--border-color);
                     margin: 16px 0;
                     padding-left: 16px;
-                    color: rgba(128, 128, 128, 0.9);
+                    color: var(--blockquote-color);
                 }
                 h1, h2, h3, h4, h5, h6 {
                     margin-top: 24px;
@@ -129,16 +116,16 @@ struct HTMLContentView: NSViewRepresentable {
                     margin: 16px 0;
                 }
                 th, td {
-                    border: 1px solid rgba(128, 128, 128, 0.3);
+                    border: 1px solid var(--border-color);
                     padding: 8px;
                     text-align: left;
                 }
                 th {
-                    background: rgba(128, 128, 128, 0.1);
+                    background: var(--code-bg);
                 }
                 hr {
                     border: none;
-                    border-top: 1px solid rgba(128, 128, 128, 0.3);
+                    border-top: 1px solid var(--border-color);
                     margin: 24px 0;
                 }
             </style>
