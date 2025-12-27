@@ -124,24 +124,30 @@ struct FeedHealthDashboardView: View {
 
     // MARK: - Computed Properties
 
+    /// Regular feeds that need HTTP fetching (excludes Library and Newsletters)
+    private var regularFeeds: [Feed] {
+        appState.feeds.filter { !$0.isLocalFeed }
+    }
+
     private var healthyCount: Int {
-        appState.feeds.filter { $0.healthStatus == .healthy }.count
+        regularFeeds.filter { $0.healthStatus == .healthy }.count
     }
 
     private var staleCount: Int {
-        appState.feeds.filter { $0.healthStatus == .stale }.count
+        regularFeeds.filter { $0.healthStatus == .stale }.count
     }
 
     private var errorCount: Int {
-        appState.feeds.filter {
+        regularFeeds.filter {
             if case .error = $0.healthStatus { return true }
             return false
         }.count
     }
 
     /// Feeds sorted by health status (errors first, then stale, then healthy)
+    /// Excludes local feeds (Library, Newsletters) since they don't need HTTP refresh
     private var sortedFeeds: [Feed] {
-        appState.feeds.sorted { feed1, feed2 in
+        regularFeeds.sorted { feed1, feed2 in
             let priority1 = healthPriority(feed1.healthStatus)
             let priority2 = healthPriority(feed2.healthStatus)
             if priority1 != priority2 {

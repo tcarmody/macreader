@@ -23,8 +23,18 @@ struct Feed: Identifiable, Codable, Hashable, Sendable {
         case fetchError = "fetch_error"
     }
 
+    /// Whether this is a local feed (Library or Newsletters) that doesn't need HTTP fetching
+    var isLocalFeed: Bool {
+        let scheme = url.scheme?.lowercased() ?? ""
+        return scheme == "local" || scheme == "file"
+    }
+
     /// Health status of the feed based on fetch history
     var healthStatus: FeedHealthStatus {
+        // Local feeds (Library, Newsletters) don't need HTTP refresh, so always show as healthy
+        if isLocalFeed {
+            return .healthy
+        }
         if let error = fetchError, !error.isEmpty {
             return .error(error)
         }
