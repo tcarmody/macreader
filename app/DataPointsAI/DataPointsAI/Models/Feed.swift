@@ -363,6 +363,11 @@ enum AppTypeface: String, Codable, CaseIterable, Sendable {
     case helveticaNeue = "helvetica_neue"
     case avenir = "avenir"
     case avenirNext = "avenir_next"
+    case futura = "futura"
+    case gillSans = "gill_sans"
+    case optima = "optima"
+    case verdana = "verdana"
+    case trebuchet = "trebuchet"
     // Serif
     case newYork = "new_york"
     case georgia = "georgia"
@@ -370,9 +375,20 @@ enum AppTypeface: String, Codable, CaseIterable, Sendable {
     case charter = "charter"
     case iowan = "iowan"
     case baskerville = "baskerville"
-    // Other
+    case didot = "didot"
+    case bodoni = "bodoni"
+    case garamond = "garamond"
+    case hoefler = "hoefler"
+    case cochin = "cochin"
+    case bookman = "bookman"
+    // Slab serif
+    case rockwell = "rockwell"
+    case clarendon = "clarendon"
     case americanTypewriter = "american_typewriter"
+    // Monospace
     case sfMono = "sf_mono"
+    case monaco = "monaco"
+    case courier = "courier"
 
     var label: String {
         switch self {
@@ -380,14 +396,29 @@ enum AppTypeface: String, Codable, CaseIterable, Sendable {
         case .helveticaNeue: return "Helvetica Neue"
         case .avenir: return "Avenir"
         case .avenirNext: return "Avenir Next"
+        case .futura: return "Futura"
+        case .gillSans: return "Gill Sans"
+        case .optima: return "Optima"
+        case .verdana: return "Verdana"
+        case .trebuchet: return "Trebuchet MS"
         case .newYork: return "New York"
         case .georgia: return "Georgia"
         case .palatino: return "Palatino"
         case .charter: return "Charter"
         case .iowan: return "Iowan Old Style"
         case .baskerville: return "Baskerville"
+        case .didot: return "Didot"
+        case .bodoni: return "Bodoni 72"
+        case .garamond: return "Apple Garamond"
+        case .hoefler: return "Hoefler Text"
+        case .cochin: return "Cochin"
+        case .bookman: return "Bookman Old Style"
+        case .rockwell: return "Rockwell"
+        case .clarendon: return "Clarendon"
         case .americanTypewriter: return "American Typewriter"
         case .sfMono: return "SF Mono"
+        case .monaco: return "Monaco"
+        case .courier: return "Courier New"
         }
     }
 
@@ -408,12 +439,27 @@ enum AppTypeface: String, Codable, CaseIterable, Sendable {
         case .helveticaNeue: return "Helvetica Neue"
         case .avenir: return "Avenir"
         case .avenirNext: return "Avenir Next"
+        case .futura: return "Futura"
+        case .gillSans: return "Gill Sans"
+        case .optima: return "Optima"
+        case .verdana: return "Verdana"
+        case .trebuchet: return "Trebuchet MS"
         case .georgia: return "Georgia"
         case .palatino: return "Palatino"
         case .charter: return "Charter"
         case .iowan: return "Iowan Old Style"
         case .baskerville: return "Baskerville"
+        case .didot: return "Didot"
+        case .bodoni: return "Bodoni 72"
+        case .garamond: return "Apple Garamond"
+        case .hoefler: return "Hoefler Text"
+        case .cochin: return "Cochin"
+        case .bookman: return "Bookman Old Style"
+        case .rockwell: return "Rockwell"
+        case .clarendon: return "Clarendon"
         case .americanTypewriter: return "American Typewriter"
+        case .monaco: return "Monaco"
+        case .courier: return "Courier New"
         }
     }
 
@@ -450,6 +496,11 @@ enum ContentTypeface: String, Codable, CaseIterable, Sendable {
     case helveticaNeue = "helvetica_neue"
     case avenir = "avenir"
     case avenirNext = "avenir_next"
+    case futura = "futura"
+    case gillSans = "gill_sans"
+    case optima = "optima"
+    case verdana = "verdana"
+    case trebuchet = "trebuchet"
     // Serif
     case serif = "serif"
     case georgia = "georgia"
@@ -458,9 +509,21 @@ enum ContentTypeface: String, Codable, CaseIterable, Sendable {
     case iowan = "iowan"
     case baskerville = "baskerville"
     case times = "times"
-    // Other
+    case didot = "didot"
+    case bodoni = "bodoni"
+    case garamond = "garamond"
+    case hoefler = "hoefler"
+    case cochin = "cochin"
+    case bookman = "bookman"
+    // Slab serif
+    case rockwell = "rockwell"
+    case clarendon = "clarendon"
     case americanTypewriter = "american_typewriter"
+    // Monospace
     case menlo = "menlo"
+    case monaco = "monaco"
+    case courier = "courier"
+    case sfMono = "sf_mono"
 
     var label: String {
         switch self {
@@ -468,6 +531,11 @@ enum ContentTypeface: String, Codable, CaseIterable, Sendable {
         case .helveticaNeue: return "Helvetica Neue"
         case .avenir: return "Avenir"
         case .avenirNext: return "Avenir Next"
+        case .futura: return "Futura"
+        case .gillSans: return "Gill Sans"
+        case .optima: return "Optima"
+        case .verdana: return "Verdana"
+        case .trebuchet: return "Trebuchet MS"
         case .serif: return "System Serif (New York)"
         case .georgia: return "Georgia"
         case .palatino: return "Palatino"
@@ -475,8 +543,19 @@ enum ContentTypeface: String, Codable, CaseIterable, Sendable {
         case .iowan: return "Iowan Old Style"
         case .baskerville: return "Baskerville"
         case .times: return "Times New Roman"
+        case .didot: return "Didot"
+        case .bodoni: return "Bodoni 72"
+        case .garamond: return "Apple Garamond"
+        case .hoefler: return "Hoefler Text"
+        case .cochin: return "Cochin"
+        case .bookman: return "Bookman Old Style"
+        case .rockwell: return "Rockwell"
+        case .clarendon: return "Clarendon"
         case .americanTypewriter: return "American Typewriter"
         case .menlo: return "Menlo"
+        case .monaco: return "Monaco"
+        case .courier: return "Courier New"
+        case .sfMono: return "SF Mono"
         }
     }
 
@@ -491,6 +570,16 @@ enum ContentTypeface: String, Codable, CaseIterable, Sendable {
             return "Avenir, 'Helvetica Neue', Helvetica, Arial, sans-serif"
         case .avenirNext:
             return "'Avenir Next', Avenir, 'Helvetica Neue', Helvetica, Arial, sans-serif"
+        case .futura:
+            return "Futura, 'Helvetica Neue', Arial, sans-serif"
+        case .gillSans:
+            return "'Gill Sans', 'Helvetica Neue', Arial, sans-serif"
+        case .optima:
+            return "Optima, 'Helvetica Neue', Arial, sans-serif"
+        case .verdana:
+            return "Verdana, Geneva, Arial, sans-serif"
+        case .trebuchet:
+            return "'Trebuchet MS', 'Helvetica Neue', Arial, sans-serif"
         case .serif:
             return "'New York', 'Iowan Old Style', Georgia, serif"
         case .georgia:
@@ -505,10 +594,32 @@ enum ContentTypeface: String, Codable, CaseIterable, Sendable {
             return "Baskerville, 'Baskerville Old Face', Georgia, serif"
         case .times:
             return "'Times New Roman', Times, serif"
+        case .didot:
+            return "Didot, 'Bodoni MT', Georgia, serif"
+        case .bodoni:
+            return "'Bodoni 72', 'Bodoni MT', Didot, serif"
+        case .garamond:
+            return "'Apple Garamond', Garamond, 'Times New Roman', serif"
+        case .hoefler:
+            return "'Hoefler Text', Georgia, serif"
+        case .cochin:
+            return "Cochin, Georgia, serif"
+        case .bookman:
+            return "'Bookman Old Style', Georgia, serif"
+        case .rockwell:
+            return "Rockwell, Georgia, serif"
+        case .clarendon:
+            return "Clarendon, Georgia, serif"
         case .americanTypewriter:
             return "'American Typewriter', 'Courier New', Courier, monospace"
         case .menlo:
             return "Menlo, Monaco, 'SF Mono', 'Courier New', monospace"
+        case .monaco:
+            return "Monaco, Menlo, 'SF Mono', 'Courier New', monospace"
+        case .courier:
+            return "'Courier New', Courier, monospace"
+        case .sfMono:
+            return "'SF Mono', Menlo, Monaco, 'Courier New', monospace"
         }
     }
 }
