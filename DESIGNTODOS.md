@@ -66,17 +66,15 @@ Future UI/UX improvements to consider for the macOS RSS reader app.
 - [x] **Mark Read on Open** - Optional auto-mark behavior
 - [x] **Notifications Toggle** - Enable/disable desktop notifications
 
+### Reading Progress
+- [x] **Reading Progress Indicator** - Progress bar at top of article view, "X min read" estimate, scroll position tracking
+
+### Notification Rules
+- [x] **Per-Feed Notification Settings** - Smart notification rules with feed, keyword, and author filters; three priority levels (High, Normal, Low)
+
 ---
 
 ## Still To-Do
-
-### Reading Experience
-
-#### Reading Progress Indicator
-For long articles, show:
-- A thin progress bar at the top of the article view
-- "X min read" estimate based on word count
-- Resume position when returning to partially-read articles
 
 ### Interaction Improvements
 
@@ -100,13 +98,6 @@ Expand the server status indicator to show:
 #### Touch Bar Support
 - Quick actions: next/previous, bookmark, mark read
 - Feed switching
-
-### Medium Effort Features
-
-#### Per-Feed Notification Settings
-- Toggle notifications on/off per individual feed
-- Accessible from feed context menu
-- Store preference in database
 
 ### Larger Features (Future)
 
