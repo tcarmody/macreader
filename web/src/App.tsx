@@ -41,6 +41,20 @@ function AppContent() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [addFeedOpen, setAddFeedOpen] = useState(false)
 
+  // Handle OAuth token from URL (workaround for third-party cookie blocking)
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search)
+    const authToken = params.get('auth_token')
+    if (authToken) {
+      // Store token in localStorage
+      localStorage.setItem('authToken', authToken)
+      // Remove token from URL
+      window.history.replaceState({}, '', window.location.pathname)
+      // Refresh auth status
+      queryClient.invalidateQueries({ queryKey: ['authStatus'] })
+    }
+  }, [])
+
   // Check auth status
   const { data: authStatus, isLoading: authLoading, error: authError } = useAuthStatus()
 

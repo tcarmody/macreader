@@ -107,7 +107,23 @@ def create_session_cookie(user: UserSession, response: Response) -> None:
 
 
 def get_session_from_cookie(request: Request) -> Optional[UserSession]:
-    """Extract and validate session from cookie."""
+    """Extract and validate session from cookie or Authorization header."""
+    # First try Authorization header (for cross-origin requests where cookies don't work)
+    auth_header = request.headers.get("Authorization")
+    if auth_header and auth_header.startswith("Bearer "):
+        token = auth_header[7:]  # Remove "Bearer " prefix
+        try:
+            serializer = get_serializer()
+            session_data = serializer.loads(token, max_age=config.SESSION_MAX_AGE)
+            return UserSession(**session_data)
+        except SignatureExpired:
+            logger.debug("Auth token expired")
+        except BadSignature:
+            logger.warning("Invalid auth token signature")
+        except Exception as e:
+            logger.warning(f"Error parsing auth token: {e}")
+
+    # Fall back to cookie
     session_cookie = request.cookies.get("session")
     if not session_cookie:
         return None
@@ -299,30 +315,23 @@ async def oauth_callback(provider: str, request: Request):
         created_at=datetime.now(timezone.utc).isoformat(),
     )
 
-    # Create response that sets cookie and then redirects
-    # Using HTML redirect instead of 302 because some reverse proxies (like Railway)
-    # may strip Set-Cookie headers from redirect responses
+    # Create session token
+    serializer = get_serializer()
+    session_data = user.model_dump()
+    session_token = serializer.dumps(session_data)
+
+    # Redirect to frontend with token in URL
+    # Frontend will store this and send it back on API requests
     frontend_url = config.OAUTH_FRONTEND_URL or "/"
-    logger.warning(f"OAuth callback: redirecting to frontend_url={frontend_url}")
+    redirect_url = f"{frontend_url}?auth_token={session_token}"
+    logger.warning(f"OAuth callback: redirecting to {frontend_url} with token")
 
-    html_content = f"""
-    <!DOCTYPE html>
-    <html>
-    <head>
-        <meta http-equiv="refresh" content="0;url={frontend_url}">
-    </head>
-    <body>
-        <p>Login successful. Redirecting...</p>
-        <script>window.location.href = "{frontend_url}";</script>
-    </body>
-    </html>
-    """
+    response = RedirectResponse(url=redirect_url, status_code=302)
 
-    from fastapi.responses import HTMLResponse
-    response = HTMLResponse(content=html_content, status_code=200)
+    # Also try to set the cookie (may work for same-site requests)
     create_session_cookie(user, response)
 
-    logger.warning(f"OAuth login successful: {email} via {provider}, cookie set on response")
+    logger.warning(f"OAuth login successful: {email} via {provider}")
     return response
 
 

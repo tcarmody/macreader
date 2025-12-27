@@ -32,6 +32,12 @@ function getHeaders(): HeadersInit {
     'Content-Type': 'application/json',
   }
 
+  // OAuth token from localStorage (workaround for third-party cookie blocking)
+  const authToken = localStorage.getItem('authToken')
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`
+  }
+
   // Auth API key for backend access
   if (config.apiKey) {
     headers['X-API-Key'] = config.apiKey
@@ -326,8 +332,17 @@ export async function batchSummarize(
 // OAuth Authentication
 export async function getAuthStatus(): Promise<OAuthStatus> {
   const config = getApiConfig()
+  const headers: HeadersInit = {}
+
+  // Include auth token if available
+  const authToken = localStorage.getItem('authToken')
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`
+  }
+
   const response = await fetch(`${config.backendUrl}/auth/status`, {
     credentials: 'include',  // Include cookies for session
+    headers,
   })
   if (!response.ok) {
     throw new Error('Failed to get auth status')
@@ -342,6 +357,8 @@ export function getLoginUrl(provider: 'google' | 'github'): string {
 
 export async function logout(): Promise<void> {
   const config = getApiConfig()
+  // Clear local auth token
+  localStorage.removeItem('authToken')
   await fetch(`${config.backendUrl}/auth/logout`, {
     method: 'POST',
     credentials: 'include',
