@@ -87,6 +87,8 @@ def create_session_cookie(user: UserSession, response: Response) -> None:
     session_data = user.model_dump()
     signed_value = serializer.dumps(session_data)
 
+    logger.warning(f"Setting cookie with value length: {len(signed_value)}")
+
     # Set cookie with security options
     # Use samesite="none" for cross-origin requests (frontend on different domain than backend)
     # This requires secure=True (HTTPS)
@@ -99,6 +101,9 @@ def create_session_cookie(user: UserSession, response: Response) -> None:
         samesite="none",  # Allow cross-origin cookie sending
         path="/",
     )
+
+    # Log the actual Set-Cookie header that will be sent
+    logger.warning(f"Response headers after set_cookie: {dict(response.headers)}")
 
 
 def get_session_from_cookie(request: Request) -> Optional[UserSession]:
