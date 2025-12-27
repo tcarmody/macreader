@@ -88,13 +88,15 @@ def create_session_cookie(user: UserSession, response: Response) -> None:
     signed_value = serializer.dumps(session_data)
 
     # Set cookie with security options
+    # Use samesite="none" for cross-origin requests (frontend on different domain than backend)
+    # This requires secure=True (HTTPS)
     response.set_cookie(
         key="session",
         value=signed_value,
         max_age=config.SESSION_MAX_AGE,
         httponly=True,
-        secure=config.SESSION_SECURE,
-        samesite="lax",
+        secure=True,  # Required for samesite="none"
+        samesite="none",  # Allow cross-origin cookie sending
         path="/",
     )
 
