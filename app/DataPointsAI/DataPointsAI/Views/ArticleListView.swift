@@ -110,26 +110,37 @@ struct ArticleListView: View {
     }
 
     private var articleList: some View {
-        List(selection: $listSelection) {
-            ForEach(appState.groupedArticles) { group in
-                Section {
-                    ForEach(group.articles) { article in
-                        ArticleRow(
-                            article: article,
-                            isMultiSelected: appState.selectedArticleIds.contains(article.id)
+        ScrollViewReader { proxy in
+            List(selection: $listSelection) {
+                ForEach(appState.groupedArticles) { group in
+                    Section {
+                        ForEach(group.articles) { article in
+                            ArticleRow(
+                                article: article,
+                                isMultiSelected: appState.selectedArticleIds.contains(article.id)
+                            )
+                            .tag(article.id)
+                            .id(article.id)
+                        }
+                    } header: {
+                        GroupSectionHeader(
+                            group: group,
+                            groupByMode: appState.groupByMode,
+                            groupIndex: appState.groupedArticles.firstIndex(where: { $0.id == group.id }) ?? 0
                         )
-                        .tag(article.id)
                     }
-                } header: {
-                    GroupSectionHeader(
-                        group: group,
-                        groupByMode: appState.groupByMode,
-                        groupIndex: appState.groupedArticles.firstIndex(where: { $0.id == group.id }) ?? 0
-                    )
+                }
+            }
+            .listStyle(.inset)
+            .animation(.easeInOut(duration: 0.25), value: appState.groupByMode)
+            .onChange(of: appState.selectedArticle?.id) { _, newId in
+                if let id = newId {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        proxy.scrollTo(id, anchor: .center)
+                    }
                 }
             }
         }
-        .listStyle(.inset)
     }
 
     private func handleSelectionChange(from oldSelection: Set<Article.ID>, to newSelection: Set<Article.ID>) {

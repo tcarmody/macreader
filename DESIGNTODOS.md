@@ -72,6 +72,9 @@ Future UI/UX improvements to consider for the macOS RSS reader app.
 ### Notification Rules
 - [x] **Per-Feed Notification Settings** - Smart notification rules with feed, keyword, and author filters; three priority levels (High, Normal, Low)
 
+### Visual Polish
+- [x] **Transition Animations** - Article selection slide-in transition, fade when switching grouping modes, smooth scroll-to-selection
+
 ---
 
 ## Still To-Do
@@ -80,13 +83,6 @@ Future UI/UX improvements to consider for the macOS RSS reader app.
 
 #### Quick Preview on Hover
 Add a popover preview when hovering over articles in the list (like Mail.app's quick look), showing more of the summary without full selection.
-
-### Visual Polish
-
-#### Transition Animations
-- Animate article selection transitions
-- Add subtle fade when switching between grouping modes
-- Smooth scroll-to-selection
 
 #### Status Bar Enhancements
 Expand the server status indicator to show:

@@ -21,6 +21,11 @@ struct ArticleDetailView: View {
         Group {
             if let article = appState.selectedArticleDetail {
                 articleContentView(article: article)
+                    .id(article.id)
+                    .transition(.asymmetric(
+                        insertion: .opacity.combined(with: .move(edge: .trailing)),
+                        removal: .opacity
+                    ))
             } else {
                 ContentUnavailableView(
                     "Select an Article",
@@ -29,6 +34,7 @@ struct ArticleDetailView: View {
                 )
             }
         }
+        .animation(.easeInOut(duration: 0.2), value: appState.selectedArticleDetail?.id)
         .toolbar {
             toolbarContent
         }
