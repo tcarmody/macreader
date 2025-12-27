@@ -182,4 +182,56 @@ extension AppState {
             self.error = error.localizedDescription
         }
     }
+
+    // MARK: - Navigation
+
+    /// Navigate to the next article in the list
+    func navigateToNextArticle() {
+        let allArticles = groupedArticles.flatMap { $0.articles }
+        guard !allArticles.isEmpty else { return }
+
+        if let currentId = selectedArticle?.id,
+           let currentIndex = allArticles.firstIndex(where: { $0.id == currentId }) {
+            let newIndex = min(currentIndex + 1, allArticles.count - 1)
+            let article = allArticles[newIndex]
+            selectedArticle = article
+            selectedArticleIds = [article.id]
+            Task {
+                await loadArticleDetail(for: article)
+            }
+        } else {
+            // No current selection, start at first
+            let article = allArticles[0]
+            selectedArticle = article
+            selectedArticleIds = [article.id]
+            Task {
+                await loadArticleDetail(for: article)
+            }
+        }
+    }
+
+    /// Navigate to the previous article in the list
+    func navigateToPreviousArticle() {
+        let allArticles = groupedArticles.flatMap { $0.articles }
+        guard !allArticles.isEmpty else { return }
+
+        if let currentId = selectedArticle?.id,
+           let currentIndex = allArticles.firstIndex(where: { $0.id == currentId }) {
+            let newIndex = max(currentIndex - 1, 0)
+            let article = allArticles[newIndex]
+            selectedArticle = article
+            selectedArticleIds = [article.id]
+            Task {
+                await loadArticleDetail(for: article)
+            }
+        } else {
+            // No current selection, start at last
+            let article = allArticles[allArticles.count - 1]
+            selectedArticle = article
+            selectedArticleIds = [article.id]
+            Task {
+                await loadArticleDetail(for: article)
+            }
+        }
+    }
 }

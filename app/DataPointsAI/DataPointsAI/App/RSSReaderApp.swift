@@ -80,6 +80,20 @@ struct RSSReaderApp: App {
                     }
                 }
                 .keyboardShortcut("k", modifiers: .command)
+
+                Divider()
+
+                Button("Next Article") {
+                    appState.navigateToNextArticle()
+                }
+                .keyboardShortcut("]", modifiers: .command)
+                .disabled(appState.groupedArticles.flatMap { $0.articles }.isEmpty)
+
+                Button("Previous Article") {
+                    appState.navigateToPreviousArticle()
+                }
+                .keyboardShortcut("[", modifiers: .command)
+                .disabled(appState.groupedArticles.flatMap { $0.articles }.isEmpty)
             }
 
             // View menu
@@ -106,6 +120,13 @@ struct RSSReaderApp: App {
                     }
                 }
                 .keyboardShortcut("3", modifiers: .command)
+
+                Button("Show Today") {
+                    DispatchQueue.main.async {
+                        appState.selectedFilter = .today
+                    }
+                }
+                .keyboardShortcut("4", modifiers: .command)
 
                 Divider()
 
@@ -172,6 +193,14 @@ struct RSSReaderApp: App {
 
             // Article menu
             CommandMenu("Article") {
+                Button("Open in Browser") {
+                    if let article = appState.selectedArticle {
+                        NSWorkspace.shared.open(article.url)
+                    }
+                }
+                .keyboardShortcut(.return, modifiers: .command)
+                .disabled(appState.selectedArticle == nil)
+
                 Button("Open Original") {
                     if let article = appState.selectedArticle {
                         NSWorkspace.shared.open(article.url)
@@ -179,6 +208,18 @@ struct RSSReaderApp: App {
                 }
                 .keyboardShortcut("o", modifiers: .command)
                 .disabled(appState.selectedArticle == nil)
+
+                Divider()
+
+                Button("Summarize Article") {
+                    if let article = appState.selectedArticle {
+                        Task {
+                            try? await appState.summarizeArticle(articleId: article.id)
+                        }
+                    }
+                }
+                .keyboardShortcut("s", modifiers: [.command, .shift])
+                .disabled(appState.selectedArticle == nil || appState.selectedArticleDetail?.summaryFull != nil)
 
                 Button("Toggle Bookmark") {
                     if let article = appState.selectedArticle {
@@ -191,6 +232,15 @@ struct RSSReaderApp: App {
                 .disabled(appState.selectedArticle == nil)
 
                 Divider()
+
+                Button("Copy Link") {
+                    if let article = appState.selectedArticle {
+                        NSPasteboard.general.clearContents()
+                        NSPasteboard.general.setString(article.url.absoluteString, forType: .string)
+                    }
+                }
+                .keyboardShortcut("l", modifiers: .command)
+                .disabled(appState.selectedArticle == nil)
 
                 Button("Copy Article URL") {
                     if let article = appState.selectedArticle {
