@@ -101,6 +101,12 @@ struct ArticleDetailView: View {
                     scrollState.scrollToTop()
                 }
             }
+
+            // Status bar at bottom
+            ArticleDetailStatusBar(
+                article: article,
+                scrollProgress: scrollState.scrollProgress
+            )
         }
     }
 
