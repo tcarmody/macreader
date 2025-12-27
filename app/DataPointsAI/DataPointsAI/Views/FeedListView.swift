@@ -167,8 +167,14 @@ struct FeedListView: View {
             // Only react to actual filter changes
             guard oldValue != newValue else { return }
 
-            // When a filter is selected, deselect library
-            appState.deselectLibrary()
+            // If library or newsletters is showing and user selects a different filter,
+            // deselect library/newsletters and reload articles
+            if appState.showLibrary {
+                appState.deselectLibrary()
+            }
+            if appState.showNewsletters {
+                appState.deselectNewsletters()
+            }
 
             // Reload articles for the new filter
             Task {

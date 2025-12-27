@@ -119,7 +119,8 @@ extension AppState {
     func selectLibrary() {
         showLibrary = true
         showNewsletters = false
-        selectedFilter = .all
+        // Don't change selectedFilter - it triggers onChange handler which interferes
+        // with library mode. The filter is separate from library view.
         selectedArticle = nil
         selectedArticleDetail = nil
         Task {
@@ -148,7 +149,8 @@ extension AppState {
     func selectNewsletters() {
         showNewsletters = true
         showLibrary = false
-        selectedFilter = .all
+        // Don't change selectedFilter - it triggers onChange handler which interferes
+        // with newsletters mode. The filter is separate from newsletters view.
         selectedArticle = nil
         selectedArticleDetail = nil
         selectedLibraryItem = nil
