@@ -53,6 +53,12 @@ class AppState: ObservableObject {
     @Published var isClusteringLoading: Bool = false
     @Published var readerModeEnabled: Bool = false
 
+    // Pagination state
+    @Published var isLoadingMore: Bool = false
+    @Published var hasMoreArticles: Bool = true
+    @Published var currentArticleOffset: Int = 0
+    static let articlesPageSize: Int = 100
+
     // Server-side grouped articles (for topic/feed modes)
     @Published internal var serverGroupedArticles: [ArticleGroup] = []
 

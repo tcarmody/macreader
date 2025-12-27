@@ -130,6 +130,11 @@ struct ArticleListView: View {
                         )
                     }
                 }
+
+                // Load more row for pagination
+                if appState.hasMoreArticles {
+                    loadMoreRow
+                }
             }
             .listStyle(.inset)
             .animation(.easeInOut(duration: 0.25), value: appState.groupByMode)
@@ -139,6 +144,42 @@ struct ArticleListView: View {
                         proxy.scrollTo(id, anchor: .center)
                     }
                 }
+            }
+        }
+    }
+
+    @ViewBuilder
+    private var loadMoreRow: some View {
+        HStack {
+            Spacer()
+            if appState.isLoadingMore {
+                ProgressView()
+                    .scaleEffect(0.8)
+                Text("Loading more...")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } else {
+                Button {
+                    Task {
+                        await appState.loadMoreArticles()
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: "arrow.down.circle")
+                        Text("Load More Articles")
+                    }
+                    .font(.callout)
+                    .foregroundStyle(.blue)
+                }
+                .buttonStyle(.plain)
+            }
+            Spacer()
+        }
+        .padding(.vertical, 12)
+        .onAppear {
+            // Auto-load more when this row becomes visible
+            Task {
+                await appState.loadMoreArticles()
             }
         }
     }

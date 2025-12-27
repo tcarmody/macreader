@@ -26,7 +26,8 @@ final class APIClient {
         bookmarkedOnly: Bool = false,
         summarizedOnly: Bool? = nil,
         hideDuplicates: Bool = false,
-        limit: Int = 50
+        limit: Int = 100,
+        offset: Int = 0
     ) async throws -> [Article] {
         var queryItems: [URLQueryItem] = []
 
@@ -46,6 +47,9 @@ final class APIClient {
             queryItems.append(URLQueryItem(name: "hide_duplicates", value: "true"))
         }
         queryItems.append(URLQueryItem(name: "limit", value: String(limit)))
+        if offset > 0 {
+            queryItems.append(URLQueryItem(name: "offset", value: String(offset)))
+        }
 
         return try await get(path: "/articles", queryItems: queryItems)
     }

@@ -3,33 +3,68 @@ import Foundation
 // MARK: - Article Operations
 extension AppState {
 
-    func loadArticlesForCurrentFilter() async throws -> [Article] {
+    func loadArticlesForCurrentFilter(offset: Int = 0) async throws -> [Article] {
         let hideDupes = settings.hideDuplicates
+        let limit = Self.articlesPageSize
 
         switch selectedFilter {
         case .all:
-            return try await apiClient.getArticles(hideDuplicates: hideDupes)
+            return try await apiClient.getArticles(hideDuplicates: hideDupes, limit: limit, offset: offset)
         case .unread:
-            return try await apiClient.getArticles(unreadOnly: true, hideDuplicates: hideDupes)
+            return try await apiClient.getArticles(unreadOnly: true, hideDuplicates: hideDupes, limit: limit, offset: offset)
         case .today:
-            let allArticles = try await apiClient.getArticles(hideDuplicates: hideDupes)
+            let allArticles = try await apiClient.getArticles(hideDuplicates: hideDupes, limit: limit, offset: offset)
             let calendar = Calendar.current
             let startOfToday = calendar.startOfDay(for: Date())
             return allArticles.filter { ($0.publishedAt ?? $0.createdAt) >= startOfToday }
         case .bookmarked:
-            return try await apiClient.getArticles(bookmarkedOnly: true, hideDuplicates: hideDupes)
+            return try await apiClient.getArticles(bookmarkedOnly: true, hideDuplicates: hideDupes, limit: limit, offset: offset)
         case .summarized:
-            return try await apiClient.getArticles(summarizedOnly: true, hideDuplicates: hideDupes)
+            return try await apiClient.getArticles(summarizedOnly: true, hideDuplicates: hideDupes, limit: limit, offset: offset)
         case .unsummarized:
-            return try await apiClient.getArticles(summarizedOnly: false, hideDuplicates: hideDupes)
+            return try await apiClient.getArticles(summarizedOnly: false, hideDuplicates: hideDupes, limit: limit, offset: offset)
         case .feed(let id):
-            return try await apiClient.getArticles(feedId: id, hideDuplicates: hideDupes)
+            return try await apiClient.getArticles(feedId: id, hideDuplicates: hideDupes, limit: limit, offset: offset)
         }
     }
 
     func reloadArticles() async {
         do {
-            articles = try await loadArticlesForCurrentFilter()
+            // Reset pagination state
+            currentArticleOffset = 0
+            hasMoreArticles = true
+
+            let newArticles = try await loadArticlesForCurrentFilter()
+            articles = newArticles
+
+            // If we got fewer than page size, no more to load
+            hasMoreArticles = newArticles.count >= Self.articlesPageSize
+            currentArticleOffset = newArticles.count
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    /// Load more articles for infinite scroll pagination
+    func loadMoreArticles() async {
+        guard !isLoadingMore && hasMoreArticles else { return }
+
+        isLoadingMore = true
+        defer { isLoadingMore = false }
+
+        do {
+            let moreArticles = try await loadArticlesForCurrentFilter(offset: currentArticleOffset)
+
+            if moreArticles.isEmpty {
+                hasMoreArticles = false
+            } else {
+                // Append new articles, avoiding duplicates
+                let existingIds = Set(articles.map { $0.id })
+                let uniqueNewArticles = moreArticles.filter { !existingIds.contains($0.id) }
+                articles.append(contentsOf: uniqueNewArticles)
+                currentArticleOffset += moreArticles.count
+                hasMoreArticles = moreArticles.count >= Self.articlesPageSize
+            }
         } catch {
             self.error = error.localizedDescription
         }
