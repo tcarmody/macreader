@@ -78,7 +78,11 @@ async function fetchApi<T>(
       : typeof error.message === 'string'
         ? error.message
         : `HTTP ${response.status}`
-    throw new Error(message)
+
+    // Create error with status code for auth handling
+    const err = new Error(message) as Error & { status?: number }
+    err.status = response.status
+    throw err
   }
 
   return response.json()

@@ -6,16 +6,32 @@ import { ArticleDetail } from '@/components/ArticleDetail'
 import { LibraryList, LibraryItemDetail } from '@/components/LibraryView'
 import { SettingsDialog } from '@/components/SettingsDialog'
 import { AddFeedDialog } from '@/components/AddFeedDialog'
+import { LoginScreen } from '@/components/LoginScreen'
 import { useAppStore, applyTheme } from '@/store/app-store'
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts'
+import { useAuthStatus } from '@/hooks/use-queries'
 
-// Create a client
+// Create a client with global error handling
 const queryClient = new QueryClient({
   defaultOptions: {
     queries: {
-      retry: 1,
+      retry: (failureCount, error) => {
+        // Don't retry on auth errors
+        if ((error as Error & { status?: number }).status === 401) {
+          return false
+        }
+        return failureCount < 1
+      },
       staleTime: 30000,
       refetchOnWindowFocus: false,
+    },
+    mutations: {
+      onError: (error) => {
+        // On 401, invalidate auth status to trigger login screen
+        if ((error as Error & { status?: number }).status === 401) {
+          queryClient.invalidateQueries({ queryKey: ['authStatus'] })
+        }
+      },
     },
   },
 })
@@ -24,6 +40,9 @@ function AppContent() {
   const { currentView, theme, apiConfig } = useAppStore()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [addFeedOpen, setAddFeedOpen] = useState(false)
+
+  // Check auth status
+  const { data: authStatus, isLoading: authLoading, error: authError } = useAuthStatus()
 
   // Apply theme on mount and changes
   useEffect(() => {
@@ -42,6 +61,9 @@ function AppContent() {
 
   // Show setup if no backend URL configured
   const needsSetup = !apiConfig.backendUrl
+
+  // Check if login is required: OAuth is enabled but user is not logged in
+  const needsLogin = authStatus?.enabled && !authStatus?.user
 
   // Keyboard shortcuts
   useKeyboardShortcuts({
@@ -66,6 +88,21 @@ function AppContent() {
           <SettingsDialog isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
         </div>
       </div>
+    )
+  }
+
+  // Show login screen if OAuth is enabled but user not authenticated
+  if (needsLogin || authLoading) {
+    return (
+      <>
+        <LoginScreen
+          authStatus={authStatus}
+          isLoading={authLoading}
+          error={authError}
+          onOpenSettings={() => setSettingsOpen(true)}
+        />
+        <SettingsDialog isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
+      </>
     )
   }
 

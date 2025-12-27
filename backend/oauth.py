@@ -254,9 +254,26 @@ async def oauth_callback(provider: str, request: Request):
         )
 
     # Check if email is in allowed list (if configured)
+    # Supports exact emails (user@example.com) and domain wildcards (*@example.com)
     if config.OAUTH_ALLOWED_EMAILS:
         allowed = [e.strip().lower() for e in config.OAUTH_ALLOWED_EMAILS.split(",")]
-        if email.lower() not in allowed:
+        email_lower = email.lower()
+        email_domain = email_lower.split("@")[-1]
+
+        is_allowed = False
+        for pattern in allowed:
+            if pattern.startswith("*@"):
+                # Domain wildcard: *@example.com matches any email from that domain
+                allowed_domain = pattern[2:]  # Remove "*@" prefix
+                if email_domain == allowed_domain:
+                    is_allowed = True
+                    break
+            elif email_lower == pattern:
+                # Exact email match
+                is_allowed = True
+                break
+
+        if not is_allowed:
             logger.warning(f"OAuth login rejected for email: {email}")
             raise HTTPException(
                 status_code=403,
