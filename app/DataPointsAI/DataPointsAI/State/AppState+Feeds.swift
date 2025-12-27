@@ -47,6 +47,9 @@ extension AppState {
 
     func refreshFeeds() async throws {
         let previousUnreadCount = totalUnreadCount
+        isSyncing = true
+
+        defer { isSyncing = false }
 
         try await apiClient.refreshFeeds()
 
@@ -67,13 +70,18 @@ extension AppState {
         await refresh()
         lastRefreshTime = Date()
 
+        // Track new articles since last check
+        let newArticleCount = totalUnreadCount - previousUnreadCount
+        if newArticleCount > 0 {
+            newArticlesSinceLastCheck = newArticleCount
+        }
+
         // Check for smart notifications (articles matching rules)
         if settings.notificationsEnabled {
             await sendSmartNotifications()
         }
 
         // Fallback to generic count notification if no smart notifications were sent
-        let newArticleCount = totalUnreadCount - previousUnreadCount
         if newArticleCount > 0 && settings.notificationsEnabled {
             // Only send generic notification if we didn't send any smart notifications
             let pending = try? await apiClient.getPendingNotifications()

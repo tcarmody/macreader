@@ -32,6 +32,8 @@ class AppState: ObservableObject {
     @Published var serverError: String?
     @Published var serverStatus: ServerHealthStatus = .unknown
     @Published var lastRefreshTime: Date?
+    @Published var newArticlesSinceLastCheck: Int = 0
+    @Published var isSyncing: Bool = false
 
     // Network state
     let networkMonitor = NetworkMonitor.shared
