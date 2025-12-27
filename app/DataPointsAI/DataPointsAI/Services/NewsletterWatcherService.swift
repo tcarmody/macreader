@@ -27,6 +27,9 @@ actor NewsletterWatcherService {
     /// Files currently being processed (to avoid duplicates)
     private var processingFiles: Set<String> = []
 
+    /// Files that have been processed (to avoid re-importing on restart)
+    private var processedFiles: Set<String> = []
+
     /// Callback for import results
     private var onImportResult: ((ImportResult) -> Void)?
 
@@ -39,6 +42,13 @@ actor NewsletterWatcherService {
     }
 
     private init() {}
+
+    /// Start watching if auto-import is enabled - call this on app launch
+    func startWatchingIfEnabled() async {
+        if isAutoImportEnabled && watchFolder != nil {
+            await startWatching()
+        }
+    }
 
     // MARK: - Configuration
 
@@ -112,6 +122,17 @@ actor NewsletterWatcherService {
 
     // MARK: - Folder Watching
 
+    /// Helper class to bridge FSEvents callback to actor
+    private class FSEventContext {
+        weak var service: NewsletterWatcherService?
+        init(service: NewsletterWatcherService) {
+            self.service = service
+        }
+    }
+
+    /// Stored reference to the context to prevent deallocation
+    private var fsEventContext: FSEventContext?
+
     /// Start watching the configured folder
     func startWatching() async {
         guard eventStream == nil else { return }  // Already watching
@@ -134,20 +155,25 @@ actor NewsletterWatcherService {
         // Process any existing .eml files first
         await processExistingFiles()
 
-        // Set up FSEvents stream
+        // Set up FSEvents stream with a context wrapper
         let pathsToWatch = [folderURL.path] as CFArray
+
+        // Create context wrapper that holds a reference to self
+        let contextWrapper = FSEventContext(service: self)
+        fsEventContext = contextWrapper
 
         var context = FSEventStreamContext(
             version: 0,
-            info: Unmanaged.passUnretained(self).toOpaque(),
+            info: Unmanaged.passUnretained(contextWrapper).toOpaque(),
             retain: nil,
             release: nil,
             copyDescription: nil
         )
 
-        let callback: FSEventStreamCallback = { streamRef, clientCallBackInfo, numEvents, eventPaths, eventFlags, eventIds in
+        let callback: FSEventStreamCallback = { _, clientCallBackInfo, _, eventPaths, _, _ in
             guard let clientCallBackInfo = clientCallBackInfo else { return }
-            let service = Unmanaged<NewsletterWatcherService>.fromOpaque(clientCallBackInfo).takeUnretainedValue()
+            let contextWrapper = Unmanaged<FSEventContext>.fromOpaque(clientCallBackInfo).takeUnretainedValue()
+            guard let service = contextWrapper.service else { return }
 
             let paths = unsafeBitCast(eventPaths, to: NSArray.self) as! [String]
 
@@ -162,7 +188,7 @@ actor NewsletterWatcherService {
             &context,
             pathsToWatch,
             FSEventStreamEventId(kFSEventStreamEventIdSinceNow),
-            1.0,  // Latency in seconds
+            0.5,  // Reduced latency for faster response
             UInt32(kFSEventStreamCreateFlagUseCFTypes | kFSEventStreamCreateFlagFileEvents)
         )
 
@@ -182,6 +208,7 @@ actor NewsletterWatcherService {
         FSEventStreamRelease(stream)
         eventStream = nil
         watchFolderURL = nil
+        fsEventContext = nil
 
         print("Newsletter watcher: Stopped watching")
     }

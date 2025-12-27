@@ -21,6 +21,9 @@ struct RSSReaderApp: App {
                         // Setup notification categories
                         NotificationService.shared.setupNotificationCategories()
 
+                        // Start newsletter watcher if auto-import is enabled
+                        await NewsletterWatcherService.shared.startWatchingIfEnabled()
+
                         // Check if we need to show the setup wizard (no API keys configured)
                         if !hasCheckedForAPIKey {
                             hasCheckedForAPIKey = true
