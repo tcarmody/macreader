@@ -8,6 +8,7 @@ from bs4 import BeautifulSoup
 
 from .config import state
 from .source_extractor import SourceExtractor
+from .notification_service import NotificationService, NotificationMatch
 
 
 def _is_usable_content(content: str) -> bool:
@@ -152,32 +153,44 @@ async def refresh_all_feeds():
         return
 
     state.refresh_in_progress = True
+    state.last_refresh_notifications = []  # Clear previous notifications
     try:
         feeds = state.db.get_feeds()
         for feed in feeds:
-            await refresh_single_feed(feed.id, feed.url)
+            matches = await refresh_single_feed(feed.id, feed.url)
+            state.last_refresh_notifications.extend(matches)
     finally:
         state.refresh_in_progress = False
 
 
-async def refresh_single_feed(feed_id: int, feed_url: str):
-    """Refresh a single feed."""
+async def refresh_single_feed(feed_id: int, feed_url: str) -> list[NotificationMatch]:
+    """Refresh a single feed. Returns notification matches."""
     if not state.db or not state.feed_parser:
-        return
+        return []
 
     try:
         feed = await state.feed_parser.fetch(feed_url)
-        await fetch_feed_articles(feed_id, feed)
+        matches = await fetch_feed_articles(feed_id, feed)
         state.db.update_feed_fetched(feed_id)
+        return matches
     except Exception as e:
         state.db.update_feed_fetched(feed_id, error=str(e))
         print(f"Error refreshing feed {feed_id}: {e}")
+        return []
 
 
-async def fetch_feed_articles(feed_id: int, feed):
-    """Add articles from a parsed feed to the database."""
+async def fetch_feed_articles(feed_id: int, feed) -> list[NotificationMatch]:
+    """
+    Add articles from a parsed feed to the database.
+
+    Returns a list of NotificationMatch objects for articles that matched
+    notification rules (for the caller to handle, e.g., send to client).
+    """
     if not state.db or not state.fetcher:
-        return
+        return []
+
+    notification_matches: list[NotificationMatch] = []
+    notification_service = NotificationService(state.db)
 
     for item in feed.items:
         if not item.url:
@@ -225,6 +238,15 @@ async def fetch_feed_articles(feed_id: int, feed):
             site_name=site_name,
         )
 
+        if article_id:
+            # Check for notification rules match
+            article = state.db.get_article(article_id)
+            if article:
+                match = notification_service.evaluate_and_record(article)
+                if match:
+                    notification_matches.append(match)
+                    print(f"Notification match for article {article_id}: {match.match_reason}")
+
         # Auto-summarize only if setting is enabled and API key configured
         auto_summarize = state.db.get_setting("auto_summarize", "false").lower() == "true"
         if article_id and state.summarizer and content and auto_summarize:
@@ -241,3 +263,5 @@ async def fetch_feed_articles(feed_id: int, feed):
                 )
             except Exception as e:
                 print(f"Error summarizing article {item.url}: {e}")
+
+    return notification_matches

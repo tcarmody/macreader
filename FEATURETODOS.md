@@ -13,13 +13,13 @@ This document contains detailed implementation plans for future features in the 
 | Newsletter Email Import | ✅ Done | Gmail IMAP with OAuth2, scheduled polling |
 | OPML Export | ✅ Done | Export endpoint with categorization |
 | Lazy Loading | ⚠️ Partial | Pagination in backend, needs infinite scroll in UI |
-| Smart Notifications | ⚠️ Partial | Swift NotificationService exists, needs backend rules engine |
+| Smart Notifications | ✅ Done | Backend rules engine, notification history, Swift settings UI |
 | Article Sharing | ❌ Not Started | |
 | Smart Folders | ❌ Not Started | |
 | Saved Searches | ❌ Not Started | |
 | Article Tagging | ❌ Not Started | |
 | Reading Lists | ❌ Not Started | |
-| Background App Refresh | ❌ Not Started | |
+| Background App Refresh | ✅ Done | Timer-based refresh like NetNewsWire |
 | Reading Statistics | ❌ Not Started | |
 | Feed Analytics | ❌ Not Started | |
 | Feed Discovery | ❌ Not Started | |
@@ -31,46 +31,54 @@ This document contains detailed implementation plans for future features in the 
 
 ## Advanced Features
 
-### 1. Smart Notifications ⚠️ PARTIAL
+### 1. Smart Notifications ✅ DONE
 
 **Goal:** Alert users to important or trending articles based on configurable criteria.
 
-**Current Status:**
-- ✅ Swift `NotificationService.swift` exists with authorization, delivery, categories, and actions
-- ❌ Backend rules engine not implemented
-- ❌ Notification preferences table not created
+**Implementation Complete:**
+- ✅ Backend notification rules engine (`backend/notification_service.py`)
+- ✅ Database tables: `notification_rules` and `notification_history`
+- ✅ API endpoints for rules CRUD: `/notifications/rules`, `/notifications/history`, `/notifications/pending`
+- ✅ Integration with feed refresh to evaluate new articles against rules
+- ✅ Keyword matching (title, content, summary)
+- ✅ Author-based notifications
+- ✅ Feed-specific notification rules
+- ✅ Priority levels: high, normal, low
+- ✅ Swift `NotificationRulesSettingsView` for managing rules
+- ✅ Notification history display in settings
+- ✅ Smart notifications sent after feed refresh for matching articles
+- ✅ Uses existing `NotificationService.swift` for delivery
 
-**Remaining Backend Changes:**
-- Add `notifications` table to track notification preferences and history
-  ```sql
-  CREATE TABLE notifications (
-    id INTEGER PRIMARY KEY,
-    feed_id INTEGER,
+**Database Schema:**
+```sql
+CREATE TABLE notification_rules (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL,
+    feed_id INTEGER REFERENCES feeds(id),
     keyword TEXT,
+    author TEXT,
     priority TEXT CHECK(priority IN ('high', 'normal', 'low')),
     enabled INTEGER DEFAULT 1,
-    created_at TEXT DEFAULT CURRENT_TIMESTAMP
-  );
-  ```
-- Add notification rules engine in `backend/services/notification_service.py`:
-  - Keyword matching (title/content contains specific terms)
-  - Author-based notifications
-  - High-engagement detection (if implementing social metrics)
-- Create endpoints: `POST /notifications/rules`, `GET /notifications/rules`, `DELETE /notifications/rules/{id}`
-- Add background job to evaluate new articles against rules
+    created_at TIMESTAMP
+);
 
-**Remaining Swift App Changes:**
-- Add Notifications section to SettingsView with:
-  - Master toggle for notifications
-  - Per-feed notification settings
-  - Keyword-based alert rules
-  - Quiet hours configuration
-- Display notification history in a dedicated view
+CREATE TABLE notification_history (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    article_id INTEGER REFERENCES articles(id),
+    rule_id INTEGER REFERENCES notification_rules(id),
+    notified_at TIMESTAMP,
+    dismissed INTEGER DEFAULT 0
+);
+```
 
-**Considerations:**
-- Use `UNUserNotificationCenter` for local notifications
-- Consider notification grouping by feed
-- Add "Mark as Read" action directly from notification
+**API Endpoints:**
+- `GET /notifications/rules` - List all rules
+- `POST /notifications/rules` - Create a rule
+- `PUT /notifications/rules/{id}` - Update a rule
+- `DELETE /notifications/rules/{id}` - Delete a rule
+- `GET /notifications/history` - Get notification history
+- `POST /notifications/history/{id}/dismiss` - Dismiss notification
+- `GET /notifications/pending` - Get pending notifications from last refresh
 
 ---
 
@@ -582,41 +590,32 @@ This document contains detailed implementation plans for future features in the 
 
 ## Performance
 
-### 17. Background App Refresh ❌ NOT STARTED
+### 17. Background App Refresh ✅ DONE
 
 **Goal:** Keep feeds updated even when app is in background.
 
-**Swift App Changes:**
-- Implement `NSBackgroundActivityScheduler`:
-  ```swift
-  class BackgroundRefreshService {
-      private let scheduler = NSBackgroundActivityScheduler(identifier: "com.datapointsai.refresh")
+**Implementation Complete:**
+- ✅ `BackgroundRefreshService.swift` - Timer-based refresh service inspired by NetNewsWire
+- ✅ `RefreshInterval` enum with options: Manually, 10min, 30min, 1hr, 2hr, 4hr, 8hr
+- ✅ Integrated into General Settings tab with interval picker
+- ✅ Persists interval and last refresh time in UserDefaults
+- ✅ Handles system wake from sleep (fires old timers)
+- ✅ Handles app becoming active (fires old timers)
+- ✅ Dock badge updates automatically after background refresh
+- ✅ Smart notifications evaluated for new articles during background refresh
 
-      func setup() {
-          scheduler.interval = 30 * 60  // 30 minutes
-          scheduler.repeats = true
-          scheduler.qualityOfService = .utility
-          scheduler.schedule { completion in
-              Task {
-                  await self.performBackgroundRefresh()
-                  completion(.finished)
-              }
-          }
-      }
-  }
-  ```
-- Add background refresh toggle in Settings
-- Show "Last updated" timestamp in UI
-- Badge app icon with unread count (optional)
+**Key Components:**
+- `BackgroundRefreshService.shared` - Singleton service
+- `configure(with: AppState)` - Called during server startup
+- `setRefreshInterval(_:)` - Update refresh frequency
+- `timedRefresh()` - Trigger immediate refresh
+- `fireOldTimer()` - Handle missed refresh windows
 
-**Considerations:**
-- Respect system energy settings
-- Reduce frequency on battery power
-- Skip refresh if on metered connection (if detectable)
-
-**Notification Integration:**
-- Send notification for high-priority articles found during background refresh
-- Batch notifications to avoid spam
+**Settings UI:**
+- Background Refresh section in General tab
+- Interval picker with all options
+- Shows "Last refresh: X ago" when enabled
+- Descriptive footer text explaining the feature
 
 ---
 
@@ -681,12 +680,12 @@ This document contains detailed implementation plans for future features in the 
 
 ### Phase 3 - Performance & Analytics (High Value, Higher Effort)
 8. Lazy Loading for Large Feeds (partial)
-9. Background App Refresh
+9. ~~Background App Refresh~~ ✅
 10. Reading Statistics
 11. Feed Analytics
 
 ### Phase 4 - Advanced Features (Variable Value, Higher Effort)
-12. Smart Notifications (partial)
+12. ~~Smart Notifications~~ ✅
 13. Export Options (partial)
 14. Feed Discovery
 

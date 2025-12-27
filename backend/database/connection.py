@@ -120,6 +120,33 @@ class DatabaseConnection:
             self._migrate_add_column(connection, "articles", "has_code_blocks", "BOOLEAN DEFAULT FALSE")
             self._migrate_add_column(connection, "articles", "site_name", "TEXT")
 
+            # Create notification_rules table for smart notifications
+            connection.executescript("""
+                CREATE TABLE IF NOT EXISTS notification_rules (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    feed_id INTEGER REFERENCES feeds(id) ON DELETE CASCADE,
+                    keyword TEXT,
+                    author TEXT,
+                    priority TEXT CHECK(priority IN ('high', 'normal', 'low')) DEFAULT 'normal',
+                    enabled INTEGER DEFAULT 1,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+
+                CREATE TABLE IF NOT EXISTS notification_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    article_id INTEGER REFERENCES articles(id) ON DELETE CASCADE,
+                    rule_id INTEGER REFERENCES notification_rules(id) ON DELETE SET NULL,
+                    notified_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    dismissed INTEGER DEFAULT 0
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_notification_rules_enabled ON notification_rules(enabled);
+                CREATE INDEX IF NOT EXISTS idx_notification_rules_feed ON notification_rules(feed_id);
+                CREATE INDEX IF NOT EXISTS idx_notification_history_article ON notification_history(article_id);
+                CREATE INDEX IF NOT EXISTS idx_notification_history_notified ON notification_history(notified_at DESC);
+            """)
+
     def _migrate_add_column(
         self,
         conn: sqlite3.Connection,

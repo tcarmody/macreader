@@ -14,7 +14,8 @@ from .feed_repository import FeedRepository
 from .library_repository import LibraryRepository
 from .settings_repository import SettingsRepository
 from .gmail_repository import GmailRepository
-from .models import DBArticle, DBFeed
+from .notification_repository import NotificationRepository
+from .models import DBArticle, DBFeed, DBNotificationRule, DBNotificationHistory
 
 
 class Database:
@@ -37,6 +38,7 @@ class Database:
         self.library = LibraryRepository(self._connection)
         self.settings = SettingsRepository(self._connection)
         self.gmail = GmailRepository(self._connection)
+        self.notifications = NotificationRepository(self._connection)
 
     # ─────────────────────────────────────────────────────────────
     # Feed operations (delegated to FeedRepository)
@@ -273,3 +275,76 @@ class Database:
 
     def delete_gmail_config(self):
         return self.gmail.delete_config()
+
+    # ─────────────────────────────────────────────────────────────
+    # Notification operations (delegated to NotificationRepository)
+    # ─────────────────────────────────────────────────────────────
+
+    def add_notification_rule(
+        self,
+        name: str,
+        feed_id: int | None = None,
+        keyword: str | None = None,
+        author: str | None = None,
+        priority: str = "normal",
+    ) -> int:
+        return self.notifications.add_rule(name, feed_id, keyword, author, priority)
+
+    def get_notification_rule(self, rule_id: int) -> DBNotificationRule | None:
+        return self.notifications.get_rule(rule_id)
+
+    def get_notification_rules(
+        self, enabled_only: bool = False
+    ) -> list[DBNotificationRule]:
+        return self.notifications.get_all_rules(enabled_only)
+
+    def get_notification_rules_for_feed(
+        self, feed_id: int
+    ) -> list[DBNotificationRule]:
+        return self.notifications.get_rules_for_feed(feed_id)
+
+    def update_notification_rule(
+        self,
+        rule_id: int,
+        name: str | None = None,
+        feed_id: int | None = None,
+        clear_feed: bool = False,
+        keyword: str | None = None,
+        clear_keyword: bool = False,
+        author: str | None = None,
+        clear_author: bool = False,
+        priority: str | None = None,
+        enabled: bool | None = None,
+    ):
+        return self.notifications.update_rule(
+            rule_id, name, feed_id, clear_feed, keyword,
+            clear_keyword, author, clear_author, priority, enabled
+        )
+
+    def delete_notification_rule(self, rule_id: int):
+        return self.notifications.delete_rule(rule_id)
+
+    def add_notification_history(
+        self, article_id: int, rule_id: int | None = None
+    ) -> int:
+        return self.notifications.add_history(article_id, rule_id)
+
+    def get_notification_history(
+        self,
+        limit: int = 50,
+        offset: int = 0,
+        include_dismissed: bool = False
+    ) -> list[DBNotificationHistory]:
+        return self.notifications.get_history(limit, offset, include_dismissed)
+
+    def was_article_notified(self, article_id: int) -> bool:
+        return self.notifications.was_notified(article_id)
+
+    def dismiss_notification(self, history_id: int):
+        return self.notifications.dismiss_notification(history_id)
+
+    def dismiss_all_notifications(self):
+        return self.notifications.dismiss_all()
+
+    def clear_old_notification_history(self, days: int = 30):
+        return self.notifications.clear_old_history(days)

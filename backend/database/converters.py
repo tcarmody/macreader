@@ -6,7 +6,7 @@ import json
 import sqlite3
 from datetime import datetime
 
-from .models import DBArticle, DBFeed
+from .models import DBArticle, DBFeed, DBNotificationRule, DBNotificationHistory
 
 
 def row_to_article(row: sqlite3.Row) -> DBArticle:
@@ -107,4 +107,43 @@ def row_to_feed(row: sqlite3.Row) -> DBFeed:
         last_fetched=last_fetched,
         fetch_error=fetch_error,
         unread_count=unread_count
+    )
+
+
+def row_to_notification_rule(row: sqlite3.Row) -> DBNotificationRule:
+    """Convert a database row to a DBNotificationRule."""
+    created_at = datetime.now()
+    if row["created_at"]:
+        try:
+            created_at = datetime.fromisoformat(row["created_at"])
+        except ValueError:
+            pass
+
+    return DBNotificationRule(
+        id=row["id"],
+        name=row["name"],
+        feed_id=row["feed_id"],
+        keyword=row["keyword"],
+        author=row["author"],
+        priority=row["priority"] or "normal",
+        enabled=bool(row["enabled"]),
+        created_at=created_at,
+    )
+
+
+def row_to_notification_history(row: sqlite3.Row) -> DBNotificationHistory:
+    """Convert a database row to a DBNotificationHistory."""
+    notified_at = datetime.now()
+    if row["notified_at"]:
+        try:
+            notified_at = datetime.fromisoformat(row["notified_at"])
+        except ValueError:
+            pass
+
+    return DBNotificationHistory(
+        id=row["id"],
+        article_id=row["article_id"],
+        rule_id=row["rule_id"],
+        notified_at=notified_at,
+        dismissed=bool(row["dismissed"]),
     )

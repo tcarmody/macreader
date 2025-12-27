@@ -86,6 +86,7 @@ class AppState: ObservableObject {
     internal let notificationService = NotificationService.shared
     internal let spotlightService = SpotlightService.shared
     internal let dockBadgeService = DockBadgeService.shared
+    internal let backgroundRefreshService = BackgroundRefreshService.shared
 
     // MARK: - Computed Properties
 

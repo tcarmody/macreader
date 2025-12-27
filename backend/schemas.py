@@ -5,6 +5,7 @@ Pydantic models for API request/response validation.
 from pydantic import BaseModel
 
 from .database import DBArticle, DBFeed
+from .database.models import DBNotificationRule, DBNotificationHistory
 
 
 # ─────────────────────────────────────────────────────────────
@@ -415,3 +416,103 @@ class ExtractFromHTMLRequest(BaseModel):
     """
     html: str
     url: str  # The URL the HTML was fetched from (for context)
+
+
+# ─────────────────────────────────────────────────────────────
+# Notification Schemas
+# ─────────────────────────────────────────────────────────────
+
+class NotificationRuleResponse(BaseModel):
+    """Notification rule for display."""
+    id: int
+    name: str
+    feed_id: int | None
+    feed_name: str | None = None  # Populated by API
+    keyword: str | None
+    author: str | None
+    priority: str
+    enabled: bool
+    created_at: str
+
+    @classmethod
+    def from_db(
+        cls, rule: DBNotificationRule, feed_name: str | None = None
+    ) -> "NotificationRuleResponse":
+        return cls(
+            id=rule.id,
+            name=rule.name,
+            feed_id=rule.feed_id,
+            feed_name=feed_name,
+            keyword=rule.keyword,
+            author=rule.author,
+            priority=rule.priority,
+            enabled=rule.enabled,
+            created_at=rule.created_at.isoformat(),
+        )
+
+
+class CreateNotificationRuleRequest(BaseModel):
+    """Request to create a notification rule."""
+    name: str
+    feed_id: int | None = None
+    keyword: str | None = None
+    author: str | None = None
+    priority: str = "normal"
+
+
+class UpdateNotificationRuleRequest(BaseModel):
+    """Request to update a notification rule."""
+    name: str | None = None
+    feed_id: int | None = None
+    clear_feed: bool = False
+    keyword: str | None = None
+    clear_keyword: bool = False
+    author: str | None = None
+    clear_author: bool = False
+    priority: str | None = None
+    enabled: bool | None = None
+
+
+class NotificationHistoryResponse(BaseModel):
+    """Notification history entry."""
+    id: int
+    article_id: int
+    article_title: str | None = None  # Populated by API
+    rule_id: int | None
+    rule_name: str | None = None  # Populated by API
+    notified_at: str
+    dismissed: bool
+
+    @classmethod
+    def from_db(
+        cls,
+        history: DBNotificationHistory,
+        article_title: str | None = None,
+        rule_name: str | None = None,
+    ) -> "NotificationHistoryResponse":
+        return cls(
+            id=history.id,
+            article_id=history.article_id,
+            article_title=article_title,
+            rule_id=history.rule_id,
+            rule_name=rule_name,
+            notified_at=history.notified_at.isoformat(),
+            dismissed=history.dismissed,
+        )
+
+
+class NotificationMatchResponse(BaseModel):
+    """Article that matched notification rules during refresh."""
+    article_id: int
+    article_title: str
+    feed_id: int
+    rule_id: int
+    rule_name: str
+    priority: str
+    match_reason: str
+
+
+class PendingNotificationsResponse(BaseModel):
+    """Response containing articles that triggered notifications."""
+    count: int
+    notifications: list[NotificationMatchResponse]

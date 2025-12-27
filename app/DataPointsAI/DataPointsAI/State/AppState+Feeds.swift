@@ -67,9 +67,37 @@ extension AppState {
         await refresh()
         lastRefreshTime = Date()
 
+        // Check for smart notifications (articles matching rules)
+        if settings.notificationsEnabled {
+            await sendSmartNotifications()
+        }
+
+        // Fallback to generic count notification if no smart notifications were sent
         let newArticleCount = totalUnreadCount - previousUnreadCount
         if newArticleCount > 0 && settings.notificationsEnabled {
-            await notificationService.notifyNewArticles(count: newArticleCount)
+            // Only send generic notification if we didn't send any smart notifications
+            let pending = try? await apiClient.getPendingNotifications()
+            if pending?.count == 0 || pending == nil {
+                await notificationService.notifyNewArticles(count: newArticleCount)
+            }
+        }
+    }
+
+    /// Fetch and send notifications for articles that matched notification rules
+    private func sendSmartNotifications() async {
+        do {
+            let pending = try await apiClient.getPendingNotifications()
+
+            for match in pending.notifications {
+                // Send individual notification for each matched article
+                await notificationService.notifyArticle(
+                    title: match.articleTitle,
+                    summary: match.matchReason,
+                    articleId: match.articleId
+                )
+            }
+        } catch {
+            print("Failed to fetch pending notifications: \(error)")
         }
     }
 

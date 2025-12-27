@@ -418,3 +418,122 @@ struct EmptyResponse: Codable, Sendable {
     let success: Bool?
     let message: String?
 }
+
+// MARK: - Notification Rules & History
+
+extension APIClient {
+    /// Notification rule from the server
+    struct NotificationRule: Codable, Sendable, Identifiable {
+        let id: Int
+        let name: String
+        let feedId: Int?
+        let feedName: String?
+        let keyword: String?
+        let author: String?
+        let priority: String
+        let enabled: Bool
+        let createdAt: Date
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case name
+            case feedId = "feed_id"
+            case feedName = "feed_name"
+            case keyword
+            case author
+            case priority
+            case enabled
+            case createdAt = "created_at"
+        }
+    }
+
+    /// Request to create a notification rule
+    struct CreateNotificationRuleRequest: Encodable {
+        let name: String
+        let feedId: Int?
+        let keyword: String?
+        let author: String?
+        let priority: String
+
+        enum CodingKeys: String, CodingKey {
+            case name
+            case feedId = "feed_id"
+            case keyword
+            case author
+            case priority
+        }
+    }
+
+    /// Request to update a notification rule
+    struct UpdateNotificationRuleRequest: Encodable {
+        let name: String?
+        let feedId: Int?
+        let clearFeed: Bool
+        let keyword: String?
+        let clearKeyword: Bool
+        let author: String?
+        let clearAuthor: Bool
+        let priority: String?
+        let enabled: Bool?
+
+        enum CodingKeys: String, CodingKey {
+            case name
+            case feedId = "feed_id"
+            case clearFeed = "clear_feed"
+            case keyword
+            case clearKeyword = "clear_keyword"
+            case author
+            case clearAuthor = "clear_author"
+            case priority
+            case enabled
+        }
+    }
+
+    /// Notification history entry
+    struct NotificationHistoryEntry: Codable, Sendable, Identifiable {
+        let id: Int
+        let articleId: Int
+        let articleTitle: String?
+        let ruleId: Int?
+        let ruleName: String?
+        let notifiedAt: Date
+        let dismissed: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case id
+            case articleId = "article_id"
+            case articleTitle = "article_title"
+            case ruleId = "rule_id"
+            case ruleName = "rule_name"
+            case notifiedAt = "notified_at"
+            case dismissed
+        }
+    }
+
+    /// Article that matched a notification rule during refresh
+    struct NotificationMatch: Codable, Sendable {
+        let articleId: Int
+        let articleTitle: String
+        let feedId: Int
+        let ruleId: Int
+        let ruleName: String
+        let priority: String
+        let matchReason: String
+
+        enum CodingKeys: String, CodingKey {
+            case articleId = "article_id"
+            case articleTitle = "article_title"
+            case feedId = "feed_id"
+            case ruleId = "rule_id"
+            case ruleName = "rule_name"
+            case priority
+            case matchReason = "match_reason"
+        }
+    }
+
+    /// Response containing pending notifications from last refresh
+    struct PendingNotificationsResponse: Codable, Sendable {
+        let count: Int
+        let notifications: [NotificationMatch]
+    }
+}

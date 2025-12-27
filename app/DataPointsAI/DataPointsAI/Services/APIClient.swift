@@ -436,6 +436,99 @@ final class APIClient {
         return try JSONHelper.decode(NewsletterImportResponse.self, from: responseData)
     }
 
+    // MARK: - Notification Rules
+
+    /// Get all notification rules
+    func getNotificationRules(enabledOnly: Bool = false) async throws -> [NotificationRule] {
+        var queryItems: [URLQueryItem] = []
+        if enabledOnly {
+            queryItems.append(URLQueryItem(name: "enabled_only", value: "true"))
+        }
+        return try await get(path: "/notifications/rules", queryItems: queryItems)
+    }
+
+    /// Create a notification rule
+    func createNotificationRule(
+        name: String,
+        feedId: Int? = nil,
+        keyword: String? = nil,
+        author: String? = nil,
+        priority: String = "normal"
+    ) async throws -> NotificationRule {
+        return try await post(
+            path: "/notifications/rules",
+            body: CreateNotificationRuleRequest(
+                name: name,
+                feedId: feedId,
+                keyword: keyword,
+                author: author,
+                priority: priority
+            )
+        )
+    }
+
+    /// Update a notification rule
+    func updateNotificationRule(
+        id: Int,
+        name: String? = nil,
+        feedId: Int? = nil,
+        clearFeed: Bool = false,
+        keyword: String? = nil,
+        clearKeyword: Bool = false,
+        author: String? = nil,
+        clearAuthor: Bool = false,
+        priority: String? = nil,
+        enabled: Bool? = nil
+    ) async throws -> NotificationRule {
+        return try await put(
+            path: "/notifications/rules/\(id)",
+            body: UpdateNotificationRuleRequest(
+                name: name,
+                feedId: feedId,
+                clearFeed: clearFeed,
+                keyword: keyword,
+                clearKeyword: clearKeyword,
+                author: author,
+                clearAuthor: clearAuthor,
+                priority: priority,
+                enabled: enabled
+            )
+        )
+    }
+
+    /// Delete a notification rule
+    func deleteNotificationRule(id: Int) async throws {
+        let _: EmptyResponse = try await delete(path: "/notifications/rules/\(id)")
+    }
+
+    // MARK: - Notification History
+
+    /// Get notification history
+    func getNotificationHistory(limit: Int = 50, includeDismissed: Bool = false) async throws -> [NotificationHistoryEntry] {
+        var queryItems: [URLQueryItem] = [
+            URLQueryItem(name: "limit", value: String(limit))
+        ]
+        if includeDismissed {
+            queryItems.append(URLQueryItem(name: "include_dismissed", value: "true"))
+        }
+        return try await get(path: "/notifications/history", queryItems: queryItems)
+    }
+
+    /// Dismiss a notification
+    func dismissNotification(historyId: Int) async throws {
+        let _: EmptyResponse = try await post(path: "/notifications/history/\(historyId)/dismiss")
+    }
+
+    /// Dismiss all notifications
+    func dismissAllNotifications() async throws {
+        let _: EmptyResponse = try await post(path: "/notifications/history/dismiss-all")
+    }
+
+    /// Get pending notifications from last refresh
+    func getPendingNotifications() async throws -> PendingNotificationsResponse {
+        return try await get(path: "/notifications/pending")
+    }
+
     // MARK: - HTTP Methods
 
     private func get<T: Decodable>(

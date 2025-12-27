@@ -31,6 +31,7 @@ from .routes import (
     misc_router,
     misc_public_router,
     standalone_router,
+    notifications_router,
 )
 from .routes.gmail import router as gmail_router
 from .rate_limit import setup_rate_limiting
@@ -231,3 +232,4 @@ app.include_router(feeds_router)
 app.include_router(summarization_router)
 app.include_router(standalone_router)
 app.include_router(gmail_router)
+app.include_router(notifications_router)

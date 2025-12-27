@@ -43,3 +43,24 @@ class DBFeed:
     last_fetched: datetime | None
     fetch_error: str | None = None
     unread_count: int = 0
+
+
+@dataclass
+class DBNotificationRule:
+    id: int
+    name: str
+    feed_id: int | None
+    keyword: str | None
+    author: str | None
+    priority: str  # 'high', 'normal', 'low'
+    enabled: bool
+    created_at: datetime
+
+
+@dataclass
+class DBNotificationHistory:
+    id: int
+    article_id: int
+    rule_id: int | None
+    notified_at: datetime
+    dismissed: bool

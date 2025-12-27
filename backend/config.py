@@ -135,6 +135,7 @@ class AppState:
     fetcher: "Fetcher | None" = None
     enhanced_fetcher: "object | None" = None  # EnhancedFetcher from advanced module
     refresh_in_progress: bool = False
+    last_refresh_notifications: list = []  # NotificationMatch objects from last refresh
 
 
 state = AppState()

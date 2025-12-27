@@ -12,6 +12,9 @@ extension AppState {
             await refresh()
             await archiveOldArticlesIfEnabled()
             try? await refreshFeeds()
+
+            // Configure background refresh service
+            backgroundRefreshService.configure(with: self)
         } catch {
             serverError = error.localizedDescription
             serverRunning = false
@@ -22,6 +25,7 @@ extension AppState {
     func stopServer() {
         healthCheckTask?.cancel()
         healthCheckTask = nil
+        backgroundRefreshService.invalidate()
         server.stop()
         serverRunning = false
         serverStatus = .unknown
