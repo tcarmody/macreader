@@ -294,10 +294,27 @@ async def oauth_callback(provider: str, request: Request):
         created_at=datetime.now(timezone.utc).isoformat(),
     )
 
-    # Create redirect response to frontend
+    # Create response that sets cookie and then redirects
+    # Using HTML redirect instead of 302 because some reverse proxies (like Railway)
+    # may strip Set-Cookie headers from redirect responses
     frontend_url = config.OAUTH_FRONTEND_URL or "/"
     logger.warning(f"OAuth callback: redirecting to frontend_url={frontend_url}")
-    response = RedirectResponse(url=frontend_url, status_code=302)
+
+    html_content = f"""
+    <!DOCTYPE html>
+    <html>
+    <head>
+        <meta http-equiv="refresh" content="0;url={frontend_url}">
+    </head>
+    <body>
+        <p>Login successful. Redirecting...</p>
+        <script>window.location.href = "{frontend_url}";</script>
+    </body>
+    </html>
+    """
+
+    from fastapi.responses import HTMLResponse
+    response = HTMLResponse(content=html_content, status_code=200)
     create_session_cookie(user, response)
 
     logger.warning(f"OAuth login successful: {email} via {provider}, cookie set on response")
