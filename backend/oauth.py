@@ -87,8 +87,6 @@ def create_session_cookie(user: UserSession, response: Response) -> None:
     session_data = user.model_dump()
     signed_value = serializer.dumps(session_data)
 
-    logger.warning(f"Setting cookie with value length: {len(signed_value)}")
-
     # Set cookie with security options
     # Use samesite="none" for cross-origin requests (frontend on different domain than backend)
     # This requires secure=True (HTTPS)
@@ -101,9 +99,6 @@ def create_session_cookie(user: UserSession, response: Response) -> None:
         samesite="none",  # Allow cross-origin cookie sending
         path="/",
     )
-
-    # Log the actual Set-Cookie header that will be sent
-    logger.warning(f"Response headers after set_cookie: {dict(response.headers)}")
 
 
 def get_session_from_cookie(request: Request) -> Optional[UserSession]:
@@ -324,14 +319,13 @@ async def oauth_callback(provider: str, request: Request):
     # Frontend will store this and send it back on API requests
     frontend_url = config.OAUTH_FRONTEND_URL or "/"
     redirect_url = f"{frontend_url}?auth_token={session_token}"
-    logger.warning(f"OAuth callback: redirecting to {frontend_url} with token")
 
     response = RedirectResponse(url=redirect_url, status_code=302)
 
     # Also try to set the cookie (may work for same-site requests)
     create_session_cookie(user, response)
 
-    logger.warning(f"OAuth login successful: {email} via {provider}")
+    logger.info(f"OAuth login successful: {email} via {provider}")
     return response
 
 
