@@ -104,25 +104,38 @@ Every feature must justify its existence. The redesign reduced backend code from
 
 ### Web Framework: React + Vite + Tailwind
 
-**Decision**: For the web PWA, use React 18 with Vite build tool, Tailwind CSS with shadcn/ui patterns.
+**Decision**: For the web PWA, use React 19 with Vite 7 build tool, Tailwind CSS 3.4 with shadcn/ui patterns.
 
 **Alternatives Considered**:
 - Next.js: SSR unnecessary for PWA, adds complexity
 - Vue: Smaller ecosystem for component libraries
 - Svelte: Less mature ecosystem
 
-**Rationale**: React has the largest ecosystem. Vite provides fast development builds. Tailwind + shadcn/ui provides a clean design system without heavy dependencies. The PWA approach means the frontend is static files that can be hosted anywhere (Vercel).
+**Rationale**: React has the largest ecosystem. Vite provides fast development builds with HMR. Tailwind + shadcn/ui provides a clean design system without heavy dependencies. The PWA approach means the frontend is static files that can be hosted anywhere (Vercel).
 
 ### State Management: Zustand + TanStack Query
 
-**Decision**: Zustand for client state, TanStack Query for server state.
+**Decision**: Zustand 5 for client state, TanStack Query 5 for server state.
 
 **Alternatives Considered**:
 - Redux: More boilerplate than necessary
 - Context only: Gets messy for complex state
 - SWR: TanStack Query has better TypeScript support
 
-**Rationale**: This combination cleanly separates UI state (Zustand: selected article, sidebar collapsed, theme) from server state (TanStack Query: articles, feeds, with caching and mutations).
+**Rationale**: This combination cleanly separates UI state (Zustand: selected article, sidebar collapsed, theme, API config) from server state (TanStack Query: articles, feeds, with caching, optimistic updates, and mutations). Zustand state is persisted to localStorage for session continuity.
+
+### Web PWA Architecture
+
+**Decision**: Full PWA with Workbox service workers, offline caching, and standalone display mode.
+
+**Key Features**:
+- Service worker caching via vite-plugin-pwa with auto-update strategy
+- Network-first caching for API responses (1-hour expiration)
+- Manifest with theme colors and multiple icon sizes (192x192, 512x512)
+- Standalone display mode for app-like experience
+- OAuth token storage in localStorage (workaround for third-party cookie blocking)
+
+**Rationale**: PWA enables installation on any platform without app store distribution. Service workers provide offline resilience and faster subsequent loads. The standalone display mode removes browser chrome for a native-like experience.
 
 ---
 
@@ -167,7 +180,9 @@ Every feature must justify its existence. The redesign reduced backend code from
 - Full custom theme builder: Over-engineered for the use case
 - CSS file uploads: Too technical for most users
 
-**Rationale**: Reading is a personal experience. Some users prefer warm sepia tones (Manuscript) for long reading sessions. Others want high contrast (Noir) or calming colors (Forest, Ocean). Each theme is carefully designed with coordinated background, text, link, and accent colors. CSS variables enable the themes to work in both the native WebView and the web PWA.
+**Rationale**: Reading is a personal experience. Some users prefer warm sepia tones (Manuscript) for long reading sessions. Others want high contrast (Noir) or calming colors (Forest, Ocean). Each theme is carefully designed with coordinated background, text, link, and accent colors. CSS variables enable the themes to work in the native WebView.
+
+**Platform Notes**: The macOS app offers all 7 article themes. The web PWA currently supports light/dark/system theme modes for the overall UI, with article themes planned for future parity.
 
 ### Typography Options
 
@@ -179,6 +194,8 @@ Every feature must justify its existence. The redesign reduced backend code from
 - Web fonts: Adds latency and external dependencies
 
 **Rationale**: Typography significantly affects reading comfort and speed. The font selection includes macOS system fonts that are guaranteed to be available (SF Pro, New York, SF Mono) plus classic fonts (Georgia, Palatino, Helvetica Neue). Categories help users find appropriate fonts: serif for long-form reading, sans-serif for scanning, monospace for code-heavy content.
+
+**Platform Notes**: The macOS app offers the full 28-font selection for both app UI and article content. The web PWA uses system fonts with Tailwind Typography for article prose styling.
 
 ### JavaScript Rendering (Optional)
 
@@ -270,9 +287,15 @@ This setup requires no DevOps expertise and costs ~$0-5/month for personal use.
 - Spotlight integration
 
 ### Phase 4: Web PWA
-- React frontend for cross-platform access
+- React 19 frontend for cross-platform access
+- Three-pane layout matching native app (Sidebar, Article List, Article Detail)
 - Shared backend with native app
-- User-provided API keys via headers
+- User-provided API keys via request headers
+- OAuth authentication (Google/GitHub)
+- Vim-style keyboard shortcuts (j/k/m/s/o/r)
+- Light/dark/system theme support
+- PWA with offline caching and standalone mode
+- Library view for standalone content (PDFs, URLs, documents)
 
 ### Phase 5: Reading Experience Polish
 - Article themes (7 stylized themes with CSS variables)
