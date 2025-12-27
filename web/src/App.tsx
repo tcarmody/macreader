@@ -91,8 +91,11 @@ function AppContent() {
     )
   }
 
-  // Show login screen if OAuth is enabled but user not authenticated
-  if (needsLogin || authLoading) {
+  // Show login screen if:
+  // - Still loading auth status
+  // - OAuth is enabled but user not authenticated
+  // - Auth request failed (likely CORS or network issue)
+  if (authLoading || authError || needsLogin) {
     return (
       <>
         <LoginScreen

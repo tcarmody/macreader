@@ -23,14 +23,23 @@ export function LoginScreen({ authStatus, isLoading, error, onOpenSettings }: Lo
   }
 
   if (error) {
+    const isCorsError = error.message === 'Failed to fetch' || error.message.includes('NetworkError')
     return (
       <div className="h-screen flex items-center justify-center bg-background">
         <div className="max-w-md mx-auto text-center p-8">
           <AlertCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
           <h1 className="text-xl font-semibold mb-2">Connection Error</h1>
-          <p className="text-muted-foreground mb-6">
-            Unable to connect to the backend server. Please check your settings.
+          <p className="text-muted-foreground mb-4">
+            {isCorsError
+              ? "Unable to connect to the backend. This may be a CORS configuration issue."
+              : `Unable to connect to the backend server: ${error.message}`
+            }
           </p>
+          {isCorsError && (
+            <p className="text-xs text-muted-foreground mb-6">
+              Make sure CORS_ORIGINS is set on your backend to include this frontend's URL.
+            </p>
+          )}
           <Button onClick={onOpenSettings}>
             <Settings className="h-4 w-4 mr-2" />
             Open Settings
