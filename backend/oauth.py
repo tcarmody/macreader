@@ -193,6 +193,10 @@ async def login(provider: str, request: Request):
     # Generate callback URL
     redirect_uri = str(request.url_for("oauth_callback", provider=provider))
 
+    # Force HTTPS in production (behind reverse proxy like Railway/Vercel)
+    if redirect_uri.startswith("http://") and not redirect_uri.startswith("http://localhost") and not redirect_uri.startswith("http://127.0.0.1"):
+        redirect_uri = redirect_uri.replace("http://", "https://", 1)
+
     # Store state for CSRF protection
     state = secrets.token_urlsafe(32)
 
