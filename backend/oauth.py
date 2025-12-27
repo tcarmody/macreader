@@ -296,10 +296,11 @@ async def oauth_callback(provider: str, request: Request):
 
     # Create redirect response to frontend
     frontend_url = config.OAUTH_FRONTEND_URL or "/"
+    logger.info(f"OAuth callback: redirecting to frontend_url={frontend_url}")
     response = RedirectResponse(url=frontend_url, status_code=302)
     create_session_cookie(user, response)
 
-    logger.info(f"OAuth login successful: {email} via {provider}")
+    logger.info(f"OAuth login successful: {email} via {provider}, cookie set on response")
     return response
 
 
