@@ -15,6 +15,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
+from starlette.middleware.sessions import SessionMiddleware
 
 from .config import config, state
 from .database import Database
@@ -155,6 +156,11 @@ app.add_middleware(
     allow_headers=allowed_headers,
     expose_headers=["Retry-After"],  # For rate limiting
 )
+
+# Session middleware for OAuth state storage (required by authlib)
+# Uses SESSION_SECRET for signing - falls back to a default for non-OAuth use
+session_secret = config.SESSION_SECRET or "dev-session-secret-not-for-production"
+app.add_middleware(SessionMiddleware, secret_key=session_secret)
 
 # Setup rate limiting
 setup_rate_limiting(app)
