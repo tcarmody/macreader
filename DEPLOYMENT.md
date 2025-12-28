@@ -281,6 +281,8 @@ OAUTH_ALLOWED_EMAILS=you@gmail.com,friend@example.com
 
 Only users with emails in this list will be allowed to authenticate.
 
+> **Note:** Due to third-party cookie blocking in modern browsers, OAuth tokens are stored in localStorage rather than cookies. The backend passes the token via URL parameter after successful OAuth, and the frontend stores it for subsequent API requests.
+
 #### Option 4: Both API Key and OAuth
 
 You can enable both methods simultaneously. Users can authenticate via either:

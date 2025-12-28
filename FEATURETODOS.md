@@ -12,7 +12,7 @@ This document contains detailed implementation plans for future features in the 
 | Full-Text Extraction | ✅ Done | Site-specific extractors for Medium, Substack, GitHub, YouTube, Twitter, Wikipedia, Bloomberg |
 | Newsletter Email Import | ✅ Done | Gmail IMAP with OAuth2, scheduled polling |
 | OPML Export | ✅ Done | Export endpoint with categorization |
-| Lazy Loading | ⚠️ Partial | Pagination in backend, needs infinite scroll in UI |
+| Lazy Loading | ✅ Done | Backend pagination + infinite scroll in Swift UI |
 | Smart Notifications | ✅ Done | Backend rules engine, notification history, Swift settings UI |
 | Article Sharing | ❌ Not Started | |
 | Smart Folders | ❌ Not Started | |
@@ -619,49 +619,29 @@ CREATE TABLE notification_history (
 
 ---
 
-### 18. Lazy Loading for Large Feeds ⚠️ PARTIAL
+### 18. Lazy Loading for Large Feeds ✅ DONE
 
 **Goal:** Improve performance when viewing feeds with many articles.
 
-**Current Status:**
-- ✅ Pagination with limit/offset in backend
+**Implementation Complete:**
+- ✅ Pagination with limit/offset in backend (`articlesPageSize = 50`)
 - ✅ Database indexes on commonly queried columns
 - ✅ FTS5 full-text search with proper indexing
-- ❌ True infinite scroll in Swift UI not implemented
+- ✅ Infinite scroll in Swift UI (`ArticleListView.swift`)
+- ✅ `loadMoreArticles()` in AppState+Articles.swift
+- ✅ `hasMoreArticles` state tracking
+- ✅ Loading indicator at list bottom
+- ✅ Automatic loading when scrolling near bottom
 
-**Remaining Swift App Changes:**
-- Implement infinite scroll in article list:
-  ```swift
-  struct ArticleListView: View {
-      @State private var articles: [Article] = []
-      @State private var cursor: String?
-      @State private var isLoadingMore = false
+**Key Components:**
+- `AppState.articlesPageSize` - Page size constant (50)
+- `AppState.hasMoreArticles` - Tracks if more pages exist
+- `AppState.isLoadingMore` - Loading state for UI
+- `loadMoreArticles()` - Fetches next page and appends
 
-      var body: some View {
-          List(articles) { article in
-              ArticleRow(article: article)
-                  .onAppear {
-                      if article == articles.last {
-                          loadMore()
-                      }
-                  }
-          }
-      }
-  }
-  ```
-- Add loading indicators at list bottom
-- Cache loaded articles to avoid re-fetching on scroll back
-- Implement "Jump to date" for quick navigation in large feeds
-
-**Virtual Scrolling:**
-- Only render visible rows plus small buffer
-- Recycle row views for memory efficiency
-- Consider using `LazyVStack` with explicit frame heights
-
-**Search Optimization:**
-- Debounce search input (300ms)
-- Show "Searching..." indicator
-- Cache recent search results
+**Future Enhancements (Optional):**
+- "Jump to date" for quick navigation in large feeds
+- Search result caching
 
 ---
 
@@ -679,7 +659,7 @@ CREATE TABLE notification_history (
 7. ~~Full-Text Extraction Improvements~~ ✅
 
 ### Phase 3 - Performance & Analytics (High Value, Higher Effort)
-8. Lazy Loading for Large Feeds (partial)
+8. ~~Lazy Loading for Large Feeds~~ ✅
 9. ~~Background App Refresh~~ ✅
 10. Reading Statistics
 11. Feed Analytics
@@ -698,4 +678,4 @@ CREATE TABLE notification_history (
 ---
 
 *Document created: December 2024*
-*Last updated: December 2024*
+*Last updated: December 28, 2024*
