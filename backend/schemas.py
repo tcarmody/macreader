@@ -516,3 +516,80 @@ class PendingNotificationsResponse(BaseModel):
     """Response containing articles that triggered notifications."""
     count: int
     notifications: list[NotificationMatchResponse]
+
+
+# ─────────────────────────────────────────────────────────────
+# Reading Statistics Schemas
+# ─────────────────────────────────────────────────────────────
+
+class TimePeriod(BaseModel):
+    """Time period specification."""
+    type: str  # 'rolling' or 'calendar'
+    value: str  # '7d', '30d', '90d' for rolling; 'week', 'month', 'year' for calendar
+
+
+class SummarizationStatsResponse(BaseModel):
+    """Summarization statistics."""
+    total_articles: int
+    summarized_articles: int
+    summarization_rate: float  # percentage (0.0 to 1.0)
+    model_breakdown: dict[str, int]  # model_name -> count
+    avg_per_day: float
+    avg_per_week: float
+    period_start: str | None
+    period_end: str
+
+
+class TopicInfo(BaseModel):
+    """Single topic info."""
+    label: str
+    count: int
+    article_ids: list[int] | None = None
+
+
+class TopicTrend(BaseModel):
+    """Topic with frequency data."""
+    topic_hash: str
+    label: str
+    total_count: int
+    cluster_count: int
+
+
+class TopicStatsResponse(BaseModel):
+    """Topic statistics."""
+    current_topics: list[TopicInfo]
+    topic_trends: list[TopicTrend]
+    most_common: list[TopicInfo]
+
+
+class ReadingActivityStats(BaseModel):
+    """Reading activity statistics."""
+    articles_read: int
+    total_reading_time_minutes: int
+    avg_reading_time_minutes: float
+    bookmarks_added: int
+    read_by_day: dict[str, int]  # date -> count
+    read_by_feed: dict[str, int]  # feed_name -> count
+
+
+class ReadingStatsResponse(BaseModel):
+    """Complete reading statistics response."""
+    period: TimePeriod
+    period_start: str
+    period_end: str
+    summarization: SummarizationStatsResponse
+    topics: TopicStatsResponse
+    reading: ReadingActivityStats
+
+
+class TopicClusteringResponse(BaseModel):
+    """Response from topic clustering."""
+    topics: list[TopicInfo]
+    total_articles: int
+    persisted: bool
+
+
+class TopicTrendsResponse(BaseModel):
+    """Response with topic trends."""
+    trends: list[TopicTrend]
+    days: int

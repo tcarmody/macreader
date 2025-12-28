@@ -20,7 +20,7 @@ This document contains detailed implementation plans for future features in the 
 | Article Tagging | ❌ Not Started | |
 | Reading Lists | ❌ Not Started | |
 | Background App Refresh | ✅ Done | Timer-based refresh like NetNewsWire |
-| Reading Statistics | ❌ Not Started | |
+| Reading Statistics | ✅ Done | Statistics tab in Settings with summarization/reading/topic metrics |
 | Feed Analytics | ❌ Not Started | |
 | Feed Discovery | ❌ Not Started | |
 | iCloud Sync | ❌ Not Started | |
@@ -645,6 +645,34 @@ CREATE TABLE notification_history (
 
 ---
 
+### 19. Reading Statistics ✅ DONE
+
+**Goal:** Track and display reading statistics including summarization metrics and topic trends.
+
+**Implementation Complete:**
+- ✅ New `topic_history` database table for persisting topic clustering results
+- ✅ `StatisticsRepository` for reading stats, summarization stats, and topic history
+- ✅ API endpoints: `GET /statistics/reading-stats`, `POST /statistics/topics/cluster`, `GET /statistics/topics/trends`
+- ✅ Support for both rolling windows (7d/30d/90d) and calendar periods (week/month/year)
+- ✅ Swift `StatisticsSettingsView` - new Statistics tab in Settings
+- ✅ Summarization stats: total articles, summarized count, rate, model usage breakdown
+- ✅ Reading stats: articles read, reading time, bookmarks, top feeds
+- ✅ Topic stats: current topics, most common topics (historical trends)
+- ✅ On-demand topic clustering with AI-powered semantic grouping
+
+**Key Components:**
+- `backend/database/statistics_repository.py` - Database queries for statistics
+- `backend/routes/statistics.py` - API endpoints
+- `backend/database/models.py` - `DBTopicHistory` model
+- `app/.../Views/SettingsView.swift` - `StatisticsSettingsView` UI
+
+**Statistics Tracked:**
+- **Summarization**: Articles summarized vs total, summarization rate, model usage, avg per day/week
+- **Reading**: Articles read, total/average reading time, bookmarks added, reading by feed
+- **Topics**: Current topic distribution, historical topic trends, topic clustering persistence
+
+---
+
 ## Implementation Priority Recommendation
 
 ### Phase 1 - Core Improvements (High Value, Medium Effort)
@@ -661,7 +689,7 @@ CREATE TABLE notification_history (
 ### Phase 3 - Performance & Analytics (High Value, Higher Effort)
 8. ~~Lazy Loading for Large Feeds~~ ✅
 9. ~~Background App Refresh~~ ✅
-10. Reading Statistics
+10. ~~Reading Statistics~~ ✅
 11. Feed Analytics
 
 ### Phase 4 - Advanced Features (Variable Value, Higher Effort)

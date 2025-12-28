@@ -537,3 +537,134 @@ extension APIClient {
         let notifications: [NotificationMatch]
     }
 }
+
+// MARK: - Reading Statistics
+
+extension APIClient {
+    /// Time period for statistics
+    struct TimePeriod: Codable, Sendable {
+        let type: String   // "rolling" or "calendar"
+        let value: String  // "7d", "30d", "90d", "week", "month", "year"
+    }
+
+    /// Summarization statistics
+    struct SummarizationStats: Codable, Sendable {
+        let totalArticles: Int
+        let summarizedArticles: Int
+        let summarizationRate: Double
+        let modelBreakdown: [String: Int]
+        let avgPerDay: Double
+        let avgPerWeek: Double
+        let periodStart: String?
+        let periodEnd: String
+
+        enum CodingKeys: String, CodingKey {
+            case totalArticles = "total_articles"
+            case summarizedArticles = "summarized_articles"
+            case summarizationRate = "summarization_rate"
+            case modelBreakdown = "model_breakdown"
+            case avgPerDay = "avg_per_day"
+            case avgPerWeek = "avg_per_week"
+            case periodStart = "period_start"
+            case periodEnd = "period_end"
+        }
+    }
+
+    /// Single topic info
+    struct TopicInfo: Codable, Sendable {
+        let label: String
+        let count: Int
+        let articleIds: [Int]?
+
+        enum CodingKeys: String, CodingKey {
+            case label
+            case count
+            case articleIds = "article_ids"
+        }
+    }
+
+    /// Topic trend data
+    struct TopicTrend: Codable, Sendable {
+        let topicHash: String
+        let label: String
+        let totalCount: Int
+        let clusterCount: Int
+
+        enum CodingKeys: String, CodingKey {
+            case topicHash = "topic_hash"
+            case label
+            case totalCount = "total_count"
+            case clusterCount = "cluster_count"
+        }
+    }
+
+    /// Topic statistics
+    struct TopicStats: Codable, Sendable {
+        let currentTopics: [TopicInfo]
+        let topicTrends: [TopicTrend]
+        let mostCommon: [TopicInfo]
+
+        enum CodingKeys: String, CodingKey {
+            case currentTopics = "current_topics"
+            case topicTrends = "topic_trends"
+            case mostCommon = "most_common"
+        }
+    }
+
+    /// Reading activity statistics
+    struct ReadingActivityStats: Codable, Sendable {
+        let articlesRead: Int
+        let totalReadingTimeMinutes: Int
+        let avgReadingTimeMinutes: Double
+        let bookmarksAdded: Int
+        let readByDay: [String: Int]
+        let readByFeed: [String: Int]
+
+        enum CodingKeys: String, CodingKey {
+            case articlesRead = "articles_read"
+            case totalReadingTimeMinutes = "total_reading_time_minutes"
+            case avgReadingTimeMinutes = "avg_reading_time_minutes"
+            case bookmarksAdded = "bookmarks_added"
+            case readByDay = "read_by_day"
+            case readByFeed = "read_by_feed"
+        }
+    }
+
+    /// Complete reading statistics response
+    struct ReadingStatsResponse: Codable, Sendable {
+        let period: TimePeriod
+        let periodStart: String
+        let periodEnd: String
+        let summarization: SummarizationStats
+        let topics: TopicStats
+        let reading: ReadingActivityStats
+
+        enum CodingKeys: String, CodingKey {
+            case period
+            case periodStart = "period_start"
+            case periodEnd = "period_end"
+            case summarization
+            case topics
+            case reading
+        }
+    }
+
+    /// Response from topic clustering
+    struct TopicClusteringResponse: Codable, Sendable {
+        let topics: [TopicInfo]
+        let totalArticles: Int
+        let persisted: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case topics
+            case totalArticles = "total_articles"
+            case persisted
+        }
+    }
+
+    /// Response with topic trends
+    struct TopicTrendsResponse: Codable, Sendable {
+        let trends: [TopicTrend]
+        let days: Int
+    }
+}

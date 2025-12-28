@@ -8,6 +8,7 @@ from .summarization import router as summarization_router
 from .misc import router as misc_router, public_router as misc_public_router
 from .standalone import router as standalone_router
 from .notifications import router as notifications_router
+from .statistics import router as statistics_router
 
 __all__ = [
     "articles_router",
@@ -17,4 +18,5 @@ __all__ = [
     "misc_public_router",
     "standalone_router",
     "notifications_router",
+    "statistics_router",
 ]

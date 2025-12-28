@@ -15,6 +15,7 @@ from .library_repository import LibraryRepository
 from .settings_repository import SettingsRepository
 from .gmail_repository import GmailRepository
 from .notification_repository import NotificationRepository
+from .statistics_repository import StatisticsRepository
 from .models import DBArticle, DBFeed, DBNotificationRule, DBNotificationHistory
 
 
@@ -39,6 +40,7 @@ class Database:
         self.settings = SettingsRepository(self._connection)
         self.gmail = GmailRepository(self._connection)
         self.notifications = NotificationRepository(self._connection)
+        self.statistics = StatisticsRepository(self._connection)
 
     # ─────────────────────────────────────────────────────────────
     # Feed operations (delegated to FeedRepository)

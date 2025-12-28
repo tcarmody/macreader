@@ -145,6 +145,22 @@ class DatabaseConnection:
                 CREATE INDEX IF NOT EXISTS idx_notification_rules_feed ON notification_rules(feed_id);
                 CREATE INDEX IF NOT EXISTS idx_notification_history_article ON notification_history(article_id);
                 CREATE INDEX IF NOT EXISTS idx_notification_history_notified ON notification_history(notified_at DESC);
+
+                -- Topic history for reading statistics and trend analysis
+                CREATE TABLE IF NOT EXISTS topic_history (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    topic_label TEXT NOT NULL,
+                    topic_hash TEXT NOT NULL,
+                    article_count INTEGER NOT NULL,
+                    article_ids TEXT NOT NULL,
+                    clustered_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    period_start TIMESTAMP NOT NULL,
+                    period_end TIMESTAMP NOT NULL
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_topic_history_clustered ON topic_history(clustered_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_topic_history_hash ON topic_history(topic_hash);
+                CREATE INDEX IF NOT EXISTS idx_topic_history_period ON topic_history(period_start, period_end);
             """)
 
     def _migrate_add_column(

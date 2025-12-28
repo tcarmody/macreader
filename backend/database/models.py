@@ -64,3 +64,16 @@ class DBNotificationHistory:
     rule_id: int | None
     notified_at: datetime
     dismissed: bool
+
+
+@dataclass
+class DBTopicHistory:
+    """Persisted topic clustering result for trend analysis."""
+    id: int
+    topic_label: str
+    topic_hash: str
+    article_count: int
+    article_ids: list[int]
+    clustered_at: datetime
+    period_start: datetime
+    period_end: datetime

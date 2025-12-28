@@ -533,6 +533,38 @@ final class APIClient {
         return try await get(path: "/notifications/pending")
     }
 
+    // MARK: - Reading Statistics
+
+    /// Get comprehensive reading statistics
+    func getReadingStats(
+        periodType: String = "rolling",
+        periodValue: String = "30d"
+    ) async throws -> ReadingStatsResponse {
+        let queryItems = [
+            URLQueryItem(name: "period_type", value: periodType),
+            URLQueryItem(name: "period_value", value: periodValue)
+        ]
+        return try await get(path: "/statistics/reading-stats", queryItems: queryItems)
+    }
+
+    /// Trigger topic clustering for recent articles
+    func triggerTopicClustering(days: Int = 7, persist: Bool = true) async throws -> TopicClusteringResponse {
+        let queryItems = [
+            URLQueryItem(name: "days", value: String(days)),
+            URLQueryItem(name: "persist", value: String(persist))
+        ]
+        return try await post(path: "/statistics/topics/cluster", queryItems: queryItems)
+    }
+
+    /// Get topic frequency trends over time
+    func getTopicTrends(days: Int = 30, topN: Int = 10) async throws -> TopicTrendsResponse {
+        let queryItems = [
+            URLQueryItem(name: "days", value: String(days)),
+            URLQueryItem(name: "top_n", value: String(topN))
+        ]
+        return try await get(path: "/statistics/topics/trends", queryItems: queryItems)
+    }
+
     // MARK: - HTTP Methods
 
     private func get<T: Decodable>(
