@@ -514,46 +514,9 @@ CREATE TABLE notification_history (
 
 ## Analytics
 
-### 15. Reading Statistics ❌ NOT STARTED
+### 15. Reading Statistics ✅ DONE
 
-**Goal:** Show users insights about their reading habits.
-
-**Backend Changes:**
-- Add `reading_sessions` table:
-  ```sql
-  CREATE TABLE reading_sessions (
-    id INTEGER PRIMARY KEY,
-    article_id INTEGER REFERENCES articles(id),
-    started_at TEXT NOT NULL,
-    ended_at TEXT,
-    scroll_depth REAL,  -- 0.0 to 1.0
-    device TEXT
-  );
-  ```
-- Track when articles are opened and closed
-- Add endpoints:
-  - `GET /stats/reading` - Reading statistics
-  - `GET /stats/reading/history?period=week|month|year`
-
-**Metrics to Track:**
-- Articles read per day/week/month
-- Average reading time
-- Reading streaks
-- Time of day patterns
-- Most-read feeds/categories
-
-**Swift App Changes:**
-- Create `ReadingStatsView.swift`:
-  - Daily/weekly/monthly article counts
-  - Reading time charts
-  - Feed breakdown pie chart
-  - "Reading streak" gamification
-- Add stats summary to dashboard/home view
-- Track reading sessions locally, batch upload
-
-**Privacy Consideration:**
-- All stats stored locally by default
-- Optional anonymous aggregate sharing
+See [Section 19](#19-reading-statistics--done) for full implementation details.
 
 ---
 
@@ -706,4 +669,4 @@ CREATE TABLE notification_history (
 ---
 
 *Document created: December 2024*
-*Last updated: December 28, 2024*
+*Last updated: December 29, 2024*
