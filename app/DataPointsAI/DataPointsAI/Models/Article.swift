@@ -1,4 +1,29 @@
 import Foundation
+import AppKit
+
+// MARK: - HTML Entity Decoding
+
+extension String {
+    /// Decodes HTML entities (numeric and named) to their character equivalents
+    var htmlDecoded: String {
+        guard contains("&") else { return self }
+
+        // Use NSAttributedString for comprehensive HTML entity decoding
+        guard let data = self.data(using: .utf8),
+              let attributedString = try? NSAttributedString(
+                data: data,
+                options: [
+                    .documentType: NSAttributedString.DocumentType.html,
+                    .characterEncoding: String.Encoding.utf8.rawValue
+                ],
+                documentAttributes: nil
+              ) else {
+            return self
+        }
+
+        return attributedString.string
+    }
+}
 
 /// Article for list view (matches ArticleResponse from API)
 struct Article: Identifiable, Codable, Hashable, Sendable {
@@ -34,6 +59,9 @@ struct Article: Identifiable, Codable, Hashable, Sendable {
 
     /// The best URL to open - prefers source URL over aggregator URL
     var originalUrl: URL { sourceUrl ?? url }
+
+    /// Title with HTML entities decoded (smart quotes, etc.)
+    var displayTitle: String { title.htmlDecoded }
 
     /// Preview text for article list
     var summaryPreview: String? { summaryShort }
@@ -128,6 +156,9 @@ struct ArticleDetail: Identifiable, Codable, Sendable {
 
     /// The best URL to open - prefers source URL over aggregator URL
     var originalUrl: URL { sourceUrl ?? url }
+
+    /// Title with HTML entities decoded (smart quotes, etc.)
+    var displayTitle: String { title.htmlDecoded }
 
     /// Human-readable time since published
     var timeAgo: String {

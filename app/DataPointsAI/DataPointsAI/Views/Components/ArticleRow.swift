@@ -42,7 +42,7 @@ struct ArticleRow: View {
 
                 VStack(alignment: .leading, spacing: listDensity == .compact ? 2 : 4) {
                     // Title - bold for unread, semibold for read
-                    Text(article.title)
+                    Text(article.displayTitle)
                         .font(.headline)
                         .fontWeight(article.isRead ? .semibold : .bold)
                         .lineLimit(listDensity == .compact ? 1 : 2)

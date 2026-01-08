@@ -284,7 +284,7 @@ struct QuickOpenArticleRow: View {
                 .frame(width: 20)
 
             VStack(alignment: .leading, spacing: 2) {
-                Text(article.title)
+                Text(article.displayTitle)
                     .fontWeight(.medium)
                     .lineLimit(1)
 

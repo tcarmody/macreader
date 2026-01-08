@@ -20,7 +20,7 @@ struct ArticleHeaderView: View {
                     .background(Capsule().fill(Color.accentColor))
             }
 
-            Text(article.title)
+            Text(article.displayTitle)
                 .font(appTypeface.font(size: fontSize.titleFontSize + 4, weight: .bold))
                 .lineSpacing(fontSize.titleFontSize * (lineSpacing.multiplier - 1))
                 .foregroundStyle(.primary)
