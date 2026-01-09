@@ -11,6 +11,7 @@ struct SetupWizardView: View {
     @State private var isValidating: Bool = false
     @State private var validationError: String?
     @State private var validationSuccess: Bool = false
+    @State private var canContinueAnyway: Bool = false
 
     var onComplete: () -> Void
 
@@ -141,6 +142,7 @@ struct SetupWizardView: View {
                         apiKey = ""
                         validationError = nil
                         validationSuccess = false
+                        canContinueAnyway = false
                     }
                 }
             }
@@ -177,9 +179,17 @@ struct SetupWizardView: View {
                     .disabled(isValidating)
 
                 if let error = validationError {
-                    Label(error, systemImage: "exclamationmark.triangle.fill")
-                        .foregroundStyle(.red)
-                        .font(.caption)
+                    VStack(alignment: .leading, spacing: 6) {
+                        Label(error, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.red)
+                            .font(.caption)
+
+                        if canContinueAnyway {
+                            Text("Your API key has been saved. You can continue anyway and validate later when connectivity is restored.")
+                                .font(.caption)
+                                .foregroundStyle(.secondary)
+                        }
+                    }
                 }
 
                 if validationSuccess {
@@ -252,18 +262,26 @@ struct SetupWizardView: View {
                 .keyboardShortcut(.return, modifiers: [])
                 .buttonStyle(.borderedProminent)
             } else if currentStep == .enterKey {
-                Button(action: validateAndContinue) {
-                    if isValidating {
-                        ProgressView()
-                            .controlSize(.small)
-                            .padding(.horizontal, 8)
-                    } else {
-                        Text("Validate & Continue")
+                if canContinueAnyway {
+                    Button("Continue Anyway") {
+                        continueWithoutValidation()
                     }
+                    .keyboardShortcut(.return, modifiers: [])
+                    .buttonStyle(.borderedProminent)
+                } else {
+                    Button(action: validateAndContinue) {
+                        if isValidating {
+                            ProgressView()
+                                .controlSize(.small)
+                                .padding(.horizontal, 8)
+                        } else {
+                            Text("Validate & Continue")
+                        }
+                    }
+                    .disabled(apiKey.isEmpty || isValidating)
+                    .keyboardShortcut(.return, modifiers: [])
+                    .buttonStyle(.borderedProminent)
                 }
-                .disabled(apiKey.isEmpty || isValidating)
-                .keyboardShortcut(.return, modifiers: [])
-                .buttonStyle(.borderedProminent)
             } else {
                 Button("Continue") {
                     withAnimation {
@@ -308,6 +326,7 @@ struct SetupWizardView: View {
         isValidating = true
         validationError = nil
         validationSuccess = false
+        canContinueAnyway = false
 
         Task {
             do {
@@ -341,15 +360,31 @@ struct SetupWizardView: View {
                         }
                     } else {
                         validationError = "API key was saved but the server couldn't initialize the provider. Please check your key."
+                        canContinueAnyway = true
                     }
                     isValidating = false
                 }
             } catch {
                 await MainActor.run {
                     validationError = "Failed to validate: \(error.localizedDescription)"
+                    canContinueAnyway = true
                     isValidating = false
                 }
             }
+        }
+    }
+
+    private func continueWithoutValidation() {
+        // Update settings to use the selected provider even without validation
+        var newSettings = appState.settings
+        newSettings.llmProvider = selectedProvider
+        newSettings.defaultModel = selectedProvider.modelOptions.first?.value ?? "haiku"
+        Task {
+            try? await appState.updateSettings(newSettings)
+        }
+        // Move to complete step
+        withAnimation {
+            currentStep = .complete
         }
     }
 
