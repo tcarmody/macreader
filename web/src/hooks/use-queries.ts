@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import * as api from '@/api/client'
-import type { FilterType, GroupBy, SortBy, Article, ArticleDetail } from '@/types'
+import type { FilterType, GroupBy, SortBy, Article, ArticleDetail, GroupedArticlesResponse } from '@/types'
 
 // Query Keys
 export const queryKeys = {

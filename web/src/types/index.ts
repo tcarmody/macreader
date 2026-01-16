@@ -33,8 +33,14 @@ export interface ArticleDetail extends Article {
 }
 
 export interface ArticleGroup {
-  name: string
+  key: string
+  label: string
   articles: Article[]
+}
+
+export interface GroupedArticlesResponse {
+  group_by: string
+  groups: ArticleGroup[]
 }
 
 export interface StandaloneItem {

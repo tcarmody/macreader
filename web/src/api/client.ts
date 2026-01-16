@@ -2,7 +2,7 @@ import type {
   Feed,
   Article,
   ArticleDetail,
-  ArticleGroup,
+  GroupedArticlesResponse,
   StandaloneItem,
   StandaloneItemDetail,
   AppSettings,
@@ -197,7 +197,7 @@ export async function getArticles(params: {
   return fetchApi(`/articles?${searchParams}`)
 }
 
-export async function getArticlesGrouped(groupBy: GroupBy): Promise<ArticleGroup[]> {
+export async function getArticlesGrouped(groupBy: GroupBy): Promise<GroupedArticlesResponse> {
   return fetchApi(`/articles/grouped?group_by=${groupBy}`)
 }
 

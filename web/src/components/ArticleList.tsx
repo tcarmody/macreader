@@ -7,6 +7,10 @@ import {
   Eye,
   EyeOff,
   ArrowUpDown,
+  LayoutList,
+  Calendar,
+  Rss,
+  Tags,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDate, stripHtml } from '@/lib/utils'
@@ -15,8 +19,8 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAppStore } from '@/store/app-store'
-import { useArticles, useSearch, useMarkArticleRead } from '@/hooks/use-queries'
-import type { Article, SortBy } from '@/types'
+import { useArticles, useArticlesGrouped, useSearch, useMarkArticleRead } from '@/hooks/use-queries'
+import type { Article, SortBy, GroupBy } from '@/types'
 
 const SORT_OPTIONS: { value: SortBy; label: string }[] = [
   { value: 'newest', label: 'Newest First' },
@@ -26,6 +30,13 @@ const SORT_OPTIONS: { value: SortBy; label: string }[] = [
   { value: 'title_desc', label: 'Title Z-A' },
 ]
 
+const GROUP_OPTIONS: { value: GroupBy; label: string; icon: typeof LayoutList }[] = [
+  { value: 'none', label: 'List', icon: LayoutList },
+  { value: 'date', label: 'Date', icon: Calendar },
+  { value: 'feed', label: 'Feed', icon: Rss },
+  { value: 'topic', label: 'Topic', icon: Tags },
+]
+
 export function ArticleList() {
   const {
     selectedFilter,
@@ -33,29 +44,34 @@ export function ArticleList() {
     setSelectedArticleId,
     searchQuery,
     isSearching,
+    groupBy,
+    setGroupBy,
     sortBy,
     setSortBy,
     hideRead,
     toggleHideRead,
   } = useAppStore()
 
-  // Articles are fetched with the filter applied (e.g., unread_only=true for unread view)
-  // We don't filter client-side so articles stay visible after being marked as read
-  // until the user navigates away (like NetNewsWire)
+  // Fetch flat articles when groupBy is 'none', otherwise fetch grouped
   const { data: articles = [], isLoading } = useArticles(selectedFilter, sortBy)
+  const { data: groupedData, isLoading: groupedLoading } = useArticlesGrouped(groupBy)
   const { data: searchResults = [], isLoading: searchLoading } = useSearch(
     isSearching ? searchQuery : ''
   )
   const markRead = useMarkArticleRead()
 
+  // When searching, always use flat search results
+  // When groupBy !== 'none', use server-side grouped data
+  // Otherwise use flat articles with client-side date grouping
   const allArticles = isSearching ? searchResults : articles
+
   // Apply hide read filter client-side (separate from the Unread filter)
   const displayArticles = hideRead
     ? allArticles.filter((a) => !a.is_read)
     : allArticles
 
-  // Group articles by date
-  const groupedArticles = useMemo(() => {
+  // Client-side date grouping for flat view (groupBy === 'none')
+  const clientGroupedArticles = useMemo(() => {
     const groups: Record<string, Article[]> = {}
 
     displayArticles.forEach((article) => {
@@ -82,6 +98,20 @@ export function ArticleList() {
     return groups
   }, [displayArticles])
 
+  // Server-side grouped data with hide read filter applied
+  const serverGroups = useMemo(() => {
+    if (!groupedData?.groups) return []
+    if (!hideRead) return groupedData.groups
+
+    // Filter out read articles from each group
+    return groupedData.groups
+      .map(group => ({
+        ...group,
+        articles: group.articles.filter(a => !a.is_read)
+      }))
+      .filter(group => group.articles.length > 0)
+  }, [groupedData, hideRead])
+
   const handleSelectArticle = (article: Article) => {
     setSelectedArticleId(article.id)
     if (!article.is_read) {
@@ -89,7 +119,10 @@ export function ArticleList() {
     }
   }
 
-  if (isLoading || searchLoading) {
+  // Use grouped loading when in grouped mode
+  const isLoadingArticles = groupBy !== 'none' && !isSearching ? groupedLoading : isLoading
+
+  if (isLoadingArticles || searchLoading) {
     return (
       <div className="w-80 border-r border-border flex flex-col bg-background">
         <div className="p-4 border-b border-border">
@@ -107,6 +140,11 @@ export function ArticleList() {
       </div>
     )
   }
+
+  // Calculate total count based on mode
+  const totalCount = groupBy !== 'none' && !isSearching
+    ? serverGroups.reduce((sum, g) => sum + g.articles.length, 0)
+    : displayArticles.length
 
   const getFilterTitle = () => {
     if (isSearching) return `Search: "${searchQuery}"`
@@ -142,35 +180,83 @@ export function ArticleList() {
                 <Eye className="h-4 w-4" />
               )}
             </Button>
-            <Badge variant="secondary">{displayArticles.length}</Badge>
+            <Badge variant="secondary">{totalCount}</Badge>
           </div>
         </div>
-        {/* Sort dropdown */}
-        <div className="flex items-center gap-2">
-          <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
-          <select
-            value={sortBy}
-            onChange={(e) => setSortBy(e.target.value as SortBy)}
-            className="flex-1 h-7 px-2 text-xs rounded-md border border-input bg-background"
-          >
-            {SORT_OPTIONS.map((option) => (
-              <option key={option.value} value={option.value}>
-                {option.label}
-              </option>
-            ))}
-          </select>
+
+        {/* Group by picker */}
+        <div className="flex gap-0.5 p-0.5 rounded-md border border-input bg-muted/30">
+          {GROUP_OPTIONS.map((option) => {
+            const Icon = option.icon
+            return (
+              <button
+                key={option.value}
+                onClick={() => setGroupBy(option.value)}
+                className={cn(
+                  "flex-1 flex items-center justify-center gap-1 px-2 py-1 text-xs rounded transition-colors",
+                  groupBy === option.value
+                    ? "bg-background text-foreground shadow-sm"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+                title={`Group by ${option.label}`}
+              >
+                <Icon className="h-3 w-3" />
+                <span className="hidden sm:inline">{option.label}</span>
+              </button>
+            )
+          })}
         </div>
+
+        {/* Sort dropdown - only show when not using server-side grouping */}
+        {(groupBy === 'none' || isSearching) && (
+          <div className="flex items-center gap-2">
+            <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
+            <select
+              value={sortBy}
+              onChange={(e) => setSortBy(e.target.value as SortBy)}
+              className="flex-1 h-7 px-2 text-xs rounded-md border border-input bg-background"
+            >
+              {SORT_OPTIONS.map((option) => (
+                <option key={option.value} value={option.value}>
+                  {option.label}
+                </option>
+              ))}
+            </select>
+          </div>
+        )}
       </div>
 
       {/* Article List */}
       <ScrollArea className="flex-1">
-        {displayArticles.length === 0 ? (
+        {totalCount === 0 ? (
           <div className="p-8 text-center text-muted-foreground">
             <p>No articles found</p>
           </div>
-        ) : (
+        ) : groupBy !== 'none' && !isSearching ? (
+          // Server-side grouping (date, feed, or topic)
           <div className="p-2">
-            {Object.entries(groupedArticles).map(([group, groupArticles]) => (
+            {serverGroups.map((group) => (
+              <div key={group.key} className="mb-4">
+                <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase sticky top-0 bg-background">
+                  {group.label}
+                </div>
+                <div className="space-y-1">
+                  {group.articles.map((article) => (
+                    <ArticleListItem
+                      key={article.id}
+                      article={article}
+                      isSelected={selectedArticleId === article.id}
+                      onSelect={() => handleSelectArticle(article)}
+                    />
+                  ))}
+                </div>
+              </div>
+            ))}
+          </div>
+        ) : (
+          // Flat view with client-side date grouping
+          <div className="p-2">
+            {Object.entries(clientGroupedArticles).map(([group, groupArticles]) => (
               <div key={group} className="mb-4">
                 <div className="px-2 py-1 text-xs font-semibold text-muted-foreground uppercase sticky top-0 bg-background">
                   {group}
