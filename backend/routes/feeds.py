@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
-from ..auth import verify_api_key
+from ..auth import verify_api_key, get_current_user
 from ..config import state, get_db
 from ..database import Database
 from ..schemas import (
@@ -34,10 +34,11 @@ router = APIRouter(
 
 @router.get("")
 async def list_feeds(
-    db: Annotated[Database, Depends(get_db)]
+    db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)]
 ) -> list[FeedResponse]:
-    """List all subscribed feeds."""
-    feeds = db.get_feeds()
+    """List all subscribed feeds with user-specific unread counts."""
+    feeds = db.get_feeds(user_id)
     return [FeedResponse.from_db(f) for f in feeds]
 
 

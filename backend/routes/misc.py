@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from ..auth import verify_api_key
+from ..auth import verify_api_key, get_current_user
 from ..config import state, get_db, config
 from ..database import Database
 from ..schemas import ArticleResponse, SettingsResponse, SettingsUpdateRequest
@@ -97,10 +97,11 @@ async def update_settings(
 
 @router.get("/stats")
 async def get_stats(
-    db: Annotated[Database, Depends(get_db)]
+    db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)]
 ) -> dict:
     """Get overall statistics."""
-    feeds = db.get_feeds()
+    feeds = db.get_feeds(user_id)
     total_unread = sum(f.unread_count for f in feeds)
 
     return {

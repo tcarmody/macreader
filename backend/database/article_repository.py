@@ -51,11 +51,25 @@ class ArticleRepository:
                 return None
 
     def get(self, article_id: int) -> DBArticle | None:
-        """Get single article by ID."""
+        """Get single article by ID (without user-specific state)."""
         with self._db.conn() as conn:
             row = conn.execute(
                 "SELECT * FROM articles WHERE id = ?", (article_id,)
             ).fetchone()
+            return row_to_article(row) if row else None
+
+    def get_with_user_state(self, article_id: int, user_id: int) -> DBArticle | None:
+        """Get single article by ID with user-specific read/bookmark state."""
+        with self._db.conn() as conn:
+            row = conn.execute("""
+                SELECT a.*,
+                       COALESCE(uas.is_read, FALSE) as is_read,
+                       COALESCE(uas.is_bookmarked, FALSE) as is_bookmarked
+                FROM articles a
+                LEFT JOIN user_article_state uas
+                    ON a.id = uas.article_id AND uas.user_id = ?
+                WHERE a.id = ?
+            """, (user_id, article_id)).fetchone()
             return row_to_article(row) if row else None
 
     def get_by_url(self, url: str) -> DBArticle | None:
@@ -67,16 +81,18 @@ class ArticleRepository:
             return row_to_article(row) if row else None
 
     # Valid sort options mapped to SQL ORDER BY clauses
+    # Note: is_read now comes from user_article_state via COALESCE
     SORT_OPTIONS = {
-        "newest": "published_at DESC NULLS LAST, created_at DESC",
-        "oldest": "published_at ASC NULLS LAST, created_at ASC",
-        "unread_first": "is_read ASC, published_at DESC NULLS LAST, created_at DESC",
-        "title_asc": "title ASC",
-        "title_desc": "title DESC",
+        "newest": "a.published_at DESC NULLS LAST, a.created_at DESC",
+        "oldest": "a.published_at ASC NULLS LAST, a.created_at ASC",
+        "unread_first": "COALESCE(uas.is_read, 0) ASC, a.published_at DESC NULLS LAST, a.created_at DESC",
+        "title_asc": "a.title ASC",
+        "title_desc": "a.title DESC",
     }
 
     def get_many(
         self,
+        user_id: int,
         feed_id: int | None = None,
         unread_only: bool = False,
         bookmarked_only: bool = False,
@@ -85,21 +101,45 @@ class ArticleRepository:
         limit: int = 50,
         offset: int = 0
     ) -> list[DBArticle]:
-        """Get articles with optional filters."""
-        query = "SELECT * FROM articles WHERE 1=1"
-        params: list = []
+        """
+        Get articles with optional filters, including per-user read/bookmark state.
+
+        Args:
+            user_id: The user ID for per-user state lookup
+            feed_id: Optional feed ID to filter by
+            unread_only: Only return unread articles (per user's state)
+            bookmarked_only: Only return bookmarked articles (per user's state)
+            summarized_only: Filter by summarization status
+            sort_by: Sort order
+            limit: Maximum number of articles to return
+            offset: Number of articles to skip
+        """
+        # Join with user_article_state for per-user read/bookmark status
+        # Use COALESCE to default to FALSE when no state record exists
+        query = """
+            SELECT a.*,
+                   COALESCE(uas.is_read, 0) as is_read,
+                   COALESCE(uas.is_bookmarked, 0) as is_bookmarked,
+                   uas.read_at,
+                   uas.bookmarked_at
+            FROM articles a
+            LEFT JOIN user_article_state uas
+                ON uas.article_id = a.id AND uas.user_id = ?
+            WHERE a.user_id IS NULL
+        """
+        params: list = [user_id]
 
         if feed_id is not None:
-            query += " AND feed_id = ?"
+            query += " AND a.feed_id = ?"
             params.append(feed_id)
         if unread_only:
-            query += " AND is_read = 0"
+            query += " AND COALESCE(uas.is_read, 0) = 0"
         if bookmarked_only:
-            query += " AND is_bookmarked = 1"
+            query += " AND COALESCE(uas.is_bookmarked, 0) = 1"
         if summarized_only is True:
-            query += " AND summary_full IS NOT NULL"
+            query += " AND a.summary_full IS NOT NULL"
         elif summarized_only is False:
-            query += " AND summary_full IS NULL"
+            query += " AND a.summary_full IS NULL"
 
         # Use validated sort option or default to newest
         order_clause = self.SORT_OPTIONS.get(sort_by, self.SORT_OPTIONS["newest"])
@@ -145,62 +185,8 @@ class ArticleRepository:
                  model_used, datetime.now().isoformat(), article_id)
             )
 
-    def mark_read(self, article_id: int, is_read: bool = True):
-        """Mark article as read/unread."""
-        with self._db.conn() as conn:
-            read_at = datetime.now().isoformat() if is_read else None
-            conn.execute(
-                "UPDATE articles SET is_read = ?, read_at = ? WHERE id = ?",
-                (is_read, read_at, article_id)
-            )
-
-    def toggle_bookmark(self, article_id: int) -> bool:
-        """Toggle bookmark status. Returns new status."""
-        with self._db.conn() as conn:
-            row = conn.execute(
-                "SELECT is_bookmarked FROM articles WHERE id = ?", (article_id,)
-            ).fetchone()
-            if not row:
-                return False
-            new_status = not row["is_bookmarked"]
-            bookmarked_at = datetime.now().isoformat() if new_status else None
-            conn.execute(
-                "UPDATE articles SET is_bookmarked = ?, bookmarked_at = ? WHERE id = ?",
-                (new_status, bookmarked_at, article_id)
-            )
-            return new_status
-
-    def bulk_mark_read(self, article_ids: list[int], is_read: bool = True):
-        """Mark multiple articles as read/unread."""
-        if not article_ids:
-            return
-        with self._db.conn() as conn:
-            read_at = datetime.now().isoformat() if is_read else None
-            placeholders = ",".join("?" * len(article_ids))
-            conn.execute(
-                f"UPDATE articles SET is_read = ?, read_at = ? WHERE id IN ({placeholders})",
-                [is_read, read_at] + article_ids
-            )
-
-    def mark_feed_read(self, feed_id: int, is_read: bool = True) -> int:
-        """Mark all articles in a feed as read/unread. Returns count updated."""
-        with self._db.conn() as conn:
-            read_at = datetime.now().isoformat() if is_read else None
-            cursor = conn.execute(
-                "UPDATE articles SET is_read = ?, read_at = ? WHERE feed_id = ?",
-                (is_read, read_at, feed_id)
-            )
-            return cursor.rowcount
-
-    def mark_all_read(self, is_read: bool = True) -> int:
-        """Mark all articles as read/unread. Returns count updated."""
-        with self._db.conn() as conn:
-            read_at = datetime.now().isoformat() if is_read else None
-            cursor = conn.execute(
-                "UPDATE articles SET is_read = ?, read_at = ?",
-                (is_read, read_at)
-            )
-            return cursor.rowcount
+    # Note: mark_read, toggle_bookmark, bulk_mark_read, mark_feed_read, mark_all_read
+    # have been moved to UserArticleStateRepository for per-user state management
 
     def search(self, query: str, limit: int = 20) -> list[DBArticle]:
         """Full-text search across articles."""
@@ -258,54 +244,75 @@ class ArticleRepository:
     def archive_old(
         self,
         days: int = 30,
-        keep_bookmarked: bool = True,
-        keep_unread: bool = False
     ) -> int:
-        """Delete articles older than specified days. Returns count deleted."""
+        """
+        Delete shared articles older than specified days.
+
+        Only deletes shared articles (user_id IS NULL), not library items.
+        Note: With per-user state, we can no longer filter by read/bookmarked
+        status since different users have different states.
+
+        Returns count deleted.
+        """
         cutoff_date = (datetime.now() - timedelta(days=days)).isoformat()
 
         with self._db.conn() as conn:
-            query = "DELETE FROM articles WHERE published_at < ? OR (published_at IS NULL AND created_at < ?)"
-            conditions = []
-            if keep_bookmarked:
-                conditions.append("is_bookmarked = 0")
-            if keep_unread:
-                conditions.append("is_read = 1")
-
-            if conditions:
-                query = f"DELETE FROM articles WHERE (published_at < ? OR (published_at IS NULL AND created_at < ?)) AND {' AND '.join(conditions)}"
-
+            # Only delete shared articles, not library items
+            query = """
+                DELETE FROM articles
+                WHERE user_id IS NULL
+                  AND (published_at < ? OR (published_at IS NULL AND created_at < ?))
+            """
             cursor = conn.execute(query, (cutoff_date, cutoff_date))
             return cursor.rowcount
 
-    def get_stats(self) -> dict:
-        """Get statistics about articles in the database."""
+    def get_stats(self, user_id: int) -> dict:
+        """Get statistics about articles in the database for a user."""
         now = datetime.now()
         one_week_ago = (now - timedelta(days=7)).isoformat()
         one_month_ago = (now - timedelta(days=30)).isoformat()
 
         with self._db.conn() as conn:
-            total = conn.execute("SELECT COUNT(*) as cnt FROM articles").fetchone()["cnt"]
-            unread = conn.execute("SELECT COUNT(*) as cnt FROM articles WHERE is_read = 0").fetchone()["cnt"]
-            bookmarked = conn.execute("SELECT COUNT(*) as cnt FROM articles WHERE is_bookmarked = 1").fetchone()["cnt"]
+            # Total shared articles
+            total = conn.execute(
+                "SELECT COUNT(*) as cnt FROM articles WHERE user_id IS NULL"
+            ).fetchone()["cnt"]
+
+            # Unread articles for this user
+            unread = conn.execute("""
+                SELECT COUNT(*) as cnt FROM articles a
+                LEFT JOIN user_article_state uas
+                    ON uas.article_id = a.id AND uas.user_id = ?
+                WHERE a.user_id IS NULL
+                  AND COALESCE(uas.is_read, 0) = 0
+            """, (user_id,)).fetchone()["cnt"]
+
+            # Bookmarked articles for this user
+            bookmarked = conn.execute("""
+                SELECT COUNT(*) as cnt FROM articles a
+                LEFT JOIN user_article_state uas
+                    ON uas.article_id = a.id AND uas.user_id = ?
+                WHERE a.user_id IS NULL
+                  AND COALESCE(uas.is_bookmarked, 0) = 1
+            """, (user_id,)).fetchone()["cnt"]
 
             last_week = conn.execute(
-                "SELECT COUNT(*) as cnt FROM articles WHERE published_at >= ? OR (published_at IS NULL AND created_at >= ?)",
+                "SELECT COUNT(*) as cnt FROM articles WHERE user_id IS NULL AND (published_at >= ? OR (published_at IS NULL AND created_at >= ?))",
                 (one_week_ago, one_week_ago)
             ).fetchone()["cnt"]
 
             last_month = conn.execute(
-                "SELECT COUNT(*) as cnt FROM articles WHERE (published_at >= ? OR (published_at IS NULL AND created_at >= ?)) AND (published_at < ? OR (published_at IS NULL AND created_at < ?))",
+                "SELECT COUNT(*) as cnt FROM articles WHERE user_id IS NULL AND (published_at >= ? OR (published_at IS NULL AND created_at >= ?)) AND (published_at < ? OR (published_at IS NULL AND created_at < ?))",
                 (one_month_ago, one_month_ago, one_week_ago, one_week_ago)
             ).fetchone()["cnt"]
 
             older_than_month = conn.execute(
-                "SELECT COUNT(*) as cnt FROM articles WHERE published_at < ? OR (published_at IS NULL AND created_at < ?)",
+                "SELECT COUNT(*) as cnt FROM articles WHERE user_id IS NULL AND (published_at < ? OR (published_at IS NULL AND created_at < ?))",
                 (one_month_ago, one_month_ago)
             ).fetchone()["cnt"]
 
             oldest = conn.execute(
-                "SELECT MIN(COALESCE(published_at, created_at)) as oldest FROM articles"
+                "SELECT MIN(COALESCE(published_at, created_at)) as oldest FROM articles WHERE user_id IS NULL"
             ).fetchone()["oldest"]
 
             return {
@@ -318,27 +325,16 @@ class ArticleRepository:
                 "oldest_article": oldest
             }
 
-    def get_unread_count(self, feed_id: int | None = None) -> int:
-        """Get count of unread articles."""
-        with self._db.conn() as conn:
-            if feed_id is not None:
-                row = conn.execute(
-                    "SELECT COUNT(*) as count FROM articles WHERE feed_id = ? AND is_read = 0",
-                    (feed_id,)
-                ).fetchone()
-            else:
-                row = conn.execute(
-                    "SELECT COUNT(*) as count FROM articles WHERE is_read = 0"
-                ).fetchone()
-            return row["count"] if row else 0
+    # Note: get_unread_count has been moved to UserArticleStateRepository
 
     def get_grouped_by_date(
         self,
+        user_id: int,
         unread_only: bool = False,
         limit: int = 100
     ) -> dict[str, list[DBArticle]]:
         """Get articles grouped by date (YYYY-MM-DD)."""
-        articles = self.get_many(unread_only=unread_only, limit=limit)
+        articles = self.get_many(user_id=user_id, unread_only=unread_only, limit=limit)
         grouped: dict[str, list[DBArticle]] = {}
         for article in articles:
             date_key = (article.published_at or article.created_at).strftime("%Y-%m-%d")
@@ -349,11 +345,12 @@ class ArticleRepository:
 
     def get_grouped_by_feed(
         self,
+        user_id: int,
         unread_only: bool = False,
         limit: int = 100
     ) -> dict[int, list[DBArticle]]:
         """Get articles grouped by feed ID."""
-        articles = self.get_many(unread_only=unread_only, limit=limit)
+        articles = self.get_many(user_id=user_id, unread_only=unread_only, limit=limit)
         grouped: dict[int, list[DBArticle]] = {}
         for article in articles:
             if article.feed_id not in grouped:

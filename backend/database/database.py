@@ -16,6 +16,8 @@ from .settings_repository import SettingsRepository
 from .gmail_repository import GmailRepository
 from .notification_repository import NotificationRepository
 from .statistics_repository import StatisticsRepository
+from .user_repository import UserRepository
+from .user_article_state_repository import UserArticleStateRepository
 from .models import DBArticle, DBFeed, DBNotificationRule, DBNotificationHistory
 
 
@@ -24,6 +26,12 @@ class Database:
     Unified database access facade.
 
     Provides backwards-compatible API while using repository pattern internally.
+
+    Multi-user support:
+    - User accounts are managed via `users` repository
+    - Per-user article state (read/bookmark) via `user_state` repository
+    - Library items are per-user (filtered by user_id)
+    - Feeds and articles are shared across all users
     """
 
     # Constants for standalone feed
@@ -42,6 +50,10 @@ class Database:
         self.notifications = NotificationRepository(self._connection)
         self.statistics = StatisticsRepository(self._connection)
 
+        # Multi-user support repositories
+        self.users = UserRepository(self._connection)
+        self.user_state = UserArticleStateRepository(self._connection)
+
     # ─────────────────────────────────────────────────────────────
     # Feed operations (delegated to FeedRepository)
     # ─────────────────────────────────────────────────────────────
@@ -49,11 +61,11 @@ class Database:
     def add_feed(self, url: str, name: str, category: str | None = None) -> int:
         return self.feeds.add(url, name, category)
 
-    def get_feed(self, feed_id: int) -> DBFeed | None:
-        return self.feeds.get(feed_id)
+    def get_feed(self, feed_id: int, user_id: int | None = None) -> DBFeed | None:
+        return self.feeds.get(feed_id, user_id)
 
-    def get_feeds(self) -> list[DBFeed]:
-        return self.feeds.get_all()
+    def get_feeds(self, user_id: int | None = None) -> list[DBFeed]:
+        return self.feeds.get_all(user_id)
 
     def update_feed(
         self,
@@ -75,6 +87,7 @@ class Database:
 
     # ─────────────────────────────────────────────────────────────
     # Standalone (Library) operations (delegated to LibraryRepository)
+    # Library items are per-user - all methods require user_id
     # ─────────────────────────────────────────────────────────────
 
     def get_or_create_standalone_feed(self) -> int:
@@ -82,6 +95,7 @@ class Database:
 
     def add_standalone_item(
         self,
+        user_id: int,
         url: str,
         title: str,
         content: str | None = None,
@@ -91,28 +105,39 @@ class Database:
         author: str | None = None,
         published_at: datetime | None = None,
     ) -> int | None:
-        return self.library.add(url, title, content, content_type, file_name, file_path, author, published_at)
+        return self.library.add(
+            user_id, url, title, content, content_type,
+            file_name, file_path, author, published_at
+        )
 
     def get_standalone_items(
         self,
+        user_id: int,
         content_type: str | None = None,
         bookmarked_only: bool = False,
         limit: int = 100,
         offset: int = 0
     ) -> list[DBArticle]:
-        return self.library.get_all(content_type, bookmarked_only, limit, offset)
+        return self.library.get_all(user_id, content_type, bookmarked_only, limit, offset)
 
-    def get_standalone_count(self) -> int:
-        return self.library.get_count()
+    def get_standalone_count(self, user_id: int) -> int:
+        return self.library.get_count(user_id)
 
-    def delete_standalone_item(self, article_id: int) -> bool:
-        return self.library.delete(article_id)
+    def get_standalone_item(self, user_id: int, article_id: int) -> DBArticle | None:
+        return self.library.get_item(user_id, article_id)
+
+    def delete_standalone_item(self, user_id: int, article_id: int) -> bool:
+        return self.library.delete(user_id, article_id)
 
     def is_standalone_feed(self, feed_id: int) -> bool:
         return self.library.is_standalone_feed(feed_id)
 
+    def verify_library_ownership(self, user_id: int, article_id: int) -> bool:
+        return self.library.verify_ownership(user_id, article_id)
+
     # ─────────────────────────────────────────────────────────────
     # Article operations (delegated to ArticleRepository)
+    # Read/bookmark state is per-user via user_state repository
     # ─────────────────────────────────────────────────────────────
 
     def add_article(
@@ -139,6 +164,7 @@ class Database:
 
     def get_articles(
         self,
+        user_id: int,
         feed_id: int | None = None,
         unread_only: bool = False,
         bookmarked_only: bool = False,
@@ -147,10 +173,17 @@ class Database:
         limit: int = 50,
         offset: int = 0
     ) -> list[DBArticle]:
-        return self.articles.get_many(feed_id, unread_only, bookmarked_only, summarized_only, sort_by, limit, offset)
+        return self.articles.get_many(
+            user_id, feed_id, unread_only, bookmarked_only,
+            summarized_only, sort_by, limit, offset
+        )
 
     def get_article(self, article_id: int) -> DBArticle | None:
         return self.articles.get(article_id)
+
+    def get_article_with_state(self, article_id: int, user_id: int) -> DBArticle | None:
+        """Get article with user-specific read/bookmark state."""
+        return self.articles.get_with_user_state(article_id, user_id)
 
     def get_article_by_url(self, url: str) -> DBArticle | None:
         return self.articles.get_by_url(url)
@@ -171,20 +204,21 @@ class Database:
     ):
         return self.articles.update_summary(article_id, summary_short, summary_full, key_points, model_used)
 
-    def mark_read(self, article_id: int, is_read: bool = True):
-        return self.articles.mark_read(article_id, is_read)
+    # Per-user article state operations (delegated to UserArticleStateRepository)
+    def mark_read(self, user_id: int, article_id: int, is_read: bool = True):
+        return self.user_state.mark_read(user_id, article_id, is_read)
 
-    def toggle_bookmark(self, article_id: int) -> bool:
-        return self.articles.toggle_bookmark(article_id)
+    def toggle_bookmark(self, user_id: int, article_id: int) -> bool:
+        return self.user_state.toggle_bookmark(user_id, article_id)
 
-    def bulk_mark_read(self, article_ids: list[int], is_read: bool = True):
-        return self.articles.bulk_mark_read(article_ids, is_read)
+    def bulk_mark_read(self, user_id: int, article_ids: list[int], is_read: bool = True):
+        return self.user_state.bulk_mark_read(user_id, article_ids, is_read)
 
-    def mark_feed_read(self, feed_id: int, is_read: bool = True) -> int:
-        return self.articles.mark_feed_read(feed_id, is_read)
+    def mark_feed_read(self, user_id: int, feed_id: int, is_read: bool = True) -> int:
+        return self.user_state.mark_feed_read(user_id, feed_id, is_read)
 
-    def mark_all_read(self, is_read: bool = True) -> int:
-        return self.articles.mark_all_read(is_read)
+    def mark_all_read(self, user_id: int, is_read: bool = True) -> int:
+        return self.user_state.mark_all_read(user_id, is_read)
 
     def search(self, query: str, limit: int = 20) -> list[DBArticle]:
         return self.articles.search(query, limit)
@@ -195,33 +229,30 @@ class Database:
     def get_duplicate_article_ids(self) -> set[int]:
         return self.articles.get_duplicate_ids()
 
-    def archive_old_articles(
-        self,
-        days: int = 30,
-        keep_bookmarked: bool = True,
-        keep_unread: bool = False
-    ) -> int:
-        return self.articles.archive_old(days, keep_bookmarked, keep_unread)
+    def archive_old_articles(self, days: int = 30) -> int:
+        return self.articles.archive_old(days)
 
-    def get_article_stats(self) -> dict:
-        return self.articles.get_stats()
+    def get_article_stats(self, user_id: int) -> dict:
+        return self.articles.get_stats(user_id)
 
-    def get_unread_count(self, feed_id: int | None = None) -> int:
-        return self.articles.get_unread_count(feed_id)
+    def get_unread_count(self, user_id: int, feed_id: int | None = None) -> int:
+        return self.user_state.get_unread_count(user_id, feed_id)
 
     def get_articles_grouped_by_date(
         self,
+        user_id: int,
         unread_only: bool = False,
         limit: int = 100
     ) -> dict[str, list[DBArticle]]:
-        return self.articles.get_grouped_by_date(unread_only, limit)
+        return self.articles.get_grouped_by_date(user_id, unread_only, limit)
 
     def get_articles_grouped_by_feed(
         self,
+        user_id: int,
         unread_only: bool = False,
         limit: int = 100
     ) -> dict[int, list[DBArticle]]:
-        return self.articles.get_grouped_by_feed(unread_only, limit)
+        return self.articles.get_grouped_by_feed(user_id, unread_only, limit)
 
     # ─────────────────────────────────────────────────────────────
     # Settings operations (delegated to SettingsRepository)

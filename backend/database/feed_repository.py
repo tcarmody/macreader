@@ -24,29 +24,54 @@ class FeedRepository:
             )
             return cursor.lastrowid
 
-    def get(self, feed_id: int) -> DBFeed | None:
-        """Get single feed by ID."""
+    def get(self, feed_id: int, user_id: int | None = None) -> DBFeed | None:
+        """Get single feed by ID with optional user-specific unread count."""
         with self._db.conn() as conn:
-            row = conn.execute(
-                """SELECT f.*, COUNT(CASE WHEN a.is_read = 0 THEN 1 END) as unread_count
-                   FROM feeds f
-                   LEFT JOIN articles a ON f.id = a.feed_id
-                   WHERE f.id = ?
-                   GROUP BY f.id""",
-                (feed_id,)
-            ).fetchone()
+            if user_id is not None:
+                row = conn.execute(
+                    """SELECT f.*,
+                       COUNT(CASE WHEN COALESCE(uas.is_read, FALSE) = FALSE THEN 1 END) as unread_count
+                       FROM feeds f
+                       LEFT JOIN articles a ON f.id = a.feed_id
+                       LEFT JOIN user_article_state uas ON a.id = uas.article_id AND uas.user_id = ?
+                       WHERE f.id = ?
+                       GROUP BY f.id""",
+                    (user_id, feed_id)
+                ).fetchone()
+            else:
+                # Without user_id, count all articles as unread (no state)
+                row = conn.execute(
+                    """SELECT f.*, COUNT(a.id) as unread_count
+                       FROM feeds f
+                       LEFT JOIN articles a ON f.id = a.feed_id
+                       WHERE f.id = ?
+                       GROUP BY f.id""",
+                    (feed_id,)
+                ).fetchone()
             return row_to_feed(row) if row else None
 
-    def get_all(self) -> list[DBFeed]:
-        """Get all feeds with unread counts."""
+    def get_all(self, user_id: int | None = None) -> list[DBFeed]:
+        """Get all feeds with user-specific unread counts."""
         with self._db.conn() as conn:
-            rows = conn.execute("""
-                SELECT f.*, COUNT(CASE WHEN a.is_read = 0 THEN 1 END) as unread_count
-                FROM feeds f
-                LEFT JOIN articles a ON f.id = a.feed_id
-                GROUP BY f.id
-                ORDER BY f.name
-            """).fetchall()
+            if user_id is not None:
+                rows = conn.execute("""
+                    SELECT f.*,
+                           COUNT(CASE WHEN COALESCE(uas.is_read, FALSE) = FALSE THEN 1 END) as unread_count
+                    FROM feeds f
+                    LEFT JOIN articles a ON f.id = a.feed_id
+                    LEFT JOIN user_article_state uas ON a.id = uas.article_id AND uas.user_id = ?
+                    GROUP BY f.id
+                    ORDER BY f.name
+                """, (user_id,)).fetchall()
+            else:
+                # Without user_id, count all articles as unread
+                rows = conn.execute("""
+                    SELECT f.*, COUNT(a.id) as unread_count
+                    FROM feeds f
+                    LEFT JOIN articles a ON f.id = a.feed_id
+                    GROUP BY f.id
+                    ORDER BY f.name
+                """).fetchall()
             return [row_to_feed(row) for row in rows]
 
     def update(

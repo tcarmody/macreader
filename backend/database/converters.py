@@ -6,7 +6,14 @@ import json
 import sqlite3
 from datetime import datetime
 
-from .models import DBArticle, DBFeed, DBNotificationRule, DBNotificationHistory
+from .models import (
+    DBArticle,
+    DBFeed,
+    DBNotificationRule,
+    DBNotificationHistory,
+    DBUser,
+    DBUserArticleState,
+)
 
 
 def row_to_article(row: sqlite3.Row) -> DBArticle:
@@ -61,8 +68,9 @@ def row_to_article(row: sqlite3.Row) -> DBArticle:
         summary_short=row["summary_short"],
         summary_full=row["summary_full"],
         key_points=key_points,
-        is_read=bool(row["is_read"]),
-        is_bookmarked=bool(row["is_bookmarked"]),
+        # is_read/is_bookmarked come from user_article_state via JOIN, may not be present
+        is_read=safe_get_bool("is_read"),
+        is_bookmarked=safe_get_bool("is_bookmarked"),
         published_at=published_at,
         created_at=created_at,
         source_url=safe_get("source_url"),
@@ -75,6 +83,7 @@ def row_to_article(row: sqlite3.Row) -> DBArticle:
         featured_image=safe_get("featured_image"),
         has_code_blocks=safe_get_bool("has_code_blocks"),
         site_name=safe_get("site_name"),
+        user_id=safe_get_int("user_id"),
     )
 
 
@@ -146,4 +155,57 @@ def row_to_notification_history(row: sqlite3.Row) -> DBNotificationHistory:
         rule_id=row["rule_id"],
         notified_at=notified_at,
         dismissed=bool(row["dismissed"]),
+    )
+
+
+def row_to_user(row: sqlite3.Row) -> DBUser:
+    """Convert a database row to a DBUser."""
+    created_at = datetime.now()
+    if row["created_at"]:
+        try:
+            created_at = datetime.fromisoformat(row["created_at"])
+        except ValueError:
+            pass
+
+    last_login_at = None
+    if row["last_login_at"]:
+        try:
+            last_login_at = datetime.fromisoformat(row["last_login_at"])
+        except ValueError:
+            pass
+
+    return DBUser(
+        id=row["id"],
+        email=row["email"],
+        name=row["name"],
+        provider=row["provider"],
+        created_at=created_at,
+        last_login_at=last_login_at,
+    )
+
+
+def row_to_user_article_state(row: sqlite3.Row) -> DBUserArticleState:
+    """Convert a database row to a DBUserArticleState."""
+    read_at = None
+    if row["read_at"]:
+        try:
+            read_at = datetime.fromisoformat(row["read_at"])
+        except ValueError:
+            pass
+
+    bookmarked_at = None
+    if row["bookmarked_at"]:
+        try:
+            bookmarked_at = datetime.fromisoformat(row["bookmarked_at"])
+        except ValueError:
+            pass
+
+    return DBUserArticleState(
+        id=row["id"],
+        user_id=row["user_id"],
+        article_id=row["article_id"],
+        is_read=bool(row["is_read"]),
+        read_at=read_at,
+        is_bookmarked=bool(row["is_bookmarked"]),
+        bookmarked_at=bookmarked_at,
     )

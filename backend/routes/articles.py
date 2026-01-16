@@ -7,7 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 
-from ..auth import verify_api_key
+from ..auth import verify_api_key, get_current_user
 from ..config import state, get_db
 from ..database import Database
 from ..schemas import (
@@ -36,6 +36,7 @@ router = APIRouter(
 @router.get("")
 async def list_articles(
     db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)],
     feed_id: int | None = None,
     unread_only: bool = False,
     bookmarked_only: bool = False,
@@ -55,6 +56,7 @@ async def list_articles(
         sort_by: Sort order - newest, oldest, unread_first, title_asc, or title_desc.
     """
     articles = db.get_articles(
+        user_id=user_id,
         feed_id=feed_id,
         unread_only=unread_only,
         bookmarked_only=bookmarked_only,
@@ -75,6 +77,7 @@ async def list_articles(
 @router.get("/grouped")
 async def get_articles_grouped(
     db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)],
     group_by: str = Query(default="date", pattern="^(date|feed|topic)$"),
     unread_only: bool = False,
     limit: int = Query(default=100, le=500)
@@ -90,7 +93,7 @@ async def get_articles_grouped(
     feeds_map = {f.id: f for f in db.get_feeds()}
 
     if group_by == "date":
-        grouped = db.get_articles_grouped_by_date(unread_only=unread_only, limit=limit)
+        grouped = db.get_articles_grouped_by_date(user_id=user_id, unread_only=unread_only, limit=limit)
         groups = []
         for date_str in sorted(grouped.keys(), reverse=True):
             articles = grouped[date_str]
@@ -118,7 +121,7 @@ async def get_articles_grouped(
             )
 
         # Get all articles first
-        articles = db.get_articles(unread_only=unread_only, limit=limit)
+        articles = db.get_articles(user_id=user_id, unread_only=unread_only, limit=limit)
 
         if not articles:
             return GroupedArticlesResponse(group_by=group_by, groups=[])
@@ -143,7 +146,7 @@ async def get_articles_grouped(
                     articles=[ArticleResponse.from_db(a) for a in topic_articles]
                 ))
     else:  # group_by == "feed"
-        grouped = db.get_articles_grouped_by_feed(unread_only=unread_only, limit=limit)
+        grouped = db.get_articles_grouped_by_feed(user_id=user_id, unread_only=unread_only, limit=limit)
         groups = []
         for feed_id in sorted(grouped.keys()):
             articles = grouped[feed_id]
@@ -166,7 +169,8 @@ async def get_articles_grouped(
 @router.post("/bulk/read")
 async def bulk_mark_read(
     request: BulkMarkReadRequest,
-    db: Annotated[Database, Depends(get_db)]
+    db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)]
 ) -> dict:
     """Mark multiple articles as read/unread."""
     if not request.article_ids:
@@ -175,7 +179,7 @@ async def bulk_mark_read(
     if len(request.article_ids) > 1000:
         raise HTTPException(status_code=400, detail="Maximum 1000 articles per request")
 
-    db.bulk_mark_read(request.article_ids, request.is_read)
+    db.bulk_mark_read(user_id, request.article_ids, request.is_read)
     return {"success": True, "count": len(request.article_ids), "is_read": request.is_read}
 
 
@@ -183,6 +187,7 @@ async def bulk_mark_read(
 async def mark_feed_read(
     feed_id: int,
     db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)],
     is_read: bool = True
 ) -> dict:
     """Mark all articles in a feed as read/unread."""
@@ -190,17 +195,18 @@ async def mark_feed_read(
     if not feed:
         raise HTTPException(status_code=404, detail="Feed not found")
 
-    count = db.mark_feed_read(feed_id, is_read)
+    count = db.mark_feed_read(user_id, feed_id, is_read)
     return {"success": True, "count": count, "is_read": is_read}
 
 
 @router.post("/all/read")
 async def mark_all_read(
     db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)],
     is_read: bool = True
 ) -> dict:
     """Mark all articles as read/unread."""
-    count = db.mark_all_read(is_read)
+    count = db.mark_all_read(user_id, is_read)
     return {"success": True, "count": count, "is_read": is_read}
 
 
@@ -233,38 +239,32 @@ async def get_duplicates(
 
 @router.get("/stats")
 async def get_article_stats(
-    db: Annotated[Database, Depends(get_db)]
+    db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)]
 ) -> dict:
     """Get statistics about articles in the database.
 
     Returns counts and age distribution of articles.
     """
-    return db.get_article_stats()
+    return db.get_article_stats(user_id)
 
 
 @router.post("/archive")
 async def archive_old_articles(
     db: Annotated[Database, Depends(get_db)],
     days: int = Query(default=30, ge=1, le=365, description="Archive articles older than this many days"),
-    keep_bookmarked: bool = Query(default=True, description="Keep bookmarked articles"),
-    keep_unread: bool = Query(default=False, description="Keep unread articles")
 ) -> dict:
-    """Archive (delete) old articles.
+    """Archive (delete) old shared articles.
 
-    By default, keeps bookmarked articles and deletes read articles
-    older than 30 days.
+    Deletes shared articles older than the specified number of days.
+    Note: With per-user state, we cannot filter by read/bookmarked status
+    since different users have different states.
     """
-    count = db.archive_old_articles(
-        days=days,
-        keep_bookmarked=keep_bookmarked,
-        keep_unread=keep_unread
-    )
+    count = db.archive_old_articles(days=days)
     return {
         "success": True,
         "archived_count": count,
         "days": days,
-        "kept_bookmarked": keep_bookmarked,
-        "kept_unread": keep_unread
     }
 
 
@@ -275,10 +275,11 @@ async def archive_old_articles(
 @router.get("/{article_id}")
 async def get_article(
     article_id: int,
-    db: Annotated[Database, Depends(get_db)]
+    db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)]
 ) -> ArticleDetailResponse:
     """Get single article with full summary."""
-    article = db.get_article(article_id)
+    article = db.get_article_with_state(article_id, user_id)
     if not article:
         raise HTTPException(status_code=404, detail="Article not found")
     return ArticleDetailResponse.from_db(article)
@@ -288,26 +289,28 @@ async def get_article(
 async def mark_read(
     article_id: int,
     db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)],
     is_read: bool = True
 ) -> dict:
     """Mark article as read/unread."""
     article = db.get_article(article_id)
     if not article:
         raise HTTPException(status_code=404, detail="Article not found")
-    db.mark_read(article_id, is_read)
+    db.mark_read(user_id, article_id, is_read)
     return {"success": True, "is_read": is_read}
 
 
 @router.post("/{article_id}/bookmark")
 async def toggle_bookmark(
     article_id: int,
-    db: Annotated[Database, Depends(get_db)]
+    db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)]
 ) -> dict:
     """Toggle bookmark status."""
     article = db.get_article(article_id)
     if not article:
         raise HTTPException(status_code=404, detail="Article not found")
-    new_status = db.toggle_bookmark(article_id)
+    new_status = db.toggle_bookmark(user_id, article_id)
     return {"success": True, "is_bookmarked": new_status}
 
 

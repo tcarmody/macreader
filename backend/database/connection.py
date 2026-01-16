@@ -56,10 +56,7 @@ class DatabaseConnection:
                     key_points TEXT,
                     model_used TEXT,
                     summarized_at TIMESTAMP,
-                    is_read BOOLEAN DEFAULT FALSE,
-                    read_at TIMESTAMP,
-                    is_bookmarked BOOLEAN DEFAULT FALSE,
-                    bookmarked_at TIMESTAMP,
+                    -- Note: is_read/is_bookmarked are now per-user in user_article_state table
                     published_at TIMESTAMP,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
@@ -70,10 +67,36 @@ class DatabaseConnection:
                     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
                 );
 
+                -- Users table for multi-user support
+                CREATE TABLE IF NOT EXISTS users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    email TEXT UNIQUE NOT NULL,
+                    name TEXT,
+                    provider TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    last_login_at TIMESTAMP
+                );
+
+                -- Per-user article state (read/bookmark status)
+                CREATE TABLE IF NOT EXISTS user_article_state (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    article_id INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+                    is_read BOOLEAN DEFAULT FALSE,
+                    read_at TIMESTAMP,
+                    is_bookmarked BOOLEAN DEFAULT FALSE,
+                    bookmarked_at TIMESTAMP,
+                    UNIQUE(user_id, article_id)
+                );
+
                 CREATE INDEX IF NOT EXISTS idx_articles_feed ON articles(feed_id);
                 CREATE INDEX IF NOT EXISTS idx_articles_published ON articles(published_at DESC);
-                CREATE INDEX IF NOT EXISTS idx_articles_unread ON articles(is_read, published_at DESC);
-                CREATE INDEX IF NOT EXISTS idx_articles_bookmarked ON articles(is_bookmarked, bookmarked_at DESC);
+                -- Note: is_read/is_bookmarked indexes are now on user_article_state
+                CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
+                CREATE INDEX IF NOT EXISTS idx_user_article_state_user ON user_article_state(user_id);
+                CREATE INDEX IF NOT EXISTS idx_user_article_state_lookup ON user_article_state(user_id, article_id);
+                CREATE INDEX IF NOT EXISTS idx_user_article_state_unread ON user_article_state(user_id, is_read);
+                CREATE INDEX IF NOT EXISTS idx_user_article_state_bookmarked ON user_article_state(user_id, is_bookmarked);
             """)
 
             # Create FTS5 virtual table if it doesn't exist
@@ -119,6 +142,10 @@ class DatabaseConnection:
             self._migrate_add_column(connection, "articles", "featured_image", "TEXT")
             self._migrate_add_column(connection, "articles", "has_code_blocks", "BOOLEAN DEFAULT FALSE")
             self._migrate_add_column(connection, "articles", "site_name", "TEXT")
+
+            # Multi-user support: add user_id to articles for library item ownership
+            # RSS articles have user_id = NULL (shared), library items have user_id set
+            self._migrate_add_column(connection, "articles", "user_id", "INTEGER REFERENCES users(id) ON DELETE CASCADE")
 
             # Create notification_rules table for smart notifications
             connection.executescript("""

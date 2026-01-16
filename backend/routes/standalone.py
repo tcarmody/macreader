@@ -10,7 +10,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
 
-from ..auth import verify_api_key
+from ..auth import verify_api_key, get_current_user
 from ..config import state, get_db, config
 from ..database import Database
 from ..email_parser import (
@@ -53,6 +53,7 @@ def ensure_uploads_dir() -> Path:
 @router.get("")
 async def list_standalone_items(
     db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)],
     content_type: str | None = None,
     bookmarked_only: bool = False,
     limit: int = Query(default=100, le=500),
@@ -60,12 +61,13 @@ async def list_standalone_items(
 ) -> StandaloneListResponse:
     """List all standalone items in the library."""
     items = db.get_standalone_items(
+        user_id=user_id,
         content_type=content_type,
         bookmarked_only=bookmarked_only,
         limit=limit,
         offset=offset
     )
-    total = db.get_standalone_count()
+    total = db.get_standalone_count(user_id)
     return StandaloneListResponse(
         items=[StandaloneItemResponse.from_db(item) for item in items],
         total=total
@@ -74,10 +76,11 @@ async def list_standalone_items(
 
 @router.get("/stats")
 async def get_library_stats(
-    db: Annotated[Database, Depends(get_db)]
+    db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)]
 ) -> LibraryStatsResponse:
     """Get library statistics."""
-    items = db.get_standalone_items(limit=10000)  # Get all for stats
+    items = db.get_standalone_items(user_id=user_id, limit=10000)  # Get all for stats
     total = len(items)
 
     by_type: dict[str, int] = {}
@@ -99,6 +102,7 @@ async def get_library_stats(
 async def add_url_to_library(
     request: AddStandaloneURLRequest,
     db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)],
     background_tasks: BackgroundTasks,
     auto_summarize: bool = Query(default=False, description="Automatically summarize after fetching")
 ) -> StandaloneItemDetailResponse:
@@ -120,6 +124,7 @@ async def add_url_to_library(
 
     # Add to database
     item_id = db.add_standalone_item(
+        user_id=user_id,
         url=request.url,
         title=title,
         content=result.content,
@@ -155,6 +160,7 @@ async def upload_file_to_library(
     file: UploadFile = File(...),
     title: str | None = Query(default=None, description="Optional title for the item"),
     db: Database = Depends(get_db),
+    user_id: int = Depends(get_current_user),
     background_tasks: BackgroundTasks = BackgroundTasks(),
     auto_summarize: bool = Query(default=False, description="Automatically summarize after extraction")
 ) -> StandaloneItemDetailResponse:
@@ -209,6 +215,7 @@ async def upload_file_to_library(
 
     # Add to database
     item_id = db.add_standalone_item(
+        user_id=user_id,
         url=file_url,
         title=item_title,
         content=extracted_text,
@@ -246,15 +253,12 @@ async def upload_file_to_library(
 @router.get("/{item_id}")
 async def get_standalone_item(
     item_id: int,
-    db: Annotated[Database, Depends(get_db)]
+    db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)]
 ) -> StandaloneItemDetailResponse:
     """Get a single standalone item with full content."""
-    item = db.get_article(item_id)
+    item = db.get_library_item(user_id, item_id)
     if not item:
-        raise HTTPException(status_code=404, detail="Item not found")
-
-    # Verify it's a standalone item
-    if not db.is_standalone_feed(item.feed_id):
         raise HTTPException(status_code=404, detail="Item not found in library")
 
     return StandaloneItemDetailResponse.from_db(item)
@@ -263,16 +267,17 @@ async def get_standalone_item(
 @router.delete("/{item_id}")
 async def delete_standalone_item(
     item_id: int,
-    db: Annotated[Database, Depends(get_db)]
+    db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)]
 ) -> dict:
     """Delete a standalone item from the library."""
     # Get item first to clean up file if needed
-    item = db.get_article(item_id)
+    item = db.get_library_item(user_id, item_id)
     if item and item.file_path:
         file_path = Path(item.file_path)
         file_path.unlink(missing_ok=True)
 
-    deleted = db.delete_standalone_item(item_id)
+    deleted = db.delete_standalone_item(user_id, item_id)
     if not deleted:
         raise HTTPException(status_code=404, detail="Item not found in library")
 
@@ -283,28 +288,30 @@ async def delete_standalone_item(
 async def mark_item_read(
     item_id: int,
     db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)],
     is_read: bool = True
 ) -> dict:
     """Mark a standalone item as read/unread."""
-    item = db.get_article(item_id)
-    if not item or not db.is_standalone_feed(item.feed_id):
+    item = db.get_library_item(user_id, item_id)
+    if not item:
         raise HTTPException(status_code=404, detail="Item not found in library")
 
-    db.mark_read(item_id, is_read)
+    db.mark_read(user_id, item_id, is_read)
     return {"success": True, "is_read": is_read}
 
 
 @router.post("/{item_id}/bookmark")
 async def toggle_item_bookmark(
     item_id: int,
-    db: Annotated[Database, Depends(get_db)]
+    db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)]
 ) -> dict:
     """Toggle bookmark status for a standalone item."""
-    item = db.get_article(item_id)
-    if not item or not db.is_standalone_feed(item.feed_id):
+    item = db.get_library_item(user_id, item_id)
+    if not item:
         raise HTTPException(status_code=404, detail="Item not found in library")
 
-    new_status = db.toggle_bookmark(item_id)
+    new_status = db.toggle_bookmark(user_id, item_id)
     return {"success": True, "is_bookmarked": new_status}
 
 
@@ -312,14 +319,15 @@ async def toggle_item_bookmark(
 async def summarize_standalone_item(
     item_id: int,
     db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)],
     background_tasks: BackgroundTasks
 ) -> dict:
     """Generate or regenerate summary for a standalone item."""
     if not state.summarizer:
         raise HTTPException(status_code=503, detail="Summarization not configured")
 
-    item = db.get_article(item_id)
-    if not item or not db.is_standalone_feed(item.feed_id):
+    item = db.get_library_item(user_id, item_id)
+    if not item:
         raise HTTPException(status_code=404, detail="Item not found in library")
 
     content = item.content or ""
@@ -348,6 +356,7 @@ async def summarize_standalone_item(
 async def import_newsletters(
     files: list[UploadFile] = File(...),
     db: Database = Depends(get_db),
+    user_id: int = Depends(get_current_user),
     background_tasks: BackgroundTasks = BackgroundTasks(),
     auto_summarize: bool = Query(default=False, description="Automatically summarize after import")
 ) -> NewsletterImportResponse:
@@ -404,6 +413,7 @@ async def import_newsletters(
 
             # Add to database
             item_id = db.add_standalone_item(
+                user_id=user_id,
                 url=newsletter_url,
                 title=parsed.title,
                 content=article_html,
@@ -466,6 +476,7 @@ async def import_newsletters(
 async def import_newsletter_raw(
     content: str,
     db: Database = Depends(get_db),
+    user_id: int = Depends(get_current_user),
     background_tasks: BackgroundTasks = BackgroundTasks(),
     auto_summarize: bool = Query(default=False, description="Automatically summarize after import")
 ) -> StandaloneItemDetailResponse:
@@ -493,6 +504,7 @@ async def import_newsletter_raw(
 
     # Add to database
     item_id = db.add_standalone_item(
+        user_id=user_id,
         url=newsletter_url,
         title=parsed.title,
         content=article_html,
@@ -504,7 +516,7 @@ async def import_newsletter_raw(
     if not item_id:
         raise HTTPException(status_code=409, detail="Newsletter already exists in library")
 
-    item = db.get_article(item_id)
+    item = db.get_library_item(user_id, item_id)
     if not item:
         raise HTTPException(status_code=500, detail="Failed to retrieve item")
 

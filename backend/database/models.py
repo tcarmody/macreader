@@ -33,6 +33,32 @@ class DBArticle:
     has_code_blocks: bool = False
     site_name: str | None = None
 
+    # Multi-user support: owner for library items (NULL for shared RSS articles)
+    user_id: int | None = None
+
+
+@dataclass
+class DBUser:
+    """User account for multi-user support."""
+    id: int
+    email: str
+    name: str | None
+    provider: str | None  # 'google', 'github', 'api_key'
+    created_at: datetime
+    last_login_at: datetime | None = None
+
+
+@dataclass
+class DBUserArticleState:
+    """Per-user article state (read/bookmark status)."""
+    id: int
+    user_id: int
+    article_id: int
+    is_read: bool
+    read_at: datetime | None
+    is_bookmarked: bool
+    bookmarked_at: datetime | None
+
 
 @dataclass
 class DBFeed:

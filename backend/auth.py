@@ -10,10 +10,15 @@ Supports three authentication modes:
 """
 
 import secrets
-from fastapi import HTTPException, Request, Security, status
+from typing import TYPE_CHECKING
+
+from fastapi import Depends, HTTPException, Request, Security, status
 from fastapi.security import APIKeyHeader
 
-from .config import config
+from .config import config, get_db
+
+if TYPE_CHECKING:
+    from .database import Database
 
 # Header name for the API key
 API_KEY_HEADER = APIKeyHeader(name="X-API-Key", auto_error=False)
@@ -133,3 +138,83 @@ def verify_api_key(
 def generate_api_key() -> str:
     """Generate a secure random API key."""
     return secrets.token_urlsafe(32)
+
+
+def get_current_user(
+    request: Request,
+    db: "Database" = Depends(get_db),
+    api_key: str | None = Security(API_KEY_HEADER)
+) -> int:
+    """
+    Get the current user's ID from authentication.
+
+    This dependency returns a user_id (integer) that can be used
+    for database operations requiring user context.
+
+    Authentication modes:
+    1. OAuth session: Look up or create user by email from session
+    2. Valid API key: Return the shared "API User"
+    3. Dev mode (no auth): Return the shared "API User"
+
+    Args:
+        request: The FastAPI request object
+        db: Database instance
+        api_key: The API key from the X-API-Key header
+
+    Returns:
+        User ID (integer) for database operations
+
+    Raises:
+        HTTPException: If authentication fails
+    """
+    api_key_configured = bool(config.AUTH_API_KEY)
+    oauth_configured = config.OAUTH_ENABLED
+
+    # Check OAuth session first (most specific user identity)
+    if oauth_configured:
+        from .oauth import get_session_from_cookie
+        session = get_session_from_cookie(request)
+        if session:
+            # Get or create user from OAuth session
+            user_id = db.users.get_or_create(
+                email=session.email,
+                name=session.name,
+                provider=session.provider
+            )
+            db.users.update_last_login(user_id)
+            return user_id
+
+    # Check API key
+    if api_key and api_key_configured:
+        if secrets.compare_digest(api_key, config.AUTH_API_KEY):
+            return db.users.get_or_create_api_user()
+
+    # Dev mode (no auth configured) - use shared API user
+    if not api_key_configured and not oauth_configured:
+        return db.users.get_or_create_api_user()
+
+    # Authentication required but not provided
+    if api_key_configured and not oauth_configured:
+        if not api_key:
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Missing API key. Provide X-API-Key header.",
+                headers={"WWW-Authenticate": "ApiKey"},
+            )
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid API key",
+            headers={"WWW-Authenticate": "ApiKey"},
+        )
+
+    if oauth_configured and not api_key_configured:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Not authenticated. Please login.",
+        )
+
+    # Both configured but neither worked
+    raise HTTPException(
+        status_code=status.HTTP_401_UNAUTHORIZED,
+        detail="Authentication required. Provide valid API key or login.",
+    )

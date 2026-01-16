@@ -61,6 +61,9 @@ def client(temp_db_path, temp_cache_dir):
     state.summarizer = None  # Disable for tests (requires API key)
     state.clusterer = None
 
+    # Create a test user (API key user for dev mode)
+    test_db.users.get_or_create_api_user()
+
     with TestClient(app, raise_server_exceptions=False) as test_client:
         yield test_client
 
@@ -93,6 +96,9 @@ def client_with_data(temp_db_path, temp_cache_dir):
     state.summarizer = None
     state.clusterer = None
 
+    # Create a test user (API key user for dev mode)
+    test_user_id = test_db.users.get_or_create_api_user()
+
     # Add test data
     feed_id = test_db.add_feed(
         url="https://example.com/feed.xml",
@@ -114,14 +120,15 @@ def client_with_data(temp_db_path, temp_cache_dir):
         content="This is the content of test article 2. It also has enough text."
     )
 
-    # Mark one as read
+    # Mark one as read (now requires user_id)
     if article1_id:
-        test_db.mark_read(article1_id, True)
+        test_db.mark_read(test_user_id, article1_id, True)
 
     with TestClient(app, raise_server_exceptions=False) as test_client:
         yield test_client, {
             "feed_id": feed_id,
             "article_ids": [article1_id, article2_id],
+            "user_id": test_user_id,
         }
 
     # Restore original state
