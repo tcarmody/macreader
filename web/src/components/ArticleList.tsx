@@ -4,12 +4,15 @@ import {
   Circle,
   Sparkles,
   ExternalLink,
+  Eye,
+  EyeOff,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDate, stripHtml } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { useAppStore } from '@/store/app-store'
 import { useArticles, useSearch, useMarkArticleRead } from '@/hooks/use-queries'
 import type { Article } from '@/types'
@@ -21,6 +24,8 @@ export function ArticleList() {
     setSelectedArticleId,
     searchQuery,
     isSearching,
+    hideRead,
+    toggleHideRead,
   } = useAppStore()
 
   // Articles are fetched with the filter applied (e.g., unread_only=true for unread view)
@@ -32,7 +37,11 @@ export function ArticleList() {
   )
   const markRead = useMarkArticleRead()
 
-  const displayArticles = isSearching ? searchResults : articles
+  const allArticles = isSearching ? searchResults : articles
+  // Apply hide read filter client-side (separate from the Unread filter)
+  const displayArticles = hideRead
+    ? allArticles.filter((a) => !a.is_read)
+    : allArticles
 
   // Group articles by date
   const groupedArticles = useMemo(() => {
@@ -107,7 +116,22 @@ export function ArticleList() {
       {/* Header */}
       <div className="p-4 border-b border-border flex items-center justify-between">
         <h2 className="font-semibold">{getFilterTitle()}</h2>
-        <Badge variant="secondary">{displayArticles.length}</Badge>
+        <div className="flex items-center gap-2">
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7"
+            onClick={toggleHideRead}
+            title={hideRead ? 'Show read articles' : 'Hide read articles'}
+          >
+            {hideRead ? (
+              <EyeOff className="h-4 w-4" />
+            ) : (
+              <Eye className="h-4 w-4" />
+            )}
+          </Button>
+          <Badge variant="secondary">{displayArticles.length}</Badge>
+        </div>
       </div>
 
       {/* Article List */}

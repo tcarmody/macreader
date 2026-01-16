@@ -15,6 +15,7 @@ interface AppState {
   // View State
   currentView: 'feeds' | 'library'
   groupBy: GroupBy
+  hideRead: boolean
   searchQuery: string
   isSearching: boolean
 
@@ -29,6 +30,8 @@ interface AppState {
   setSelectedLibraryItemId: (id: number | null) => void
   setCurrentView: (view: 'feeds' | 'library') => void
   setGroupBy: (groupBy: GroupBy) => void
+  setHideRead: (hideRead: boolean) => void
+  toggleHideRead: () => void
   setSearchQuery: (query: string) => void
   setIsSearching: (isSearching: boolean) => void
   setApiConfig: (config: ApiKeyConfig) => void
@@ -50,6 +53,7 @@ export const useAppStore = create<AppState>()(
       // Initial View State
       currentView: 'feeds',
       groupBy: 'none',
+      hideRead: false,
       searchQuery: '',
       isSearching: false,
 
@@ -70,6 +74,8 @@ export const useAppStore = create<AppState>()(
         selectedLibraryItemId: null,
       }),
       setGroupBy: (groupBy) => set({ groupBy }),
+      setHideRead: (hideRead) => set({ hideRead }),
+      toggleHideRead: () => set((state) => ({ hideRead: !state.hideRead })),
       setSearchQuery: (query) => set({ searchQuery: query }),
       setIsSearching: (isSearching) => set({ isSearching }),
       setApiConfig: (config) => {
@@ -92,6 +98,7 @@ export const useAppStore = create<AppState>()(
         selectedFilter: state.selectedFilter,
         currentView: state.currentView,
         groupBy: state.groupBy,
+        hideRead: state.hideRead,
         apiConfig: state.apiConfig,
       }),
     }
