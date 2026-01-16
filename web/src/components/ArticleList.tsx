@@ -52,13 +52,22 @@ export function ArticleList() {
     toggleHideRead,
   } = useAppStore()
 
-  // Fetch flat articles when groupBy is 'none', otherwise fetch grouped
-  const { data: articles = [], isLoading } = useArticles(selectedFilter, sortBy)
+  // Fetch flat articles with pagination when groupBy is 'none', otherwise fetch grouped
+  const {
+    data: articlesData,
+    isLoading,
+    fetchNextPage,
+    hasNextPage,
+    isFetchingNextPage,
+  } = useArticles(selectedFilter, sortBy)
   const { data: groupedData, isLoading: groupedLoading } = useArticlesGrouped(groupBy)
   const { data: searchResults = [], isLoading: searchLoading } = useSearch(
     isSearching ? searchQuery : ''
   )
   const markRead = useMarkArticleRead()
+
+  // Flatten paginated articles
+  const articles = articlesData?.pages.flat() ?? []
 
   // When searching, always use flat search results
   // When groupBy !== 'none', use server-side grouped data
@@ -273,6 +282,20 @@ export function ArticleList() {
                 </div>
               </div>
             ))}
+
+            {/* Load More button for pagination */}
+            {hasNextPage && !isSearching && groupBy === 'none' && (
+              <div className="py-4 text-center">
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => fetchNextPage()}
+                  disabled={isFetchingNextPage}
+                >
+                  {isFetchingNextPage ? 'Loading...' : 'Load More'}
+                </Button>
+              </div>
+            )}
           </div>
         )}
       </ScrollArea>

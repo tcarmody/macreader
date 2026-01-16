@@ -1,4 +1,4 @@
-import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import * as api from '@/api/client'
 import type { FilterType, GroupBy, SortBy, Article, ArticleDetail, GroupedArticlesResponse } from '@/types'
 
@@ -147,13 +147,17 @@ export function useExportOpml() {
   })
 }
 
-// Articles
+// Articles - paginated with infinite scroll
+const ARTICLES_PAGE_SIZE = 50
+
 export function useArticles(filter: FilterType, sortBy: SortBy = 'newest') {
-  return useQuery({
+  return useInfiniteQuery({
     queryKey: queryKeys.articles(filter, sortBy),
-    queryFn: () => {
+    queryFn: ({ pageParam = 0 }) => {
       const params: Parameters<typeof api.getArticles>[0] = {
         sort_by: sortBy,
+        limit: ARTICLES_PAGE_SIZE,
+        offset: pageParam,
       }
 
       if (filter === 'unread') {
@@ -167,6 +171,15 @@ export function useArticles(filter: FilterType, sortBy: SortBy = 'newest') {
       }
 
       return api.getArticles(params)
+    },
+    initialPageParam: 0,
+    getNextPageParam: (lastPage, allPages) => {
+      // If last page has fewer items than page size, we've reached the end
+      if (lastPage.length < ARTICLES_PAGE_SIZE) {
+        return undefined
+      }
+      // Return the offset for the next page
+      return allPages.flat().length
     },
     staleTime: 30000,
   })
@@ -189,19 +202,33 @@ export function useArticle(articleId: number | null) {
   })
 }
 
+// Type for infinite query data structure
+interface InfiniteArticleData {
+  pages: Article[][]
+  pageParams: number[]
+}
+
 export function useMarkArticleRead() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: ({ articleId, isRead }: { articleId: number; isRead: boolean }) =>
       api.markArticleRead(articleId, isRead),
     onMutate: async ({ articleId, isRead }) => {
-      // Optimistically update article in all article list caches
+      // Optimistically update article in all article list caches (infinite query structure)
       // This prevents the article from disappearing from unread view immediately
-      queryClient.setQueriesData<Article[]>(
+      queryClient.setQueriesData<InfiniteArticleData>(
         { queryKey: ['articles'] },
-        (old) => old?.map(article =>
-          article.id === articleId ? { ...article, is_read: isRead } : article
-        )
+        (old) => {
+          if (!old) return old
+          return {
+            ...old,
+            pages: old.pages.map(page =>
+              page.map(article =>
+                article.id === articleId ? { ...article, is_read: isRead } : article
+              )
+            )
+          }
+        }
       )
 
       // Also update the individual article cache
