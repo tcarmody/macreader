@@ -11,6 +11,8 @@ import {
   Calendar,
   Rss,
   Tags,
+  Brain,
+  Loader2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDate, stripHtml } from '@/lib/utils'
@@ -130,6 +132,54 @@ export function ArticleList() {
 
   // Use grouped loading when in grouped mode
   const isLoadingArticles = groupBy !== 'none' && !isSearching ? groupedLoading : isLoading
+  const isTopicClustering = groupBy === 'topic' && groupedLoading && !isSearching
+
+  const getFilterTitle = () => {
+    if (isSearching) return `Search: "${searchQuery}"`
+    if (typeof selectedFilter === 'string') {
+      return {
+        all: 'All Articles',
+        unread: 'Unread',
+        today: 'Today',
+        bookmarked: 'Bookmarked',
+        summarized: 'Summarized',
+      }[selectedFilter]
+    }
+    return 'Articles'
+  }
+
+  // Show special progress card for topic clustering
+  if (isTopicClustering) {
+    return (
+      <div className="w-80 border-r border-border flex flex-col bg-background">
+        <div className="p-4 border-b border-border">
+          <h2 className="font-semibold">{getFilterTitle()}</h2>
+        </div>
+        <div className="flex-1 flex items-center justify-center p-8">
+          <div className="text-center space-y-4">
+            <div className="relative mx-auto w-16 h-16">
+              <Brain className="w-16 h-16 text-primary/20" />
+              <Loader2 className="w-8 h-8 text-primary absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 animate-spin" />
+            </div>
+            <div className="space-y-2">
+              <p className="font-medium text-foreground">Analyzing Topics</p>
+              <p className="text-sm text-muted-foreground">
+                AI is clustering your articles by topic...
+              </p>
+            </div>
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setGroupBy('none')}
+              className="text-muted-foreground"
+            >
+              Cancel
+            </Button>
+          </div>
+        </div>
+      </div>
+    )
+  }
 
   if (isLoadingArticles || searchLoading) {
     return (
@@ -154,20 +204,6 @@ export function ArticleList() {
   const totalCount = groupBy !== 'none' && !isSearching
     ? serverGroups.reduce((sum, g) => sum + g.articles.length, 0)
     : displayArticles.length
-
-  const getFilterTitle = () => {
-    if (isSearching) return `Search: "${searchQuery}"`
-    if (typeof selectedFilter === 'string') {
-      return {
-        all: 'All Articles',
-        unread: 'Unread',
-        today: 'Today',
-        bookmarked: 'Bookmarked',
-        summarized: 'Summarized',
-      }[selectedFilter]
-    }
-    return 'Articles'
-  }
 
   return (
     <div className="w-80 border-r border-border flex flex-col bg-background">
