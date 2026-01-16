@@ -181,6 +181,7 @@ export async function getArticles(params: {
   unread_only?: boolean
   bookmarked_only?: boolean
   summarized_only?: boolean
+  sort_by?: string
   limit?: number
   offset?: number
 }): Promise<Article[]> {
@@ -189,6 +190,7 @@ export async function getArticles(params: {
   if (params.unread_only) searchParams.append('unread_only', 'true')
   if (params.bookmarked_only) searchParams.append('bookmarked_only', 'true')
   if (params.summarized_only) searchParams.append('summarized_only', 'true')
+  if (params.sort_by) searchParams.append('sort_by', params.sort_by)
   if (params.limit) searchParams.append('limit', params.limit.toString())
   if (params.offset) searchParams.append('offset', params.offset.toString())
 

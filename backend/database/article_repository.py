@@ -66,12 +66,22 @@ class ArticleRepository:
             ).fetchone()
             return row_to_article(row) if row else None
 
+    # Valid sort options mapped to SQL ORDER BY clauses
+    SORT_OPTIONS = {
+        "newest": "published_at DESC NULLS LAST, created_at DESC",
+        "oldest": "published_at ASC NULLS LAST, created_at ASC",
+        "unread_first": "is_read ASC, published_at DESC NULLS LAST, created_at DESC",
+        "title_asc": "title ASC",
+        "title_desc": "title DESC",
+    }
+
     def get_many(
         self,
         feed_id: int | None = None,
         unread_only: bool = False,
         bookmarked_only: bool = False,
         summarized_only: bool | None = None,
+        sort_by: str = "newest",
         limit: int = 50,
         offset: int = 0
     ) -> list[DBArticle]:
@@ -91,7 +101,9 @@ class ArticleRepository:
         elif summarized_only is False:
             query += " AND summary_full IS NULL"
 
-        query += " ORDER BY published_at DESC NULLS LAST, created_at DESC LIMIT ? OFFSET ?"
+        # Use validated sort option or default to newest
+        order_clause = self.SORT_OPTIONS.get(sort_by, self.SORT_OPTIONS["newest"])
+        query += f" ORDER BY {order_clause} LIMIT ? OFFSET ?"
         params.extend([limit, offset])
 
         with self._db.conn() as conn:

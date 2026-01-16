@@ -6,6 +6,7 @@ import {
   ExternalLink,
   Eye,
   EyeOff,
+  ArrowUpDown,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDate, stripHtml } from '@/lib/utils'
@@ -15,7 +16,15 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAppStore } from '@/store/app-store'
 import { useArticles, useSearch, useMarkArticleRead } from '@/hooks/use-queries'
-import type { Article } from '@/types'
+import type { Article, SortBy } from '@/types'
+
+const SORT_OPTIONS: { value: SortBy; label: string }[] = [
+  { value: 'newest', label: 'Newest First' },
+  { value: 'oldest', label: 'Oldest First' },
+  { value: 'unread_first', label: 'Unread First' },
+  { value: 'title_asc', label: 'Title A-Z' },
+  { value: 'title_desc', label: 'Title Z-A' },
+]
 
 export function ArticleList() {
   const {
@@ -24,6 +33,8 @@ export function ArticleList() {
     setSelectedArticleId,
     searchQuery,
     isSearching,
+    sortBy,
+    setSortBy,
     hideRead,
     toggleHideRead,
   } = useAppStore()
@@ -31,7 +42,7 @@ export function ArticleList() {
   // Articles are fetched with the filter applied (e.g., unread_only=true for unread view)
   // We don't filter client-side so articles stay visible after being marked as read
   // until the user navigates away (like NetNewsWire)
-  const { data: articles = [], isLoading } = useArticles(selectedFilter)
+  const { data: articles = [], isLoading } = useArticles(selectedFilter, sortBy)
   const { data: searchResults = [], isLoading: searchLoading } = useSearch(
     isSearching ? searchQuery : ''
   )
@@ -114,23 +125,40 @@ export function ArticleList() {
   return (
     <div className="w-80 border-r border-border flex flex-col bg-background">
       {/* Header */}
-      <div className="p-4 border-b border-border flex items-center justify-between">
-        <h2 className="font-semibold">{getFilterTitle()}</h2>
+      <div className="p-4 border-b border-border flex flex-col gap-2">
+        <div className="flex items-center justify-between">
+          <h2 className="font-semibold">{getFilterTitle()}</h2>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={toggleHideRead}
+              title={hideRead ? 'Show read articles' : 'Hide read articles'}
+            >
+              {hideRead ? (
+                <EyeOff className="h-4 w-4" />
+              ) : (
+                <Eye className="h-4 w-4" />
+              )}
+            </Button>
+            <Badge variant="secondary">{displayArticles.length}</Badge>
+          </div>
+        </div>
+        {/* Sort dropdown */}
         <div className="flex items-center gap-2">
-          <Button
-            variant="ghost"
-            size="icon"
-            className="h-7 w-7"
-            onClick={toggleHideRead}
-            title={hideRead ? 'Show read articles' : 'Hide read articles'}
+          <ArrowUpDown className="h-3 w-3 text-muted-foreground" />
+          <select
+            value={sortBy}
+            onChange={(e) => setSortBy(e.target.value as SortBy)}
+            className="flex-1 h-7 px-2 text-xs rounded-md border border-input bg-background"
           >
-            {hideRead ? (
-              <EyeOff className="h-4 w-4" />
-            ) : (
-              <Eye className="h-4 w-4" />
-            )}
-          </Button>
-          <Badge variant="secondary">{displayArticles.length}</Badge>
+            {SORT_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
       </div>
 

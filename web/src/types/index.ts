@@ -107,7 +107,7 @@ export type FilterType =
 
 export type GroupBy = 'none' | 'date' | 'feed' | 'topic'
 
-export type SortBy = 'date' | 'title' | 'feed'
+export type SortBy = 'newest' | 'oldest' | 'unread_first' | 'title_asc' | 'title_desc'
 
 // API key configuration stored in localStorage
 export interface ApiKeyConfig {

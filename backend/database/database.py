@@ -143,10 +143,11 @@ class Database:
         unread_only: bool = False,
         bookmarked_only: bool = False,
         summarized_only: bool | None = None,
+        sort_by: str = "newest",
         limit: int = 50,
         offset: int = 0
     ) -> list[DBArticle]:
-        return self.articles.get_many(feed_id, unread_only, bookmarked_only, summarized_only, limit, offset)
+        return self.articles.get_many(feed_id, unread_only, bookmarked_only, summarized_only, sort_by, limit, offset)
 
     def get_article(self, article_id: int) -> DBArticle | None:
         return self.articles.get(article_id)

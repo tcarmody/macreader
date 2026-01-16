@@ -41,6 +41,7 @@ async def list_articles(
     bookmarked_only: bool = False,
     summarized_only: bool | None = None,
     hide_duplicates: bool = False,
+    sort_by: str = Query(default="newest", pattern="^(newest|oldest|unread_first|title_asc|title_desc)$"),
     limit: int = Query(default=50, le=200),
     offset: int = 0
 ) -> list[ArticleResponse]:
@@ -51,12 +52,14 @@ async def list_articles(
                         If False, only return unsummarized articles.
                         If None, return all articles regardless of summary status.
         hide_duplicates: If True, hide duplicate articles (same content across feeds).
+        sort_by: Sort order - newest, oldest, unread_first, title_asc, or title_desc.
     """
     articles = db.get_articles(
         feed_id=feed_id,
         unread_only=unread_only,
         bookmarked_only=bookmarked_only,
         summarized_only=summarized_only,
+        sort_by=sort_by,
         limit=limit,
         offset=offset
     )

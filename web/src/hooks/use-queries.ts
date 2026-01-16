@@ -1,6 +1,6 @@
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import * as api from '@/api/client'
-import type { FilterType, GroupBy, Article, ArticleDetail } from '@/types'
+import type { FilterType, GroupBy, SortBy, Article, ArticleDetail } from '@/types'
 
 // Query Keys
 export const queryKeys = {
@@ -9,7 +9,7 @@ export const queryKeys = {
   stats: ['stats'] as const,
   settings: ['settings'] as const,
   feeds: ['feeds'] as const,
-  articles: (filter: FilterType) => ['articles', filter] as const,
+  articles: (filter: FilterType, sortBy: SortBy) => ['articles', filter, sortBy] as const,
   articlesGrouped: (groupBy: GroupBy) => ['articles', 'grouped', groupBy] as const,
   article: (id: number) => ['article', id] as const,
   search: (query: string) => ['search', query] as const,
@@ -148,11 +148,13 @@ export function useExportOpml() {
 }
 
 // Articles
-export function useArticles(filter: FilterType) {
+export function useArticles(filter: FilterType, sortBy: SortBy = 'newest') {
   return useQuery({
-    queryKey: queryKeys.articles(filter),
+    queryKey: queryKeys.articles(filter, sortBy),
     queryFn: () => {
-      const params: Parameters<typeof api.getArticles>[0] = {}
+      const params: Parameters<typeof api.getArticles>[0] = {
+        sort_by: sortBy,
+      }
 
       if (filter === 'unread') {
         params.unread_only = true

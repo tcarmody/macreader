@@ -1,6 +1,6 @@
 import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
-import type { FilterType, GroupBy, ApiKeyConfig } from '@/types'
+import type { FilterType, GroupBy, SortBy, ApiKeyConfig } from '@/types'
 
 interface AppState {
   // UI State
@@ -15,6 +15,7 @@ interface AppState {
   // View State
   currentView: 'feeds' | 'library'
   groupBy: GroupBy
+  sortBy: SortBy
   hideRead: boolean
   searchQuery: string
   isSearching: boolean
@@ -30,6 +31,7 @@ interface AppState {
   setSelectedLibraryItemId: (id: number | null) => void
   setCurrentView: (view: 'feeds' | 'library') => void
   setGroupBy: (groupBy: GroupBy) => void
+  setSortBy: (sortBy: SortBy) => void
   setHideRead: (hideRead: boolean) => void
   toggleHideRead: () => void
   setSearchQuery: (query: string) => void
@@ -53,6 +55,7 @@ export const useAppStore = create<AppState>()(
       // Initial View State
       currentView: 'feeds',
       groupBy: 'none',
+      sortBy: 'newest',
       hideRead: false,
       searchQuery: '',
       isSearching: false,
@@ -74,6 +77,7 @@ export const useAppStore = create<AppState>()(
         selectedLibraryItemId: null,
       }),
       setGroupBy: (groupBy) => set({ groupBy }),
+      setSortBy: (sortBy) => set({ sortBy }),
       setHideRead: (hideRead) => set({ hideRead }),
       toggleHideRead: () => set((state) => ({ hideRead: !state.hideRead })),
       setSearchQuery: (query) => set({ searchQuery: query }),
@@ -98,6 +102,7 @@ export const useAppStore = create<AppState>()(
         selectedFilter: state.selectedFilter,
         currentView: state.currentView,
         groupBy: state.groupBy,
+        sortBy: state.sortBy,
         hideRead: state.hideRead,
         apiConfig: state.apiConfig,
       }),
