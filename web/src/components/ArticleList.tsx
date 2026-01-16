@@ -13,6 +13,7 @@ import {
   Tags,
   Brain,
   Loader2,
+  CheckCheck,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDate, stripHtml } from '@/lib/utils'
@@ -21,7 +22,7 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { useAppStore } from '@/store/app-store'
-import { useArticles, useArticlesGrouped, useSearch, useMarkArticleRead } from '@/hooks/use-queries'
+import { useArticles, useArticlesGrouped, useSearch, useMarkArticleRead, useMarkAllRead } from '@/hooks/use-queries'
 import type { Article, SortBy, GroupBy } from '@/types'
 
 const SORT_OPTIONS: { value: SortBy; label: string }[] = [
@@ -67,6 +68,7 @@ export function ArticleList() {
     isSearching ? searchQuery : ''
   )
   const markRead = useMarkArticleRead()
+  const markAllRead = useMarkAllRead()
 
   // Flatten paginated articles
   const articles = articlesData?.pages.flat() ?? []
@@ -211,7 +213,17 @@ export function ArticleList() {
       <div className="p-4 border-b border-border flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">{getFilterTitle()}</h2>
-          <div className="flex items-center gap-2">
+          <div className="flex items-center gap-1">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7"
+              onClick={() => markAllRead.mutate()}
+              disabled={markAllRead.isPending}
+              title="Mark all as read"
+            >
+              <CheckCheck className={cn("h-4 w-4", markAllRead.isPending && "animate-pulse")} />
+            </Button>
             <Button
               variant="ghost"
               size="icon"
