@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { FilterType, GroupBy, SortBy, ApiKeyConfig } from '@/types'
 
-export type DesignStyle = 'default' | 'warm' | 'soft' | 'rounded' | 'compact' | 'teal'
+export type DesignStyle = 'default' | 'warm' | 'soft' | 'rounded' | 'compact' | 'teal' | 'high-contrast' | 'sepia' | 'mono'
 
 interface AppState {
   // UI State
@@ -135,6 +135,6 @@ export function applyTheme(theme: 'light' | 'dark' | 'system') {
 // Apply design style
 export function applyDesignStyle(style: DesignStyle) {
   const root = window.document.documentElement
-  root.classList.remove('design-default', 'design-warm', 'design-soft', 'design-rounded', 'design-compact', 'design-teal')
+  root.classList.remove('design-default', 'design-warm', 'design-soft', 'design-rounded', 'design-compact', 'design-teal', 'design-high-contrast', 'design-sepia', 'design-mono')
   root.classList.add(`design-${style}`)
 }

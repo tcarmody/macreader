@@ -392,6 +392,9 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
                     { id: 'rounded', name: 'Rounded', desc: 'Rounder corners' },
                     { id: 'compact', name: 'Compact', desc: 'Tighter spacing' },
                     { id: 'teal', name: 'Teal AI', desc: 'Teal accents' },
+                    { id: 'high-contrast', name: 'High Contrast', desc: 'Bold, accessible' },
+                    { id: 'sepia', name: 'Sepia', desc: 'Warm reading' },
+                    { id: 'mono', name: 'Mono', desc: 'No color accents' },
                   ] as const).map((style) => (
                     <button
                       key={style.id}

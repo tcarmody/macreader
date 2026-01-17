@@ -233,6 +233,191 @@
   border-color: rgb(20 184 166 / 0.2) !important;
 }
 
+/* Design Style: High Contrast - WCAG AAA compliant, bold borders */
+.design-high-contrast {
+  --background: 0 0% 100%;
+  --foreground: 0 0% 0%;
+  --card: 0 0% 100%;
+  --card-foreground: 0 0% 0%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 0 0% 0%;
+  --primary: 0 0% 0%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 0 0% 96%;
+  --secondary-foreground: 0 0% 0%;
+  --muted: 0 0% 96%;
+  --muted-foreground: 0 0% 25%;
+  --accent: 0 0% 96%;
+  --accent-foreground: 0 0% 0%;
+  --destructive: 0 100% 40%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 0 0% 0%;
+  --input: 0 0% 0%;
+  --ring: 0 0% 0%;
+}
+
+.design-high-contrast.dark {
+  --background: 0 0% 0%;
+  --foreground: 0 0% 100%;
+  --card: 0 0% 0%;
+  --card-foreground: 0 0% 100%;
+  --popover: 0 0% 0%;
+  --popover-foreground: 0 0% 100%;
+  --primary: 0 0% 100%;
+  --primary-foreground: 0 0% 0%;
+  --secondary: 0 0% 12%;
+  --secondary-foreground: 0 0% 100%;
+  --muted: 0 0% 12%;
+  --muted-foreground: 0 0% 75%;
+  --accent: 0 0% 12%;
+  --accent-foreground: 0 0% 100%;
+  --destructive: 0 100% 60%;
+  --destructive-foreground: 0 0% 0%;
+  --border: 0 0% 100%;
+  --input: 0 0% 100%;
+  --ring: 0 0% 100%;
+}
+
+.design-high-contrast .border,
+.design-high-contrast .border-border {
+  border-width: 2px !important;
+}
+
+.design-high-contrast .text-muted-foreground {
+  font-weight: 500;
+}
+
+.design-high-contrast a:focus,
+.design-high-contrast button:focus {
+  outline: 3px solid currentColor !important;
+  outline-offset: 2px !important;
+}
+
+/* Design Style: Sepia - warm paper-like reading experience */
+.design-sepia {
+  --background: 39 35% 95%;
+  --foreground: 30 20% 15%;
+  --card: 39 35% 95%;
+  --card-foreground: 30 20% 15%;
+  --popover: 39 30% 92%;
+  --popover-foreground: 30 20% 15%;
+  --primary: 30 50% 30%;
+  --primary-foreground: 39 35% 95%;
+  --secondary: 39 25% 88%;
+  --secondary-foreground: 30 20% 15%;
+  --muted: 39 25% 88%;
+  --muted-foreground: 30 15% 40%;
+  --accent: 39 25% 88%;
+  --accent-foreground: 30 20% 15%;
+  --destructive: 0 65% 45%;
+  --destructive-foreground: 39 35% 95%;
+  --border: 30 20% 82%;
+  --input: 30 20% 82%;
+  --ring: 30 50% 30%;
+}
+
+.design-sepia.dark {
+  --background: 30 15% 12%;
+  --foreground: 39 25% 88%;
+  --card: 30 15% 12%;
+  --card-foreground: 39 25% 88%;
+  --popover: 30 15% 12%;
+  --popover-foreground: 39 25% 88%;
+  --primary: 39 25% 88%;
+  --primary-foreground: 30 15% 12%;
+  --secondary: 30 12% 18%;
+  --secondary-foreground: 39 25% 88%;
+  --muted: 30 12% 18%;
+  --muted-foreground: 39 15% 60%;
+  --accent: 30 12% 18%;
+  --accent-foreground: 39 25% 88%;
+  --destructive: 0 50% 40%;
+  --destructive-foreground: 39 25% 88%;
+  --border: 30 10% 22%;
+  --input: 30 10% 22%;
+  --ring: 39 25% 70%;
+}
+
+.design-sepia .article-content {
+  font-family: Georgia, 'Times New Roman', serif;
+  line-height: 1.8;
+}
+
+/* Design Style: Mono - monochromatic with reduced visual noise */
+.design-mono {
+  --background: 0 0% 98%;
+  --foreground: 0 0% 15%;
+  --card: 0 0% 98%;
+  --card-foreground: 0 0% 15%;
+  --popover: 0 0% 98%;
+  --popover-foreground: 0 0% 15%;
+  --primary: 0 0% 25%;
+  --primary-foreground: 0 0% 98%;
+  --secondary: 0 0% 93%;
+  --secondary-foreground: 0 0% 15%;
+  --muted: 0 0% 93%;
+  --muted-foreground: 0 0% 45%;
+  --accent: 0 0% 93%;
+  --accent-foreground: 0 0% 15%;
+  --destructive: 0 0% 35%;
+  --destructive-foreground: 0 0% 98%;
+  --border: 0 0% 85%;
+  --input: 0 0% 85%;
+  --ring: 0 0% 25%;
+}
+
+.design-mono.dark {
+  --background: 0 0% 8%;
+  --foreground: 0 0% 90%;
+  --card: 0 0% 8%;
+  --card-foreground: 0 0% 90%;
+  --popover: 0 0% 8%;
+  --popover-foreground: 0 0% 90%;
+  --primary: 0 0% 90%;
+  --primary-foreground: 0 0% 8%;
+  --secondary: 0 0% 15%;
+  --secondary-foreground: 0 0% 90%;
+  --muted: 0 0% 15%;
+  --muted-foreground: 0 0% 60%;
+  --accent: 0 0% 15%;
+  --accent-foreground: 0 0% 90%;
+  --destructive: 0 0% 50%;
+  --destructive-foreground: 0 0% 90%;
+  --border: 0 0% 22%;
+  --input: 0 0% 22%;
+  --ring: 0 0% 75%;
+}
+
+/* Mono removes colored accents */
+.design-mono .text-purple-500,
+.design-mono .text-amber-500,
+.design-mono .text-green-500,
+.design-mono .text-red-500 {
+  color: hsl(var(--foreground)) !important;
+}
+
+.design-mono .bg-purple-500\/5,
+.design-mono .bg-amber-500\/5,
+.design-mono .bg-green-500\/5 {
+  background-color: hsl(var(--muted)) !important;
+}
+
+.design-mono .border-purple-500\/20,
+.design-mono .border-amber-500\/20 {
+  border-color: hsl(var(--border)) !important;
+}
+
+/* Reduce motion for users who prefer it - applies to all styles */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+  }
+}
+
 /* Custom scrollbar for webkit browsers */
 ::-webkit-scrollbar {
   width: 8px;
