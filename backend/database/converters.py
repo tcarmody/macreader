@@ -16,6 +16,25 @@ from .models import (
 )
 
 
+def parse_datetime(value: str | None, default: datetime | None = None) -> datetime | None:
+    """
+    Safely parse an ISO datetime string.
+
+    Args:
+        value: ISO format datetime string, or None
+        default: Value to return if parsing fails (default: None)
+
+    Returns:
+        Parsed datetime or default value
+    """
+    if not value:
+        return default
+    try:
+        return datetime.fromisoformat(value)
+    except ValueError:
+        return default
+
+
 def row_to_article(row: sqlite3.Row) -> DBArticle:
     """Convert a database row to a DBArticle."""
     key_points = None
@@ -25,19 +44,8 @@ def row_to_article(row: sqlite3.Row) -> DBArticle:
         except json.JSONDecodeError:
             pass
 
-    published_at = None
-    if row["published_at"]:
-        try:
-            published_at = datetime.fromisoformat(row["published_at"])
-        except ValueError:
-            pass
-
-    created_at = datetime.now()
-    if row["created_at"]:
-        try:
-            created_at = datetime.fromisoformat(row["created_at"])
-        except ValueError:
-            pass
+    published_at = parse_datetime(row["published_at"])
+    created_at = parse_datetime(row["created_at"], default=datetime.now())
 
     # Handle optional columns - may not exist in older databases during migration
     def safe_get(col: str) -> str | None:
@@ -89,12 +97,7 @@ def row_to_article(row: sqlite3.Row) -> DBArticle:
 
 def row_to_feed(row: sqlite3.Row) -> DBFeed:
     """Convert a database row to a DBFeed."""
-    last_fetched = None
-    if row["last_fetched"]:
-        try:
-            last_fetched = datetime.fromisoformat(row["last_fetched"])
-        except ValueError:
-            pass
+    last_fetched = parse_datetime(row["last_fetched"])
 
     # Handle unread_count - may not be present in all queries
     try:
@@ -121,12 +124,7 @@ def row_to_feed(row: sqlite3.Row) -> DBFeed:
 
 def row_to_notification_rule(row: sqlite3.Row) -> DBNotificationRule:
     """Convert a database row to a DBNotificationRule."""
-    created_at = datetime.now()
-    if row["created_at"]:
-        try:
-            created_at = datetime.fromisoformat(row["created_at"])
-        except ValueError:
-            pass
+    created_at = parse_datetime(row["created_at"], default=datetime.now())
 
     return DBNotificationRule(
         id=row["id"],
@@ -142,12 +140,7 @@ def row_to_notification_rule(row: sqlite3.Row) -> DBNotificationRule:
 
 def row_to_notification_history(row: sqlite3.Row) -> DBNotificationHistory:
     """Convert a database row to a DBNotificationHistory."""
-    notified_at = datetime.now()
-    if row["notified_at"]:
-        try:
-            notified_at = datetime.fromisoformat(row["notified_at"])
-        except ValueError:
-            pass
+    notified_at = parse_datetime(row["notified_at"], default=datetime.now())
 
     return DBNotificationHistory(
         id=row["id"],
@@ -160,19 +153,8 @@ def row_to_notification_history(row: sqlite3.Row) -> DBNotificationHistory:
 
 def row_to_user(row: sqlite3.Row) -> DBUser:
     """Convert a database row to a DBUser."""
-    created_at = datetime.now()
-    if row["created_at"]:
-        try:
-            created_at = datetime.fromisoformat(row["created_at"])
-        except ValueError:
-            pass
-
-    last_login_at = None
-    if row["last_login_at"]:
-        try:
-            last_login_at = datetime.fromisoformat(row["last_login_at"])
-        except ValueError:
-            pass
+    created_at = parse_datetime(row["created_at"], default=datetime.now())
+    last_login_at = parse_datetime(row["last_login_at"])
 
     return DBUser(
         id=row["id"],
@@ -186,19 +168,8 @@ def row_to_user(row: sqlite3.Row) -> DBUser:
 
 def row_to_user_article_state(row: sqlite3.Row) -> DBUserArticleState:
     """Convert a database row to a DBUserArticleState."""
-    read_at = None
-    if row["read_at"]:
-        try:
-            read_at = datetime.fromisoformat(row["read_at"])
-        except ValueError:
-            pass
-
-    bookmarked_at = None
-    if row["bookmarked_at"]:
-        try:
-            bookmarked_at = datetime.fromisoformat(row["bookmarked_at"])
-        except ValueError:
-            pass
+    read_at = parse_datetime(row["read_at"])
+    bookmarked_at = parse_datetime(row["bookmarked_at"])
 
     return DBUserArticleState(
         id=row["id"],

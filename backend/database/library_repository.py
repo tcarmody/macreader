@@ -21,8 +21,16 @@ class LibraryRepository:
 
     def __init__(self, db: DatabaseConnection):
         self._db = db
+        self._feed_id: int | None = None  # Cached feed ID
 
-    def get_or_create_feed(self) -> int:
+    @property
+    def feed_id(self) -> int:
+        """Get the library feed ID, creating if needed. Cached after first access."""
+        if self._feed_id is None:
+            self._feed_id = self._ensure_feed_exists()
+        return self._feed_id
+
+    def _ensure_feed_exists(self) -> int:
         """Get or create the system feed for library items. Returns feed ID."""
         with self._db.conn() as conn:
             row = conn.execute(
@@ -37,6 +45,10 @@ class LibraryRepository:
                 (self.STANDALONE_FEED_URL, self.STANDALONE_FEED_NAME, "Library")
             )
             return cursor.lastrowid
+
+    def get_or_create_feed(self) -> int:
+        """Get the library feed ID. Deprecated: use feed_id property instead."""
+        return self.feed_id
 
     def add(
         self,
@@ -67,7 +79,7 @@ class LibraryRepository:
         Returns:
             Item ID or None if duplicate URL for this user
         """
-        feed_id = self.get_or_create_feed()
+        feed_id = self.feed_id
         pub_date = published_at or datetime.now()
 
         with self._db.conn() as conn:
@@ -110,7 +122,7 @@ class LibraryRepository:
             limit: Maximum items to return
             offset: Number of items to skip
         """
-        feed_id = self.get_or_create_feed()
+        feed_id = self.feed_id
 
         # Library items have user_id set (unlike shared RSS articles)
         query = "SELECT * FROM articles WHERE feed_id = ? AND user_id = ?"
@@ -131,7 +143,7 @@ class LibraryRepository:
 
     def get_count(self, user_id: int) -> int:
         """Get count of library items for a user."""
-        feed_id = self.get_or_create_feed()
+        feed_id = self.feed_id
         with self._db.conn() as conn:
             row = conn.execute(
                 "SELECT COUNT(*) as count FROM articles WHERE feed_id = ? AND user_id = ?",
@@ -141,7 +153,7 @@ class LibraryRepository:
 
     def get_item(self, user_id: int, article_id: int) -> DBArticle | None:
         """Get a specific library item, verifying ownership."""
-        feed_id = self.get_or_create_feed()
+        feed_id = self.feed_id
         with self._db.conn() as conn:
             row = conn.execute(
                 "SELECT * FROM articles WHERE id = ? AND feed_id = ? AND user_id = ?",
@@ -155,7 +167,7 @@ class LibraryRepository:
 
         Returns True if deleted, False if not found or not owned.
         """
-        feed_id = self.get_or_create_feed()
+        feed_id = self.feed_id
         with self._db.conn() as conn:
             cursor = conn.execute(
                 "DELETE FROM articles WHERE id = ? AND feed_id = ? AND user_id = ?",
@@ -165,12 +177,11 @@ class LibraryRepository:
 
     def is_standalone_feed(self, feed_id: int) -> bool:
         """Check if a feed ID is the library feed."""
-        standalone_id = self.get_or_create_feed()
-        return feed_id == standalone_id
+        return feed_id == self.feed_id
 
     def verify_ownership(self, user_id: int, article_id: int) -> bool:
         """Check if a user owns a library item."""
-        feed_id = self.get_or_create_feed()
+        feed_id = self.feed_id
         with self._db.conn() as conn:
             row = conn.execute(
                 "SELECT 1 FROM articles WHERE id = ? AND feed_id = ? AND user_id = ?",

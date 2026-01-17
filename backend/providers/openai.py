@@ -72,8 +72,7 @@ class OpenAIProvider(LLMProvider):
             max_context_tokens=128000,
         )
 
-    def get_model_for_tier(self, tier: ModelTier) -> str:
-        return self.TIER_MODELS[tier]
+    # get_model_for_tier inherited from LLMProvider base class
 
     def complete(
         self,

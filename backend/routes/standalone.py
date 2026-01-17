@@ -13,6 +13,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Qu
 from ..auth import verify_api_key, get_current_user
 from ..config import state, get_db, config
 from ..database import Database
+from ..exceptions import require_item
+from ..validators import require_sufficient_content
 from ..email_parser import (
     parse_eml_bytes,
     extract_article_content,
@@ -44,6 +46,35 @@ def ensure_uploads_dir() -> Path:
     """Ensure uploads directory exists."""
     UPLOADS_DIR.mkdir(parents=True, exist_ok=True)
     return UPLOADS_DIR
+
+
+def schedule_auto_summarize(
+    background_tasks: BackgroundTasks,
+    auto_summarize: bool,
+    item_id: int,
+    content: str | None,
+    url: str,
+    title: str
+) -> None:
+    """
+    Schedule auto-summarization if enabled and content is available.
+
+    Args:
+        background_tasks: FastAPI background tasks
+        auto_summarize: Whether auto-summarize was requested
+        item_id: ID of the item to summarize
+        content: Content to summarize
+        url: URL for context
+        title: Title for context
+    """
+    if auto_summarize and state.summarizer and content:
+        background_tasks.add_task(
+            summarize_article,
+            item_id,
+            content,
+            url,
+            title
+        )
 
 
 # ─────────────────────────────────────────────────────────────
@@ -139,14 +170,7 @@ async def add_url_to_library(
         raise HTTPException(status_code=500, detail="Failed to retrieve item")
 
     # Auto-summarize if requested
-    if auto_summarize and state.summarizer and result.content:
-        background_tasks.add_task(
-            summarize_article,
-            item_id,
-            result.content,
-            request.url,
-            title
-        )
+    schedule_auto_summarize(background_tasks, auto_summarize, item_id, result.content, request.url, title)
 
     return StandaloneItemDetailResponse.from_db(item)
 
@@ -234,14 +258,7 @@ async def upload_file_to_library(
         raise HTTPException(status_code=500, detail="Failed to retrieve item")
 
     # Auto-summarize if requested
-    if auto_summarize and state.summarizer and extracted_text:
-        background_tasks.add_task(
-            summarize_article,
-            item_id,
-            extracted_text,
-            file_url,
-            item_title
-        )
+    schedule_auto_summarize(background_tasks, auto_summarize, item_id, extracted_text, file_url, item_title)
 
     return StandaloneItemDetailResponse.from_db(item)
 
@@ -257,10 +274,7 @@ async def get_standalone_item(
     user_id: Annotated[int, Depends(get_current_user)]
 ) -> StandaloneItemDetailResponse:
     """Get a single standalone item with full content."""
-    item = db.get_library_item(user_id, item_id)
-    if not item:
-        raise HTTPException(status_code=404, detail="Item not found in library")
-
+    item = require_item(db.get_library_item(user_id, item_id))
     return StandaloneItemDetailResponse.from_db(item)
 
 
@@ -292,10 +306,7 @@ async def mark_item_read(
     is_read: bool = True
 ) -> dict:
     """Mark a standalone item as read/unread."""
-    item = db.get_library_item(user_id, item_id)
-    if not item:
-        raise HTTPException(status_code=404, detail="Item not found in library")
-
+    require_item(db.get_library_item(user_id, item_id))
     db.mark_read(user_id, item_id, is_read)
     return {"success": True, "is_read": is_read}
 
@@ -307,10 +318,7 @@ async def toggle_item_bookmark(
     user_id: Annotated[int, Depends(get_current_user)]
 ) -> dict:
     """Toggle bookmark status for a standalone item."""
-    item = db.get_library_item(user_id, item_id)
-    if not item:
-        raise HTTPException(status_code=404, detail="Item not found in library")
-
+    require_item(db.get_library_item(user_id, item_id))
     new_status = db.toggle_bookmark(user_id, item_id)
     return {"success": True, "is_bookmarked": new_status}
 
@@ -326,16 +334,11 @@ async def summarize_standalone_item(
     if not state.summarizer:
         raise HTTPException(status_code=503, detail="Summarization not configured")
 
-    item = db.get_library_item(user_id, item_id)
-    if not item:
-        raise HTTPException(status_code=404, detail="Item not found in library")
-
-    content = item.content or ""
-    if not content or len(content.strip()) < 50:
-        raise HTTPException(
-            status_code=400,
-            detail="Item has insufficient content for summarization"
-        )
+    item = require_item(db.get_library_item(user_id, item_id))
+    content = require_sufficient_content(
+        item.content,
+        "Item has insufficient content for summarization"
+    )
 
     background_tasks.add_task(
         summarize_article,
@@ -442,14 +445,7 @@ async def import_newsletters(
             imported += 1
 
             # Auto-summarize if requested
-            if auto_summarize and state.summarizer:
-                background_tasks.add_task(
-                    summarize_article,
-                    item_id,
-                    article_html,
-                    newsletter_url,
-                    parsed.title
-                )
+            schedule_auto_summarize(background_tasks, auto_summarize, item_id, article_html, newsletter_url, parsed.title)
 
         except EmailParseError as e:
             results.append(NewsletterImportResult(
@@ -521,13 +517,6 @@ async def import_newsletter_raw(
         raise HTTPException(status_code=500, detail="Failed to retrieve item")
 
     # Auto-summarize if requested
-    if auto_summarize and state.summarizer:
-        background_tasks.add_task(
-            summarize_article,
-            item_id,
-            article_html,
-            newsletter_url,
-            parsed.title
-        )
+    schedule_auto_summarize(background_tasks, auto_summarize, item_id, article_html, newsletter_url, parsed.title)
 
     return StandaloneItemDetailResponse.from_db(item)

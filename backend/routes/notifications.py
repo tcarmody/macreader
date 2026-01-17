@@ -9,6 +9,7 @@ from fastapi import APIRouter, Depends, HTTPException
 from ..auth import verify_api_key
 from ..config import get_db, state
 from ..database import Database
+from ..exceptions import require_feed, require_rule
 from ..schemas import (
     NotificationRuleResponse,
     CreateNotificationRuleRequest,
@@ -58,9 +59,7 @@ async def create_rule(
     # Validate feed_id if provided
     feed_name = None
     if request.feed_id:
-        feed = db.get_feed(request.feed_id)
-        if not feed:
-            raise HTTPException(status_code=404, detail="Feed not found")
+        feed = require_feed(db.get_feed(request.feed_id))
         feed_name = feed.name
 
     # Validate priority
@@ -98,9 +97,7 @@ async def get_rule(
     db: Annotated[Database, Depends(get_db)]
 ) -> NotificationRuleResponse:
     """Get a single notification rule."""
-    rule = db.get_notification_rule(rule_id)
-    if not rule:
-        raise HTTPException(status_code=404, detail="Rule not found")
+    rule = require_rule(db.get_notification_rule(rule_id))
 
     feed_name = None
     if rule.feed_id:
@@ -117,15 +114,11 @@ async def update_rule(
     db: Annotated[Database, Depends(get_db)]
 ) -> NotificationRuleResponse:
     """Update a notification rule."""
-    rule = db.get_notification_rule(rule_id)
-    if not rule:
-        raise HTTPException(status_code=404, detail="Rule not found")
+    require_rule(db.get_notification_rule(rule_id))
 
     # Validate feed_id if being set
     if request.feed_id:
-        feed = db.get_feed(request.feed_id)
-        if not feed:
-            raise HTTPException(status_code=404, detail="Feed not found")
+        require_feed(db.get_feed(request.feed_id))
 
     # Validate priority if being set
     if request.priority and request.priority not in ("high", "normal", "low"):
@@ -165,10 +158,7 @@ async def delete_rule(
     db: Annotated[Database, Depends(get_db)]
 ) -> dict:
     """Delete a notification rule."""
-    rule = db.get_notification_rule(rule_id)
-    if not rule:
-        raise HTTPException(status_code=404, detail="Rule not found")
-
+    require_rule(db.get_notification_rule(rule_id))
     db.delete_notification_rule(rule_id)
     return {"success": True}
 

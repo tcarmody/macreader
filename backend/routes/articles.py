@@ -10,6 +10,8 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 from ..auth import verify_api_key, get_current_user
 from ..config import state, get_db
 from ..database import Database
+from ..exceptions import require_article, require_feed
+from ..validators import require_sufficient_content
 from ..schemas import (
     ArticleResponse,
     ArticleDetailResponse,
@@ -191,10 +193,7 @@ async def mark_feed_read(
     is_read: bool = True
 ) -> dict:
     """Mark all articles in a feed as read/unread."""
-    feed = db.get_feed(feed_id)
-    if not feed:
-        raise HTTPException(status_code=404, detail="Feed not found")
-
+    require_feed(db.get_feed(feed_id))
     count = db.mark_feed_read(user_id, feed_id, is_read)
     return {"success": True, "count": count, "is_read": is_read}
 
@@ -279,9 +278,7 @@ async def get_article(
     user_id: Annotated[int, Depends(get_current_user)]
 ) -> ArticleDetailResponse:
     """Get single article with full summary."""
-    article = db.get_article_with_state(article_id, user_id)
-    if not article:
-        raise HTTPException(status_code=404, detail="Article not found")
+    article = require_article(db.get_article_with_state(article_id, user_id))
     return ArticleDetailResponse.from_db(article)
 
 
@@ -293,9 +290,7 @@ async def mark_read(
     is_read: bool = True
 ) -> dict:
     """Mark article as read/unread."""
-    article = db.get_article(article_id)
-    if not article:
-        raise HTTPException(status_code=404, detail="Article not found")
+    require_article(db.get_article(article_id))
     db.mark_read(user_id, article_id, is_read)
     return {"success": True, "is_read": is_read}
 
@@ -307,9 +302,7 @@ async def toggle_bookmark(
     user_id: Annotated[int, Depends(get_current_user)]
 ) -> dict:
     """Toggle bookmark status."""
-    article = db.get_article(article_id)
-    if not article:
-        raise HTTPException(status_code=404, detail="Article not found")
+    require_article(db.get_article(article_id))
     new_status = db.toggle_bookmark(user_id, article_id)
     return {"success": True, "is_bookmarked": new_status}
 
@@ -338,9 +331,7 @@ async def fetch_article_content(
         force_js: Skip simple fetch and use JavaScript rendering
         use_aggregator_url: Fetch from aggregator URL instead of source (default: False)
     """
-    article = db.get_article(article_id)
-    if not article:
-        raise HTTPException(status_code=404, detail="Article not found")
+    article = require_article(db.get_article(article_id))
 
     # Prefer source_url for aggregator articles (fetch the actual source content)
     fetch_url = article.url
@@ -409,9 +400,7 @@ async def extract_from_html(
     The backend does NOT fetch the URL - it only extracts content from
     the provided HTML using the same extraction pipeline as fetch-content.
     """
-    article = db.get_article(article_id)
-    if not article:
-        raise HTTPException(status_code=404, detail="Article not found")
+    require_article(db.get_article(article_id))
 
     if not request.html or len(request.html) < 100:
         raise HTTPException(status_code=400, detail="HTML content is too short or empty")
@@ -449,18 +438,11 @@ async def summarize_article_endpoint(
     if not state.summarizer:
         raise HTTPException(status_code=503, detail="Summarization not configured")
 
-    article = db.get_article(article_id)
-    if not article:
-        raise HTTPException(status_code=404, detail="Article not found")
-
-    content = article.content or ""
-
-    # Check if we have any content at all
-    if not content or len(content.strip()) < 50:
-        raise HTTPException(
-            status_code=400,
-            detail="Article has insufficient content. Try using 'Fetch Source Article' first."
-        )
+    article = require_article(db.get_article(article_id))
+    content = require_sufficient_content(
+        article.content,
+        "Article has insufficient content. Try using 'Fetch Source Article' first."
+    )
 
     # Use source_url for aggregator articles (more accurate context for summarization)
     url_for_summary = article.source_url or article.url
@@ -494,9 +476,7 @@ async def extract_source_url(
     This endpoint handles cases that require HTTP requests (Google News, Reddit)
     or re-extraction if the initial extraction failed.
     """
-    article = db.get_article(article_id)
-    if not article:
-        raise HTTPException(status_code=404, detail="Article not found")
+    article = require_article(db.get_article(article_id))
 
     # Return existing source_url if available and not forcing re-extraction
     if article.source_url and not force:

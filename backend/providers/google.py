@@ -73,8 +73,7 @@ class GoogleProvider(LLMProvider):
             max_context_tokens=1000000,  # Gemini has very large context
         )
 
-    def get_model_for_tier(self, tier: ModelTier) -> str:
-        return self.TIER_MODELS[tier]
+    # get_model_for_tier inherited from LLMProvider base class
 
     def complete(
         self,

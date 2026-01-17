@@ -9,6 +9,7 @@ from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 from ..auth import verify_api_key, get_current_user
 from ..config import state, get_db
 from ..database import Database
+from ..exceptions import require_feed
 from ..schemas import (
     FeedResponse,
     AddFeedRequest,
@@ -81,9 +82,7 @@ async def remove_feed(
     db: Annotated[Database, Depends(get_db)]
 ) -> dict:
     """Unsubscribe from a feed."""
-    feed = db.get_feed(feed_id)
-    if not feed:
-        raise HTTPException(status_code=404, detail="Feed not found")
+    require_feed(db.get_feed(feed_id))
     db.delete_feed(feed_id)
     return {"success": True}
 
@@ -95,9 +94,7 @@ async def update_feed(
     db: Annotated[Database, Depends(get_db)]
 ) -> FeedResponse:
     """Update a feed's name or category. Set category to empty string to remove it."""
-    feed = db.get_feed(feed_id)
-    if not feed:
-        raise HTTPException(status_code=404, detail="Feed not found")
+    require_feed(db.get_feed(feed_id))
 
     # Empty string means clear category
     clear_category = request.category == ""
@@ -152,10 +149,7 @@ async def refresh_feed(
     background_tasks: BackgroundTasks
 ) -> dict:
     """Refresh a specific feed."""
-    feed = db.get_feed(feed_id)
-    if not feed:
-        raise HTTPException(status_code=404, detail="Feed not found")
-
+    feed = require_feed(db.get_feed(feed_id))
     background_tasks.add_task(refresh_single_feed, feed_id, feed.url)
     return {"success": True, "message": "Refresh started"}
 

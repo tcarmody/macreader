@@ -58,7 +58,9 @@ class LLMProvider(ABC):
         """Return the provider's capabilities."""
         pass
 
-    @abstractmethod
+    # Subclasses should define TIER_MODELS as a class attribute mapping ModelTier to model IDs
+    TIER_MODELS: dict[ModelTier, str] = {}
+
     def get_model_for_tier(self, tier: ModelTier) -> str:
         """
         Get the appropriate model ID for a given capability tier.
@@ -68,8 +70,13 @@ class LLMProvider(ABC):
 
         Returns:
             Model identifier string for this provider
+
+        Note:
+            Subclasses should define TIER_MODELS as a class attribute.
         """
-        pass
+        if tier not in self.TIER_MODELS:
+            raise ValueError(f"Tier {tier} not supported by {self.name}")
+        return self.TIER_MODELS[tier]
 
     @abstractmethod
     def complete(
