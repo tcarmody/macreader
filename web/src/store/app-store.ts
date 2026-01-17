@@ -2,10 +2,13 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import type { FilterType, GroupBy, SortBy, ApiKeyConfig } from '@/types'
 
+export type DesignStyle = 'default' | 'warm' | 'soft' | 'rounded' | 'compact' | 'teal'
+
 interface AppState {
   // UI State
   sidebarCollapsed: boolean
   theme: 'light' | 'dark' | 'system'
+  designStyle: DesignStyle
 
   // Selection State
   selectedFilter: FilterType
@@ -38,6 +41,7 @@ interface AppState {
   setIsSearching: (isSearching: boolean) => void
   setApiConfig: (config: ApiKeyConfig) => void
   clearApiKeys: () => void
+  setDesignStyle: (style: DesignStyle) => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -46,6 +50,7 @@ export const useAppStore = create<AppState>()(
       // Initial UI State
       sidebarCollapsed: false,
       theme: 'system',
+      designStyle: 'default',
 
       // Initial Selection State
       selectedFilter: 'all',
@@ -93,12 +98,14 @@ export const useAppStore = create<AppState>()(
         localStorage.setItem('apiConfig', JSON.stringify(newConfig))
         set({ apiConfig: newConfig })
       },
+      setDesignStyle: (style) => set({ designStyle: style }),
     }),
     {
       name: 'datapoints-app-storage',
       partialize: (state) => ({
         sidebarCollapsed: state.sidebarCollapsed,
         theme: state.theme,
+        designStyle: state.designStyle,
         selectedFilter: state.selectedFilter,
         currentView: state.currentView,
         groupBy: state.groupBy,
@@ -123,4 +130,11 @@ export function applyTheme(theme: 'light' | 'dark' | 'system') {
   } else {
     root.classList.add(theme)
   }
+}
+
+// Apply design style
+export function applyDesignStyle(style: DesignStyle) {
+  const root = window.document.documentElement
+  root.classList.remove('design-default', 'design-warm', 'design-soft', 'design-rounded', 'design-compact', 'design-teal')
+  root.classList.add(`design-${style}`)
 }

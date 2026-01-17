@@ -7,7 +7,7 @@ import { LibraryList, LibraryItemDetail } from '@/components/LibraryView'
 import { SettingsDialog } from '@/components/SettingsDialog'
 import { AddFeedDialog } from '@/components/AddFeedDialog'
 import { LoginScreen } from '@/components/LoginScreen'
-import { useAppStore, applyTheme } from '@/store/app-store'
+import { useAppStore, applyTheme, applyDesignStyle } from '@/store/app-store'
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts'
 import { useAuthStatus } from '@/hooks/use-queries'
 
@@ -37,7 +37,7 @@ const queryClient = new QueryClient({
 })
 
 function AppContent() {
-  const { currentView, theme, apiConfig } = useAppStore()
+  const { currentView, theme, designStyle, apiConfig } = useAppStore()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [addFeedOpen, setAddFeedOpen] = useState(false)
 
@@ -62,6 +62,11 @@ function AppContent() {
   useEffect(() => {
     applyTheme(theme)
   }, [theme])
+
+  // Apply design style on mount and changes
+  useEffect(() => {
+    applyDesignStyle(designStyle)
+  }, [designStyle])
 
   // Listen for system theme changes
   useEffect(() => {

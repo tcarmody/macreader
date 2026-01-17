@@ -17,7 +17,8 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
-import { useAppStore, applyTheme } from '@/store/app-store'
+import { useAppStore, applyTheme, applyDesignStyle } from '@/store/app-store'
+import type { DesignStyle } from '@/store/app-store'
 import { useStatus, useAuthStatus, useLogout } from '@/hooks/use-queries'
 import { getLoginUrl } from '@/api/client'
 import type { ApiKeyConfig } from '@/types'
@@ -28,7 +29,7 @@ interface SettingsDialogProps {
 }
 
 export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
-  const { apiConfig, setApiConfig, theme, setTheme } = useAppStore()
+  const { apiConfig, setApiConfig, theme, setTheme, designStyle, setDesignStyle } = useAppStore()
   const { data: status, refetch: refetchStatus, isLoading: statusLoading } = useStatus()
   const { data: authStatus } = useAuthStatus()
   const logoutMutation = useLogout()
@@ -45,6 +46,10 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
   useEffect(() => {
     applyTheme(theme)
   }, [theme])
+
+  useEffect(() => {
+    applyDesignStyle(designStyle)
+  }, [designStyle])
 
   if (!isOpen) return null
 
@@ -371,6 +376,37 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
                     <Monitor className="h-5 w-5" />
                     <span className="text-sm">System</span>
                   </button>
+                </div>
+              </div>
+
+              <Separator />
+
+              {/* Design Style */}
+              <div>
+                <label className="block text-sm font-medium mb-3">Design Style</label>
+                <div className="grid grid-cols-2 gap-2">
+                  {([
+                    { id: 'default', name: 'Default', desc: 'Clean blue-gray' },
+                    { id: 'warm', name: 'Warm', desc: 'Stone tones' },
+                    { id: 'soft', name: 'Soft', desc: 'Subtle shadows' },
+                    { id: 'rounded', name: 'Rounded', desc: 'Rounder corners' },
+                    { id: 'compact', name: 'Compact', desc: 'Tighter spacing' },
+                    { id: 'teal', name: 'Teal AI', desc: 'Teal accents' },
+                  ] as const).map((style) => (
+                    <button
+                      key={style.id}
+                      onClick={() => setDesignStyle(style.id as DesignStyle)}
+                      className={cn(
+                        "flex flex-col items-start p-3 rounded-lg border transition-colors text-left",
+                        designStyle === style.id
+                          ? "border-primary bg-primary/5"
+                          : "border-border hover:border-primary/50"
+                      )}
+                    >
+                      <span className="text-sm font-medium">{style.name}</span>
+                      <span className="text-xs text-muted-foreground">{style.desc}</span>
+                    </button>
+                  ))}
                 </div>
               </div>
 
