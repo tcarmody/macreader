@@ -23,7 +23,7 @@
     --border: 214.3 31.8% 91.4%;
     --input: 214.3 31.8% 91.4%;
     --ring: 222.2 84% 4.9%;
-    --radius: 0.5rem;
+    --radius: 1rem;
   }
 
   .dark {
@@ -153,25 +153,25 @@
   box-shadow: 0 -2px 8px -2px rgba(0, 0, 0, 0.3);
 }
 
-/* Design Style: Rounded - increased border radius */
-.design-rounded {
-  --radius: 1rem;
+/* Design Style: Sharp - reduced border radius for a more rectangular look */
+.design-sharp {
+  --radius: 0.25rem;
 }
 
-.design-rounded .rounded-lg {
-  border-radius: 1rem;
+.design-sharp .rounded-lg {
+  border-radius: 0.375rem;
 }
 
-.design-rounded .rounded-md {
-  border-radius: 0.75rem;
+.design-sharp .rounded-md {
+  border-radius: 0.25rem;
 }
 
-.design-rounded .rounded-sm {
-  border-radius: 0.5rem;
+.design-sharp .rounded-sm {
+  border-radius: 0.125rem;
 }
 
-.design-rounded .rounded {
-  border-radius: 0.5rem;
+.design-sharp .rounded {
+  border-radius: 0.25rem;
 }
 
 /* Design Style: Compact - tighter spacing and smaller text */

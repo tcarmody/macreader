@@ -389,7 +389,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
                     { id: 'default', name: 'Default', desc: 'Clean blue-gray' },
                     { id: 'warm', name: 'Warm', desc: 'Stone tones' },
                     { id: 'soft', name: 'Soft', desc: 'Subtle shadows' },
-                    { id: 'rounded', name: 'Rounded', desc: 'Rounder corners' },
+                    { id: 'sharp', name: 'Sharp', desc: 'Square corners' },
                     { id: 'compact', name: 'Compact', desc: 'Tighter spacing' },
                     { id: 'teal', name: 'Teal AI', desc: 'Teal accents' },
                     { id: 'high-contrast', name: 'High Contrast', desc: 'Bold, accessible' },
