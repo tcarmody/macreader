@@ -1,6 +1,7 @@
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import * as api from '@/api/client'
 import type { FilterType, GroupBy, SortBy, Article, ArticleDetail, GroupedArticlesResponse } from '@/types'
+import { useSummarizationPolling } from './use-polling'
 
 // Query Keys
 export const queryKeys = {
@@ -16,6 +17,16 @@ export const queryKeys = {
   library: (params?: { content_type?: string; bookmarked_only?: boolean }) =>
     ['library', params] as const,
   libraryItem: (id: number) => ['libraryItem', id] as const,
+}
+
+/**
+ * Invalidate article-related queries: feeds (unread counts), articles list, and stats.
+ * Use this after operations that affect article read state or counts.
+ */
+export function invalidateArticleRelated(queryClient: ReturnType<typeof useQueryClient>) {
+  queryClient.invalidateQueries({ queryKey: queryKeys.feeds })
+  queryClient.invalidateQueries({ queryKey: ['articles'] })
+  queryClient.invalidateQueries({ queryKey: queryKeys.stats })
 }
 
 // Status & Settings
@@ -97,8 +108,7 @@ export function useDeleteFeed() {
   return useMutation({
     mutationFn: api.deleteFeed,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.feeds })
-      queryClient.invalidateQueries({ queryKey: ['articles'] })
+      invalidateArticleRelated(queryClient)
     },
   })
 }
@@ -120,11 +130,7 @@ export function useRefreshFeeds() {
     mutationFn: api.refreshFeeds,
     onSuccess: () => {
       // Delay invalidation to allow backend to start fetching
-      setTimeout(() => {
-        queryClient.invalidateQueries({ queryKey: queryKeys.feeds })
-        queryClient.invalidateQueries({ queryKey: ['articles'] })
-        queryClient.invalidateQueries({ queryKey: queryKeys.stats })
-      }, 2000)
+      setTimeout(() => invalidateArticleRelated(queryClient), 2000)
     },
   })
 }
@@ -134,9 +140,7 @@ export function useImportOpml() {
   return useMutation({
     mutationFn: api.importOpml,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: queryKeys.feeds })
-      queryClient.invalidateQueries({ queryKey: ['articles'] })
-      queryClient.invalidateQueries({ queryKey: queryKeys.stats })
+      invalidateArticleRelated(queryClient)
     },
   })
 }
@@ -268,9 +272,7 @@ export function useMarkAllRead() {
   return useMutation({
     mutationFn: api.markAllRead,
     onSuccess: () => {
-      queryClient.invalidateQueries({ queryKey: ['articles'] })
-      queryClient.invalidateQueries({ queryKey: queryKeys.feeds })
-      queryClient.invalidateQueries({ queryKey: queryKeys.stats })
+      invalidateArticleRelated(queryClient)
     },
   })
 }
@@ -286,22 +288,16 @@ export function useFetchContent() {
 }
 
 export function useSummarizeArticle() {
-  const queryClient = useQueryClient()
+  const { startPolling } = useSummarizationPolling()
   return useMutation({
     mutationFn: api.summarizeArticle,
     onSuccess: (_, articleId) => {
-      // Poll for completion
-      const pollInterval = setInterval(async () => {
-        const article = await api.getArticle(articleId)
-        if (article.summary_full) {
-          clearInterval(pollInterval)
-          queryClient.setQueryData(queryKeys.article(articleId), article)
-          queryClient.invalidateQueries({ queryKey: ['articles'] })
-        }
-      }, 2000)
-
-      // Stop polling after 60 seconds
-      setTimeout(() => clearInterval(pollInterval), 60000)
+      startPolling({
+        fetchFn: () => api.getArticle(articleId),
+        isComplete: (article) => !!article.summary_full,
+        queryKey: queryKeys.article(articleId),
+        invalidateKeys: [['articles']],
+      })
     },
   })
 }
@@ -364,21 +360,16 @@ export function useDeleteLibraryItem() {
 }
 
 export function useSummarizeLibraryItem() {
-  const queryClient = useQueryClient()
+  const { startPolling } = useSummarizationPolling()
   return useMutation({
     mutationFn: api.summarizeLibraryItem,
     onSuccess: (_, itemId) => {
-      // Poll for completion
-      const pollInterval = setInterval(async () => {
-        const item = await api.getLibraryItem(itemId)
-        if (item.summary_full) {
-          clearInterval(pollInterval)
-          queryClient.setQueryData(queryKeys.libraryItem(itemId), item)
-          queryClient.invalidateQueries({ queryKey: ['library'] })
-        }
-      }, 2000)
-
-      setTimeout(() => clearInterval(pollInterval), 60000)
+      startPolling({
+        fetchFn: () => api.getLibraryItem(itemId),
+        isComplete: (item) => !!item.summary_full,
+        queryKey: queryKeys.libraryItem(itemId),
+        invalidateKeys: [['library']],
+      })
     },
   })
 }

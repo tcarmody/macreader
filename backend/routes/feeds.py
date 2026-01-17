@@ -158,6 +158,50 @@ async def refresh_feed(
 # OPML Import/Export
 # ─────────────────────────────────────────────────────────────
 
+async def import_single_feed(
+    opml_feed: OPMLFeed,
+    db: Database,
+    existing_urls: set[str],
+    background_tasks: BackgroundTasks
+) -> OPMLImportResult:
+    """Import a single feed from OPML, handling validation and errors."""
+    # Skip if already subscribed
+    if opml_feed.url.lower() in existing_urls:
+        return OPMLImportResult(
+            url=opml_feed.url,
+            name=opml_feed.title,
+            success=False,
+            error="Already subscribed"
+        )
+
+    try:
+        parsed_feed = await state.feed_parser.fetch(opml_feed.url)
+        feed_name = opml_feed.title or parsed_feed.title
+
+        feed_id = db.add_feed(
+            url=opml_feed.url,
+            name=feed_name,
+            category=opml_feed.category
+        )
+
+        background_tasks.add_task(fetch_feed_articles, feed_id, parsed_feed)
+
+        return OPMLImportResult(
+            url=opml_feed.url,
+            name=feed_name,
+            success=True,
+            feed_id=feed_id
+        )
+
+    except Exception as e:
+        return OPMLImportResult(
+            url=opml_feed.url,
+            name=opml_feed.title,
+            success=False,
+            error=str(e)
+        )
+
+
 @router.post("/import-opml")
 async def import_opml(
     request: OPMLImportRequest,
@@ -182,58 +226,22 @@ async def import_opml(
     if not opml_doc.feeds:
         raise HTTPException(status_code=400, detail="No feeds found in OPML")
 
-    results: list[OPMLImportResult] = []
-    imported = 0
-    skipped = 0
-    failed = 0
-
     # Get existing feed URLs to skip duplicates
     existing_feeds = db.get_feeds()
     existing_urls = {f.url.lower() for f in existing_feeds}
 
+    # Import each feed
+    results: list[OPMLImportResult] = []
     for opml_feed in opml_doc.feeds:
-        # Skip if already subscribed
-        if opml_feed.url.lower() in existing_urls:
-            results.append(OPMLImportResult(
-                url=opml_feed.url,
-                name=opml_feed.title,
-                success=False,
-                error="Already subscribed"
-            ))
-            skipped += 1
-            continue
-
-        # Try to validate and add the feed
-        try:
-            parsed_feed = await state.feed_parser.fetch(opml_feed.url)
-            feed_name = opml_feed.title or parsed_feed.title
-
-            feed_id = db.add_feed(
-                url=opml_feed.url,
-                name=feed_name,
-                category=opml_feed.category
-            )
-
-            # Fetch articles in background
-            background_tasks.add_task(fetch_feed_articles, feed_id, parsed_feed)
-
-            results.append(OPMLImportResult(
-                url=opml_feed.url,
-                name=feed_name,
-                success=True,
-                feed_id=feed_id
-            ))
-            imported += 1
+        result = await import_single_feed(opml_feed, db, existing_urls, background_tasks)
+        results.append(result)
+        if result.success:
             existing_urls.add(opml_feed.url.lower())
 
-        except Exception as e:
-            results.append(OPMLImportResult(
-                url=opml_feed.url,
-                name=opml_feed.title,
-                success=False,
-                error=str(e)
-            ))
-            failed += 1
+    # Count results
+    imported = sum(1 for r in results if r.success)
+    skipped = sum(1 for r in results if not r.success and r.error == "Already subscribed")
+    failed = sum(1 for r in results if not r.success and r.error != "Already subscribed")
 
     return OPMLImportResponse(
         total=len(opml_doc.feeds),

@@ -31,6 +31,30 @@ router = APIRouter(
 )
 
 
+async def resolve_fetch_url(article, db: Database, use_aggregator_url: bool) -> str:
+    """Resolve the URL to fetch for an article.
+
+    For aggregator articles, extracts and returns the original source URL
+    unless use_aggregator_url is True.
+    """
+    if use_aggregator_url:
+        return article.url
+
+    # Use existing source_url if available
+    if article.source_url:
+        return article.source_url
+
+    # Check if this is an aggregator and extract source URL
+    extractor = SourceExtractor()
+    if extractor.is_aggregator(article.url):
+        result = await extractor.extract(article.url, article.content or "")
+        if result.source_url:
+            db.update_article_source_url(article.id, result.source_url)
+            return result.source_url
+
+    return article.url
+
+
 # ─────────────────────────────────────────────────────────────
 # List & Grouped (static paths first)
 # ─────────────────────────────────────────────────────────────
@@ -332,20 +356,7 @@ async def fetch_article_content(
         use_aggregator_url: Fetch from aggregator URL instead of source (default: False)
     """
     article = require_article(db.get_article(article_id))
-
-    # Prefer source_url for aggregator articles (fetch the actual source content)
-    fetch_url = article.url
-    if article.source_url and not use_aggregator_url:
-        fetch_url = article.source_url
-    elif not use_aggregator_url:
-        # No source_url yet - check if this is an aggregator and extract source URL
-        extractor = SourceExtractor()
-        if extractor.is_aggregator(article.url):
-            result = await extractor.extract(article.url, article.content or "")
-            if result.source_url:
-                # Save the extracted source URL for future use
-                db.update_article_source_url(article_id, result.source_url)
-                fetch_url = result.source_url
+    fetch_url = await resolve_fetch_url(article, db, use_aggregator_url)
 
     try:
         # Use enhanced fetcher if available, otherwise fall back to simple fetcher

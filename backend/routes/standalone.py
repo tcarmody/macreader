@@ -355,6 +355,78 @@ async def summarize_standalone_item(
 # Newsletter Import
 # ─────────────────────────────────────────────────────────────
 
+async def import_single_newsletter(
+    file: UploadFile,
+    db: Database,
+    user_id: int,
+    background_tasks: BackgroundTasks,
+    auto_summarize: bool
+) -> NewsletterImportResult:
+    """Import a single newsletter from an .eml file."""
+    if not file.filename:
+        return NewsletterImportResult(success=False, error="No filename provided")
+
+    if not file.filename.lower().endswith(".eml"):
+        return NewsletterImportResult(
+            success=False,
+            error=f"Not an .eml file: {file.filename}"
+        )
+
+    try:
+        content = await file.read()
+        parsed = parse_eml_bytes(content)
+
+        article_html = extract_article_content(parsed)
+        if not article_html or len(article_html.strip()) < 50:
+            return NewsletterImportResult(
+                success=False,
+                title=parsed.title,
+                author=parsed.author,
+                error="Newsletter has insufficient content"
+            )
+
+        # Generate unique URL for deduplication
+        date_str = parsed.date.strftime("%Y%m%d%H%M%S") if parsed.date else "unknown"
+        newsletter_id = f"{parsed.sender_email}_{date_str}"
+        newsletter_url = f"newsletter://{newsletter_id}"
+
+        item_id = db.add_standalone_item(
+            user_id=user_id,
+            url=newsletter_url,
+            title=parsed.title,
+            content=article_html,
+            content_type="newsletter",
+            file_name=file.filename,
+            author=parsed.author,
+            published_at=parsed.date,
+        )
+
+        if not item_id:
+            return NewsletterImportResult(
+                success=False,
+                title=parsed.title,
+                author=parsed.author,
+                error="Newsletter already exists in library"
+            )
+
+        schedule_auto_summarize(
+            background_tasks, auto_summarize, item_id,
+            article_html, newsletter_url, parsed.title
+        )
+
+        return NewsletterImportResult(
+            success=True,
+            title=parsed.title,
+            author=parsed.author,
+            item_id=item_id,
+        )
+
+    except EmailParseError as e:
+        return NewsletterImportResult(success=False, error=f"Failed to parse email: {e}")
+    except Exception as e:
+        return NewsletterImportResult(success=False, error=f"Import error: {e}")
+
+
 @router.post("/newsletter/import")
 async def import_newsletters(
     files: list[UploadFile] = File(...),
@@ -369,96 +441,13 @@ async def import_newsletters(
     Accepts multiple .eml files and imports them as library items.
     Extracts newsletter content, subject, sender, and date.
     """
-    results: list[NewsletterImportResult] = []
-    imported = 0
-    failed = 0
+    results = [
+        await import_single_newsletter(file, db, user_id, background_tasks, auto_summarize)
+        for file in files
+    ]
 
-    for file in files:
-        if not file.filename:
-            results.append(NewsletterImportResult(
-                success=False,
-                error="No filename provided"
-            ))
-            failed += 1
-            continue
-
-        # Verify it's an .eml file
-        if not file.filename.lower().endswith(".eml"):
-            results.append(NewsletterImportResult(
-                success=False,
-                error=f"Not an .eml file: {file.filename}"
-            ))
-            failed += 1
-            continue
-
-        try:
-            # Read and parse the email
-            content = await file.read()
-            parsed = parse_eml_bytes(content)
-
-            # Extract article content from the newsletter
-            article_html = extract_article_content(parsed)
-            if not article_html or len(article_html.strip()) < 50:
-                results.append(NewsletterImportResult(
-                    success=False,
-                    title=parsed.title,
-                    author=parsed.author,
-                    error="Newsletter has insufficient content"
-                ))
-                failed += 1
-                continue
-
-            # Generate a unique URL for this newsletter
-            # Use sender email + date + subject hash for deduplication
-            date_str = parsed.date.strftime("%Y%m%d%H%M%S") if parsed.date else "unknown"
-            newsletter_id = f"{parsed.sender_email}_{date_str}"
-            newsletter_url = f"newsletter://{newsletter_id}"
-
-            # Add to database
-            item_id = db.add_standalone_item(
-                user_id=user_id,
-                url=newsletter_url,
-                title=parsed.title,
-                content=article_html,
-                content_type="newsletter",
-                file_name=file.filename,
-                author=parsed.author,
-                published_at=parsed.date,
-            )
-
-            if not item_id:
-                results.append(NewsletterImportResult(
-                    success=False,
-                    title=parsed.title,
-                    author=parsed.author,
-                    error="Newsletter already exists in library"
-                ))
-                failed += 1
-                continue
-
-            results.append(NewsletterImportResult(
-                success=True,
-                title=parsed.title,
-                author=parsed.author,
-                item_id=item_id,
-            ))
-            imported += 1
-
-            # Auto-summarize if requested
-            schedule_auto_summarize(background_tasks, auto_summarize, item_id, article_html, newsletter_url, parsed.title)
-
-        except EmailParseError as e:
-            results.append(NewsletterImportResult(
-                success=False,
-                error=f"Failed to parse email: {e}"
-            ))
-            failed += 1
-        except Exception as e:
-            results.append(NewsletterImportResult(
-                success=False,
-                error=f"Import error: {e}"
-            ))
-            failed += 1
+    imported = sum(1 for r in results if r.success)
+    failed = len(results) - imported
 
     return NewsletterImportResponse(
         total=len(files),
