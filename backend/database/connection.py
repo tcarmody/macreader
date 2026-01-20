@@ -190,6 +190,60 @@ class DatabaseConnection:
                 CREATE INDEX IF NOT EXISTS idx_topic_history_period ON topic_history(period_start, period_end);
             """)
 
+            # Migrate existing read/bookmark state from articles table to user_article_state
+            # This handles databases that were created before multi-user support was added
+            self._migrate_article_state_to_user_state(connection)
+
+    def _migrate_article_state_to_user_state(self, conn: sqlite3.Connection):
+        """
+        Migrate is_read/is_bookmarked from articles table to user_article_state.
+
+        For databases created before multi-user support, read/bookmark state was stored
+        directly in the articles table. This migration copies that state to user_article_state
+        for a default user (id=1), preserving existing read/bookmark status.
+        """
+        # Check if articles table has the old is_read column
+        cursor = conn.execute("PRAGMA table_info(articles)")
+        columns = [row[1] for row in cursor.fetchall()]
+        if "is_read" not in columns:
+            return  # New database, no migration needed
+
+        # Check if migration is needed: user_article_state is empty but articles has state
+        state_count = conn.execute("SELECT COUNT(*) FROM user_article_state").fetchone()[0]
+        if state_count > 0:
+            return  # Already has data, migration not needed
+
+        # Check if there's any state to migrate
+        has_state = conn.execute("""
+            SELECT COUNT(*) FROM articles
+            WHERE (is_read = 1 OR is_bookmarked = 1)
+              AND user_id IS NULL
+        """).fetchone()[0]
+        if has_state == 0:
+            return  # No state to migrate
+
+        # Ensure default user exists (id=1)
+        existing_user = conn.execute("SELECT id FROM users WHERE id = 1").fetchone()
+        if not existing_user:
+            conn.execute(
+                "INSERT INTO users (id, email, name, provider) VALUES (1, 'default@local', 'Default User', 'local')"
+            )
+
+        # Migrate read/bookmark state to user_article_state for user_id=1
+        conn.execute("""
+            INSERT INTO user_article_state (user_id, article_id, is_read, read_at, is_bookmarked, bookmarked_at)
+            SELECT
+                1,
+                id,
+                COALESCE(is_read, 0),
+                read_at,
+                COALESCE(is_bookmarked, 0),
+                bookmarked_at
+            FROM articles
+            WHERE (is_read = 1 OR is_bookmarked = 1)
+              AND user_id IS NULL
+        """)
+
     def _migrate_add_column(
         self,
         conn: sqlite3.Connection,
