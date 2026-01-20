@@ -37,10 +37,13 @@ Examples:
 
 ### Backend
 - **Repository pattern**: Database ops in `backend/database/*_repository.py`
+- **Service layer**: Business logic in `backend/services/` (article, feed, library)
 - **Dependency injection**: FastAPI `Depends()` for db, auth
 - **Pydantic schemas**: Request/response validation in `backend/schemas.py`
 - **Async throughout**: All I/O operations use async/await
 - **Tiered caching**: Memory LRU + disk cache in `backend/cache.py`
+- **Site extractors**: Custom content extraction in `backend/site_extractors/` (Bloomberg, GitHub, Medium, Substack, Twitter, Wikipedia, YouTube)
+- **Advanced features**: JS rendering and archive fallbacks in `backend/advanced/`
 
 ### Web Frontend
 - **State separation**: Zustand (UI state) vs TanStack Query (server state)
@@ -56,10 +59,15 @@ Examples:
 
 SQLite with FTS5 full-text search. Key tables:
 - `feeds`: RSS subscriptions
-- `articles`: Content with summaries, read state, bookmarks
-- `article_fts5`: Full-text search index
-- `library_items`: User-saved URLs and documents
+- `articles`: Content with summaries (also stores library items via `user_id`)
+- `user_article_state`: Per-user read/bookmark state
+- `users`: Multi-user support with OAuth
+- `articles_fts`: Full-text search index (FTS5 virtual table)
 - `notification_rules`: Alert rules for keywords/authors
+- `notification_history`: Log of sent notifications
+- `topic_history`: AI topic clustering results
+- `settings`: Application settings
+- `gmail_config`: Gmail integration configuration
 
 ## LLM Providers
 
@@ -86,3 +94,5 @@ Key variables (see `.env.example`):
 - `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`: LLM providers
 - `CORS_ORIGINS`: Allowed origins for web frontend
 - `PORT`: Server port (default 5005)
+- `ENABLE_JS_RENDER`: Enable JavaScript rendering for dynamic content
+- `ENABLE_ARCHIVE`: Enable archive.org fallback for paywalled content
