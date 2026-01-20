@@ -16,7 +16,8 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
     setSearchQuery,
   } = useAppStore()
 
-  const { data: articles = [] } = useArticles(selectedFilter)
+  const { data: articlesData } = useArticles(selectedFilter)
+  const articles = articlesData?.pages.flat() ?? []
   const markRead = useMarkArticleRead()
   const toggleBookmark = useToggleBookmark()
   const refreshFeeds = useRefreshFeeds()
