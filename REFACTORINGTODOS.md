@@ -2,35 +2,7 @@
 
 ## Pending
 
-### Add Service Layer for Python Routes
-The route files in `backend/routes/` currently contain business logic mixed with HTTP handling. Extract business logic into a service layer.
-
-**Current structure:**
-- `backend/routes/articles.py` - Article endpoints with inline logic
-- `backend/routes/feeds.py` - Feed endpoints with inline logic
-- `backend/routes/gmail.py` - Gmail endpoints with inline logic
-- `backend/routes/library.py` - Library endpoints with inline logic
-- `backend/routes/settings.py` - Settings endpoints with inline logic
-
-**Proposed structure:**
-```
-backend/
-  services/
-    __init__.py
-    article_service.py    # Article business logic
-    feed_service.py       # Feed management logic
-    gmail_service.py      # Gmail integration logic
-    library_service.py    # Library/standalone items logic
-    summarization_service.py  # AI summarization logic
-  routes/
-    # Routes become thin HTTP handlers that delegate to services
-```
-
-**Benefits:**
-- Routes become thin HTTP adapters
-- Business logic becomes testable in isolation
-- Easier to reuse logic across different endpoints
-- Clearer separation of concerns
+(None currently)
 
 ## Completed
 
@@ -50,3 +22,9 @@ backend/
   - Refactored `useSummarizeArticle` and `useSummarizeLibraryItem` to use polling hook
   - Added `invalidateArticleRelated()` helper for consistent cache invalidation
 - [x] Replace custom keyboard shortcuts with react-hotkeys-hook library (web)
+- [x] Add service layer for Python routes (`backend/services/`):
+  - `ArticleService` - Article listing, grouping, fetching, state management, summarization
+  - `FeedService` - Feed subscription, refresh, OPML import/export
+  - `LibraryService` - Library items, file uploads, newsletter imports
+  - Dependency injection factories for FastAPI routes
+  - Routes can gradually migrate to use services while maintaining backward compatibility
