@@ -447,6 +447,18 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
                     <span className="text-muted-foreground">Search</span>
                     <kbd className="px-2 py-1 bg-muted rounded text-xs">/</kbd>
                   </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Clear search</span>
+                    <kbd className="px-2 py-1 bg-muted rounded text-xs">Esc</kbd>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Open settings</span>
+                    <kbd className="px-2 py-1 bg-muted rounded text-xs">⌘ ,</kbd>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-muted-foreground">Add new feed</span>
+                    <kbd className="px-2 py-1 bg-muted rounded text-xs">⌘ N</kbd>
+                  </div>
                 </div>
               </div>
             </div>
