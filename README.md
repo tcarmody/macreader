@@ -10,15 +10,29 @@ A modern RSS reader with AI-powered summarization, available as a native macOS a
 
 ## Features
 
+### Core
 - **RSS Feed Management** - Subscribe to feeds, organize by category, import/export OPML
 - **AI Summarization** - Automatic article summaries with key points extraction
 - **Multi-Provider LLM Support** - Choose between Anthropic Claude, OpenAI GPT, or Google Gemini
 - **Library** - Save URLs and upload documents (PDF, DOCX, TXT) for summarization
 - **Full-Text Search** - Fast search across all articles with SQLite FTS5
-- **Article Themes** - 7 reading themes including Auto, Manuscript, Noir, Ember, Forest, Ocean, and Midnight
-- **Typography Options** - 28 fonts across sans-serif, serif, slab-serif, and monospace families
+- **Multi-User Support** - Per-user read/bookmark state and library items with OAuth
+
+### Reading Experience
+- **Article Themes (macOS)** - 7 reading themes: Auto, Manuscript, Noir, Ember, Forest, Ocean, Midnight
+- **Design Styles (Web)** - 9 visual variants including accessibility-focused High Contrast, Sepia, and Mono
+- **Typography Options (macOS)** - 28 fonts across sans-serif, serif, slab-serif, and monospace families
+- **Article Organization** - Group by date/feed/topic, sort options, hide read articles toggle
+- **Infinite Scroll** - Paginated article loading for large feeds
+
+### Analytics
+- **Reading Statistics** - Track articles read, reading time, bookmarks, and top feeds
+- **Summarization Metrics** - Articles summarized, rate, model usage breakdown
+- **Topic Trends** - AI-powered topic clustering with historical trend analysis
+
+### Platform
 - **Native macOS App** - SwiftUI interface with Keychain, Spotlight, and notification integration
-- **Web PWA** - Cross-platform Progressive Web App with offline support
+- **Web PWA** - Cross-platform Progressive Web App with offline support and keyboard shortcuts
 - **Security** - API key auth, OAuth login (Google/GitHub), rate limiting, SSRF protection
 
 ## Architecture
@@ -176,6 +190,9 @@ macreader/
 | `GET /standalone` | List library items |
 | `POST /standalone/url` | Add URL to library |
 | `GET /search` | Full-text search |
+| `GET /statistics/reading-stats` | Reading and summarization statistics |
+| `POST /statistics/topics/cluster` | Trigger topic clustering |
+| `GET /statistics/topics/trends` | Historical topic trends |
 | `GET /status` | Health check |
 | `GET /auth/status` | OAuth status |
 | `GET /auth/login/{provider}` | OAuth login (google/github) |
@@ -242,12 +259,15 @@ macreader/
 | Shortcut | Action |
 |----------|--------|
 | `j` / `k` | Navigate articles |
+| `g` | Go to first article |
 | `m` | Toggle read/unread |
 | `s` | Toggle bookmark |
 | `o` | Open in browser |
 | `r` | Refresh feeds |
 | `/` | Focus search |
 | `Esc` | Clear search |
+| `⌘,` | Open settings |
+| `⌘N` | Add new feed |
 
 ## Documentation
 

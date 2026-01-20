@@ -70,6 +70,21 @@ Every feature must justify its existence. The redesign reduced backend code from
 
 **Rationale**: Fetching 20+ feeds takes 10-30 seconds. Summarizing an article takes 2-5 seconds. Users shouldn't wait. The UI shows stale data immediately and updates progressively as new data arrives.
 
+### Multi-User Data Model
+
+**Decision**: Per-user read/bookmark state via a separate `user_article_state` table, with feeds shared across all users.
+
+**Alternatives Considered**:
+- Per-user article copies: Would duplicate content and increase storage
+- Single-user only: Limits sharing the deployment with family/team
+- Full per-user isolation: Overkill for RSS reader, feeds are public content
+
+**Rationale**: Articles are public content that doesn't need per-user copies. Only the user's interaction state (read, bookmarked) is personal. The `user_article_state` table uses lazy creation—rows are only created when a user interacts with an article. This keeps storage minimal while enabling true multi-user support.
+
+**User Resolution**: Users are identified via OAuth session or API key. API key authentication maps to a shared "API User" for backward compatibility. OAuth users get individual records with their email as the unique identifier.
+
+**Library Items**: Library items (saved URLs, uploaded documents) are per-user via a `user_id` column, as these represent personal collections rather than shared content.
+
 ---
 
 ## Technology Choices
@@ -184,6 +199,35 @@ Every feature must justify its existence. The redesign reduced backend code from
 
 **Platform Notes**: The macOS app offers all 7 article themes. The web PWA currently supports light/dark/system theme modes for the overall UI, with article themes planned for future parity.
 
+### Web PWA Design Styles
+
+**Decision**: Provide 9 design style variants for the web PWA UI: Default, Warm, Soft, Sharp, Compact, Teal AI, High Contrast, Sepia, and Mono.
+
+**Alternatives Considered**:
+- Single fixed design: Too limiting for diverse user preferences
+- Full CSS customization: Too complex for most users
+- Separate accessibility mode: Better to integrate accessibility as design choices
+
+**Rationale**: Different users have different visual preferences and needs. Some want minimal visual noise (Mono), others prioritize accessibility (High Contrast), and some prefer warmer tones for extended reading (Sepia, Warm). The Sharp style provides square corners for users who prefer a more traditional interface. Design styles are implemented as CSS custom property overrides, making them lightweight and composable with the existing theme system.
+
+**Accessibility Focus**: Three styles specifically address accessibility needs:
+- **High Contrast**: Pure black/white, 2px borders, bold focus rings (WCAG AAA compliant)
+- **Sepia**: Warm paper tones with serif typography to reduce eye strain
+- **Mono**: Grayscale only, removes all color accents for reduced visual noise
+
+Global `prefers-reduced-motion` support disables animations for users who prefer minimal motion.
+
+### Keyboard Shortcuts Implementation (Web)
+
+**Decision**: Use the `react-hotkeys-hook` library for web PWA keyboard shortcuts instead of custom event handlers.
+
+**Alternatives Considered**:
+- Custom `useEffect` with `keydown` listeners: Brittle, requires manual focus management
+- Native browser accesskey: Poor cross-browser support, conflicts with browser shortcuts
+- Mousetrap library: Less React-idiomatic, not maintained as actively
+
+**Rationale**: The initial custom implementation had silent failures due to focus restrictions and view guards. `react-hotkeys-hook` is a battle-tested library that handles edge cases (input focus, modal states, cross-browser compatibility) robustly. It provides a clean hook-based API that integrates naturally with React's component model.
+
 ### Typography Options
 
 **Decision**: Offer 28 fonts across four categories (sans-serif, serif, slab-serif, monospace).
@@ -224,6 +268,28 @@ Every feature must justify its existence. The redesign reduced backend code from
 - Embedding-based: Adds complexity for marginal benefit
 
 **Rationale**: For typical RSS volumes (<100 articles/day), simple keyword extraction + Jaccard similarity is "good enough" and has zero dependencies. The goal is grouping related stories ("5 articles about GPT-5"), not sophisticated topic modeling.
+
+### Reading Statistics
+
+**Decision**: Track reading behavior and summarization usage with support for both rolling windows (7/30/90 days) and calendar periods (week/month/year).
+
+**Alternatives Considered**:
+- No analytics: Misses opportunity for user insights
+- Third-party analytics: Privacy concerns, external dependency
+- Real-time only: Loses historical trends
+
+**Rationale**: Users benefit from understanding their reading patterns—which feeds they actually read, how much time they spend, what topics trend over time. The statistics are computed from existing data (read timestamps, summarization records) without additional tracking. Topic history is persisted separately to enable trend analysis across clustering runs.
+
+**Statistics Tracked**:
+- **Summarization**: Articles summarized, summarization rate, model usage breakdown
+- **Reading**: Articles read, total/average reading time, bookmarks, top feeds by engagement
+- **Topics**: Current topic distribution, historical topic trends with persistence
+
+### Article Organization (Web)
+
+**Decision**: Provide grouping (date/feed/topic), sorting (newest/oldest/title), and hide-read toggle in the web PWA article list.
+
+**Rationale**: Power users need ways to manage large article lists. Grouping by topic (AI-powered) surfaces related stories. Grouping by feed helps when catching up on specific sources. Sorting by title helps find specific articles. Hide-read toggle reduces visual clutter. These controls match the macOS app's capabilities for feature parity.
 
 ---
 
@@ -304,9 +370,27 @@ This setup requires no DevOps expertise and costs ~$0-5/month for personal use.
 - Font size controls (⌘+/⌘-/⌘0)
 - Reader mode toggle
 
+### Phase 6: Multi-User & Analytics
+- Multi-user support with per-user read/bookmark state
+- User resolution via OAuth session or API key
+- Reading statistics (articles read, reading time, top feeds)
+- Summarization metrics (rate, model usage breakdown)
+- Topic trend tracking with historical persistence
+- Web PWA article organization (grouping, sorting, hide read, pagination)
+
+### Phase 7: Web PWA Design System
+- Design style variants (9 styles: Default, Warm, Soft, Sharp, Compact, Teal AI, High Contrast, Sepia, Mono)
+- Accessibility-focused styles (High Contrast WCAG AAA, Sepia reading mode, Mono grayscale)
+- Reduced motion support via `prefers-reduced-motion`
+- Robust keyboard shortcuts via react-hotkeys-hook library
+- Extracted helper functions for cleaner codebase
+
 ### Current: Stable Platform
 - Native macOS app + Web PWA
 - Railway backend + Vercel frontend
 - Multi-provider LLM support
+- Multi-user support with OAuth
+- Reading statistics and topic trends
 - Polished reading experience with themes and typography
+- Accessibility-first design system with 9 visual variants
 - ~2,500 lines of Python backend

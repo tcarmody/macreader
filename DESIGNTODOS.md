@@ -76,6 +76,12 @@ Future UI/UX improvements to consider for the macOS RSS reader app.
 - [x] **Transition Animations** - Article selection slide-in transition, fade when switching grouping modes, smooth scroll-to-selection
 - [x] **Article Themes** - Six built-in themes (Auto, Light, Dark, Sepia, Paper, Night) with visual picker in Appearance settings
 
+### Web PWA Design System
+- [x] **Design Styles** - Nine visual variants: Default, Warm, Soft, Sharp, Compact, Teal AI, High Contrast, Sepia, Mono
+- [x] **Accessibility Styles** - High Contrast (WCAG AAA with pure black/white, bold borders), Sepia (warm tones for reading), Mono (grayscale only)
+- [x] **Reduced Motion Support** - Global `prefers-reduced-motion` media query support to disable animations
+- [x] **Keyboard Shortcuts (Web)** - Implemented with react-hotkeys-hook library: j/k navigation, m toggle read, s toggle bookmark, o open in browser, r refresh, / search, Escape clear, ⌘, settings, ⌘N new feed
+
 ---
 
 ## Still To-Do

@@ -669,4 +669,4 @@ See [Section 19](#19-reading-statistics--done) for full implementation details.
 ---
 
 *Document created: December 2024*
-*Last updated: December 29, 2024*
+*Last updated: January 2025*
