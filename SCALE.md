@@ -10,11 +10,17 @@ This document outlines strategies for scaling the DataPoints RSS reader from a s
 - `feeds` - RSS subscriptions (shared)
 - `users` - OAuth/API key accounts
 - `articles_fts` - FTS5 full-text search index
+- `article_chats` / `chat_messages` - per-user AI chat threads
 
 **Multi-tenancy Model**:
 - Shared articles: `WHERE user_id IS NULL`
 - Per-user state: LEFT JOIN to `user_article_state`
 - Library items: `user_id` column for ownership
+
+**Caching**: Two-tier cache in `backend/cache.py`:
+- Memory LRU (256 entries) with TTL support
+- Disk cache (JSON files, 30-day TTL)
+- Used for summaries and clustering results
 
 **Current Bottlenecks**:
 1. No connection pooling (fresh SQLite connection per operation)
@@ -22,6 +28,8 @@ This document outlines strategies for scaling the DataPoints RSS reader from a s
 3. Expensive triple JOINs for feed unread counts
 4. Unbounded `user_article_state` growth (users × articles)
 5. Synchronous FTS5 triggers on every write
+6. In-memory cache prevents multi-instance deployment
+7. Feed refresh and summarization run in-process (block API threads)
 
 ---
 
@@ -415,6 +423,19 @@ Split into independent services:
 
 ---
 
+## Key Pain Points by Scale
+
+| Issue | Impact | When It Hurts | Solution |
+|-------|--------|---------------|----------|
+| Feed unread count JOINs | Slow on every feed list | 100+ users | Cache in Redis or pre-compute |
+| Single SQLite writer | Writes queue up under load | 200+ concurrent | PostgreSQL |
+| In-process feed refresh | Blocks API during refresh | 500+ users | Background workers |
+| Memory-only cache | Can't scale to multiple instances | Any HA requirement | Redis |
+| N+1 bulk operations | Slow mark-all-read | 1000+ articles | Batch queries (✅ fixed) |
+| FTS5 sync triggers | Slows article inserts | High volume feeds | Async indexing |
+
+---
+
 ## Recommendation Summary
 
 | User Scale | Recommended Option | Timeline | Monthly Cost |
@@ -464,3 +485,34 @@ Regardless of which option you choose, add observability:
 4. **Business metrics**: Active users, articles read/day, feed refresh success rate
 
 Tools: Prometheus + Grafana, or managed options like Datadog, New Relic
+
+---
+
+## Implementation Status
+
+### ✅ Completed (Option 1)
+- WAL mode enabled (`PRAGMA journal_mode=WAL`)
+- PRAGMA optimizations (synchronous, cache_size, temp_store, mmap_size)
+- N+1 query fixes in `bulk_mark_read`, `mark_feed_read`, `mark_all_read`
+- Composite indexes for feed+date and user article state queries
+
+### 🔲 Not Yet Implemented
+- Pre-computed feed unread counts (user_feed_state table)
+- Deferred FTS5 updates
+- PostgreSQL migration
+- Redis caching layer
+- Background workers for feed refresh/summarization
+
+---
+
+## Key Files Reference
+
+| File | Purpose |
+|------|---------|
+| `backend/database/connection.py` | Database connection, schema, PRAGMA settings |
+| `backend/database/user_article_state_repository.py` | Per-user read/bookmark state |
+| `backend/database/feed_repository.py` | Feed CRUD and unread counts |
+| `backend/database/article_repository.py` | Article queries with user state JOINs |
+| `backend/cache.py` | Two-tier caching (memory + disk) |
+| `backend/tasks.py` | Feed refresh and summarization tasks |
+| `backend/config.py` | Environment variable configuration |
