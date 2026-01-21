@@ -112,18 +112,17 @@ class UserArticleStateRepository:
         with self._db.conn() as conn:
             read_at = datetime.now().isoformat() if is_read else None
 
-            for article_id in article_ids:
-                # Use INSERT OR REPLACE to handle both new and existing states
-                conn.execute(
-                    """
-                    INSERT INTO user_article_state (user_id, article_id, is_read, read_at, is_bookmarked)
-                    VALUES (?, ?, ?, ?, FALSE)
-                    ON CONFLICT(user_id, article_id) DO UPDATE SET
-                        is_read = excluded.is_read,
-                        read_at = excluded.read_at
-                    """,
-                    (user_id, article_id, is_read, read_at)
-                )
+            # Batch insert/update using executemany for better performance
+            conn.executemany(
+                """
+                INSERT INTO user_article_state (user_id, article_id, is_read, read_at, is_bookmarked)
+                VALUES (?, ?, ?, ?, FALSE)
+                ON CONFLICT(user_id, article_id) DO UPDATE SET
+                    is_read = excluded.is_read,
+                    read_at = excluded.read_at
+                """,
+                [(user_id, article_id, is_read, read_at) for article_id in article_ids]
+            )
 
     def mark_feed_read(
         self,
@@ -139,30 +138,22 @@ class UserArticleStateRepository:
         with self._db.conn() as conn:
             read_at = datetime.now().isoformat() if is_read else None
 
-            # Get all article IDs in this feed
+            # Use INSERT...SELECT to update all articles in one statement
+            # This is much faster than fetching IDs and looping
             cursor = conn.execute(
-                "SELECT id FROM articles WHERE feed_id = ?",
-                (feed_id,)
+                """
+                INSERT INTO user_article_state (user_id, article_id, is_read, read_at, is_bookmarked)
+                SELECT ?, id, ?, ?, FALSE
+                FROM articles
+                WHERE feed_id = ?
+                ON CONFLICT(user_id, article_id) DO UPDATE SET
+                    is_read = excluded.is_read,
+                    read_at = excluded.read_at
+                """,
+                (user_id, is_read, read_at, feed_id)
             )
-            article_ids = [row["id"] for row in cursor.fetchall()]
 
-            if not article_ids:
-                return 0
-
-            # Bulk upsert state for all articles
-            for article_id in article_ids:
-                conn.execute(
-                    """
-                    INSERT INTO user_article_state (user_id, article_id, is_read, read_at, is_bookmarked)
-                    VALUES (?, ?, ?, ?, FALSE)
-                    ON CONFLICT(user_id, article_id) DO UPDATE SET
-                        is_read = excluded.is_read,
-                        read_at = excluded.read_at
-                    """,
-                    (user_id, article_id, is_read, read_at)
-                )
-
-            return len(article_ids)
+            return cursor.rowcount
 
     def mark_all_read(self, user_id: int, is_read: bool = True) -> int:
         """
@@ -175,29 +166,22 @@ class UserArticleStateRepository:
         with self._db.conn() as conn:
             read_at = datetime.now().isoformat() if is_read else None
 
-            # Get all shared article IDs (not library items)
+            # Use INSERT...SELECT to update all shared articles in one statement
+            # This is much faster than fetching IDs and looping
             cursor = conn.execute(
-                "SELECT id FROM articles WHERE user_id IS NULL"
+                """
+                INSERT INTO user_article_state (user_id, article_id, is_read, read_at, is_bookmarked)
+                SELECT ?, id, ?, ?, FALSE
+                FROM articles
+                WHERE user_id IS NULL
+                ON CONFLICT(user_id, article_id) DO UPDATE SET
+                    is_read = excluded.is_read,
+                    read_at = excluded.read_at
+                """,
+                (user_id, is_read, read_at)
             )
-            article_ids = [row["id"] for row in cursor.fetchall()]
 
-            if not article_ids:
-                return 0
-
-            # Bulk upsert state for all articles
-            for article_id in article_ids:
-                conn.execute(
-                    """
-                    INSERT INTO user_article_state (user_id, article_id, is_read, read_at, is_bookmarked)
-                    VALUES (?, ?, ?, ?, FALSE)
-                    ON CONFLICT(user_id, article_id) DO UPDATE SET
-                        is_read = excluded.is_read,
-                        read_at = excluded.read_at
-                    """,
-                    (user_id, article_id, is_read, read_at)
-                )
-
-            return len(article_ids)
+            return cursor.rowcount
 
     def get_user_stats(self, user_id: int) -> dict:
         """Get read/bookmark stats for a user."""

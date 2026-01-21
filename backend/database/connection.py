@@ -18,10 +18,17 @@ class DatabaseConnection:
 
     @contextmanager
     def conn(self) -> Iterator[sqlite3.Connection]:
-        """Get database connection with row factory."""
+        """Get database connection with row factory and performance optimizations."""
         connection = sqlite3.connect(self.db_path)
         connection.row_factory = sqlite3.Row
+        # Enable foreign key constraints
         connection.execute("PRAGMA foreign_keys = ON")
+        # Performance optimizations for better concurrency and throughput
+        connection.execute("PRAGMA journal_mode = WAL")  # Allow concurrent reads during writes
+        connection.execute("PRAGMA synchronous = NORMAL")  # Faster writes, still safe with WAL
+        connection.execute("PRAGMA cache_size = -64000")  # 64MB cache (negative = KB)
+        connection.execute("PRAGMA temp_store = MEMORY")  # Store temp tables in memory
+        connection.execute("PRAGMA mmap_size = 268435456")  # 256MB memory-mapped I/O
         try:
             yield connection
             connection.commit()
@@ -91,12 +98,16 @@ class DatabaseConnection:
 
                 CREATE INDEX IF NOT EXISTS idx_articles_feed ON articles(feed_id);
                 CREATE INDEX IF NOT EXISTS idx_articles_published ON articles(published_at DESC);
+                -- Composite index for efficient feed+date queries
+                CREATE INDEX IF NOT EXISTS idx_articles_feed_published ON articles(feed_id, published_at DESC);
                 -- Note: is_read/is_bookmarked indexes are now on user_article_state
                 CREATE INDEX IF NOT EXISTS idx_users_email ON users(email);
                 CREATE INDEX IF NOT EXISTS idx_user_article_state_user ON user_article_state(user_id);
                 CREATE INDEX IF NOT EXISTS idx_user_article_state_lookup ON user_article_state(user_id, article_id);
                 CREATE INDEX IF NOT EXISTS idx_user_article_state_unread ON user_article_state(user_id, is_read);
                 CREATE INDEX IF NOT EXISTS idx_user_article_state_bookmarked ON user_article_state(user_id, is_bookmarked);
+                -- Composite index for efficient unread count queries
+                CREATE INDEX IF NOT EXISTS idx_user_article_state_composite ON user_article_state(user_id, article_id, is_read);
             """)
 
             # Create FTS5 virtual table if it doesn't exist
