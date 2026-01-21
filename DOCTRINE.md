@@ -85,6 +85,45 @@ Every feature must justify its existence. The redesign reduced backend code from
 
 **Library Items**: Library items (saved URLs, uploaded documents) are per-user via a `user_id` column, as these represent personal collections rather than shared content.
 
+### Database Performance Optimizations
+
+**Decision**: Enable SQLite WAL mode with aggressive PRAGMA optimizations for better concurrency.
+
+**Settings Applied**:
+- `journal_mode=WAL`: Allows concurrent reads during writes
+- `synchronous=NORMAL`: Faster writes while maintaining safety with WAL
+- `cache_size=-64000`: 64MB in-memory cache
+- `temp_store=MEMORY`: Temp tables in RAM
+- `mmap_size=268435456`: 256MB memory-mapped I/O
+
+**Rationale**: These settings optimize for read-heavy workloads typical of RSS readers. WAL mode is the key change—it removes the reader/writer blocking that occurs in rollback journal mode. The other settings reduce I/O and improve query performance.
+
+### Batch Query Patterns
+
+**Decision**: Use `executemany()` and `INSERT...SELECT` for bulk operations instead of loops.
+
+**Alternatives Considered**:
+- Loop with individual INSERTs: Simpler code but O(n) database round-trips
+- Raw SQL with parameter interpolation: Security risk (SQL injection)
+
+**Rationale**: Bulk operations like "mark all read" or "mark feed read" can affect hundreds or thousands of articles. A loop with individual INSERTs creates N+1 query patterns that scale poorly. Using `executemany()` batches all operations into a single round-trip. Using `INSERT...SELECT` eliminates the need to fetch IDs first.
+
+**Performance Impact**: Mark-all-read on 1000 articles went from ~1000 queries to 1 query.
+
+### Scaling Strategy
+
+**Decision**: Design for incremental scaling with clear migration paths documented in SCALE.md.
+
+**Scaling Tiers**:
+1. **SQLite optimized** (<500 users): WAL mode, batch queries, composite indexes
+2. **PostgreSQL** (500-5,000 users): Connection pooling, read replicas, materialized views
+3. **Hybrid** (5,000-50,000 users): PostgreSQL + Redis caching + background workers
+4. **Microservices** (50,000+ users): Service decomposition, event-driven architecture
+
+**Rationale**: Over-engineering for scale you don't have wastes time. Under-preparing for scale you'll need creates emergencies. The documented scaling path lets you optimize incrementally as usage grows, with clear signals for when to move to the next tier.
+
+**Current Implementation**: Tier 1 (SQLite optimized) with WAL mode, batch queries, and composite indexes.
+
 ---
 
 ## Technology Choices
@@ -385,6 +424,14 @@ This setup requires no DevOps expertise and costs ~$0-5/month for personal use.
 - Robust keyboard shortcuts via react-hotkeys-hook library
 - Extracted helper functions for cleaner codebase
 
+### Phase 8: Performance & Scaling Foundation
+- SQLite WAL mode for concurrent reads during writes
+- PRAGMA optimizations (cache_size, temp_store, mmap_size)
+- Batch query patterns (executemany, INSERT...SELECT)
+- Composite indexes for common query patterns
+- Documented scaling path (SQLite → PostgreSQL → Hybrid → Microservices)
+- SCALE.md with detailed migration guides for each tier
+
 ### Current: Stable Platform
 - Native macOS app + Web PWA
 - Railway backend + Vercel frontend
@@ -393,4 +440,5 @@ This setup requires no DevOps expertise and costs ~$0-5/month for personal use.
 - Reading statistics and topic trends
 - Polished reading experience with themes and typography
 - Accessibility-first design system with 9 visual variants
+- Performance-optimized SQLite with scaling documentation
 - ~2,500 lines of Python backend
