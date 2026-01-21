@@ -13,6 +13,17 @@ from .models import DBArticle
 class ArticleRepository:
     """Repository for article operations."""
 
+    # Explicit column list for articles table, excluding is_read/is_bookmarked/read_at/bookmarked_at
+    # which are now stored in user_article_state. This prevents column name conflicts when
+    # joining with user_article_state and using COALESCE for per-user state.
+    ARTICLE_COLUMNS = """
+        a.id, a.feed_id, a.url, a.title, a.author, a.content, a.content_hash,
+        a.summary_short, a.summary_full, a.key_points, a.model_used, a.summarized_at,
+        a.published_at, a.created_at, a.source_url, a.content_type, a.file_name,
+        a.file_path, a.reading_time_minutes, a.word_count, a.featured_image,
+        a.has_code_blocks, a.site_name, a.user_id
+    """.strip()
+
     def __init__(self, db: DatabaseConnection):
         self._db = db
 
@@ -61,10 +72,12 @@ class ArticleRepository:
     def get_with_user_state(self, article_id: int, user_id: int) -> DBArticle | None:
         """Get single article by ID with user-specific read/bookmark state."""
         with self._db.conn() as conn:
-            row = conn.execute("""
-                SELECT a.*,
-                       COALESCE(uas.is_read, FALSE) as is_read,
-                       COALESCE(uas.is_bookmarked, FALSE) as is_bookmarked
+            row = conn.execute(f"""
+                SELECT {self.ARTICLE_COLUMNS},
+                       COALESCE(uas.is_read, 0) as is_read,
+                       COALESCE(uas.is_bookmarked, 0) as is_bookmarked,
+                       uas.read_at,
+                       uas.bookmarked_at
                 FROM articles a
                 LEFT JOIN user_article_state uas
                     ON a.id = uas.article_id AND uas.user_id = ?
@@ -115,9 +128,11 @@ class ArticleRepository:
             offset: Number of articles to skip
         """
         # Join with user_article_state for per-user read/bookmark status
-        # Use COALESCE to default to FALSE when no state record exists
-        query = """
-            SELECT a.*,
+        # Use COALESCE to default to 0 (unread) when no state record exists
+        # Note: We use explicit column list (ARTICLE_COLUMNS) instead of a.* to avoid
+        # column name conflicts with the old is_read/is_bookmarked columns in articles table
+        query = f"""
+            SELECT {self.ARTICLE_COLUMNS},
                    COALESCE(uas.is_read, 0) as is_read,
                    COALESCE(uas.is_bookmarked, 0) as is_bookmarked,
                    uas.read_at,
