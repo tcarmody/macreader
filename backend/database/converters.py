@@ -8,6 +8,8 @@ from datetime import datetime
 
 from .models import (
     DBArticle,
+    DBArticleChat,
+    DBChatMessage,
     DBFeed,
     DBNotificationRule,
     DBNotificationHistory,
@@ -179,4 +181,32 @@ def row_to_user_article_state(row: sqlite3.Row) -> DBUserArticleState:
         read_at=read_at,
         is_bookmarked=bool(row["is_bookmarked"]),
         bookmarked_at=bookmarked_at,
+    )
+
+
+def row_to_article_chat(row: sqlite3.Row) -> DBArticleChat:
+    """Convert a database row to a DBArticleChat."""
+    created_at = parse_datetime(row["created_at"], default=datetime.now())
+    updated_at = parse_datetime(row["updated_at"], default=datetime.now())
+
+    return DBArticleChat(
+        id=row["id"],
+        article_id=row["article_id"],
+        user_id=row["user_id"],
+        created_at=created_at,
+        updated_at=updated_at,
+    )
+
+
+def row_to_chat_message(row: sqlite3.Row) -> DBChatMessage:
+    """Convert a database row to a DBChatMessage."""
+    created_at = parse_datetime(row["created_at"], default=datetime.now())
+
+    return DBChatMessage(
+        id=row["id"],
+        chat_id=row["chat_id"],
+        role=row["role"],
+        content=row["content"],
+        model_used=row["model_used"],
+        created_at=created_at,
     )

@@ -593,3 +593,42 @@ class TopicTrendsResponse(BaseModel):
     """Response with topic trends."""
     trends: list[TopicTrend]
     days: int
+
+
+# ─────────────────────────────────────────────────────────────
+# Chat Schemas (for article summary refinement and Q&A)
+# ─────────────────────────────────────────────────────────────
+
+class ChatMessageRequest(BaseModel):
+    """Request to send a chat message."""
+    message: str
+
+
+class ChatMessageResponse(BaseModel):
+    """Single chat message."""
+    id: int
+    role: str  # 'user' or 'assistant'
+    content: str
+    model_used: str | None = None
+    created_at: str
+
+    @classmethod
+    def from_db(cls, msg: "DBChatMessage") -> "ChatMessageResponse":
+        return cls(
+            id=msg.id,
+            role=msg.role,
+            content=msg.content,
+            model_used=msg.model_used,
+            created_at=msg.created_at.isoformat(),
+        )
+
+
+class ChatHistoryResponse(BaseModel):
+    """Chat history for an article."""
+    article_id: int
+    messages: list[ChatMessageResponse]
+    has_chat: bool = True
+
+
+# Import at module level to avoid circular imports
+from .database.models import DBChatMessage  # noqa: E402

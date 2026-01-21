@@ -36,6 +36,8 @@ from .routes import (
     statistics_router,
 )
 from .routes.gmail import router as gmail_router
+from .routes.chat import router as chat_router
+from .services.chat_service import ChatService
 from .rate_limit import setup_rate_limiting
 from .oauth import router as oauth_router, setup_oauth
 from .gmail import start_gmail_scheduler, stop_gmail_scheduler
@@ -85,11 +87,12 @@ async def lifespan(app: FastAPI):
         if state.provider:
             state.summarizer = Summarizer(provider=state.provider, cache=state.cache)
             state.clusterer = Clusterer(provider=state.provider, cache=state.cache)
+            state.chat_service = ChatService(db=state.db, provider=state.provider)
             logger.info(f"LLM provider initialized: {state.provider.name}")
         else:
             logger.warning(
                 "No LLM API key configured. Set ANTHROPIC_API_KEY, OPENAI_API_KEY, "
-                "or GOOGLE_API_KEY. Summarization and clustering disabled."
+                "or GOOGLE_API_KEY. Summarization, clustering, and chat disabled."
             )
 
         # Setup OAuth providers
@@ -215,6 +218,7 @@ async def inject_api_keys_from_headers(request: Request, call_next):
         if state.provider:
             state.summarizer = Summarizer(provider=state.provider, cache=state.cache)
             state.clusterer = Clusterer(provider=state.provider, cache=state.cache)
+            state.chat_service = ChatService(db=state.db, provider=state.provider)
             logger.info(f"LLM provider initialized from headers: {state.provider.name}")
 
     try:
@@ -241,3 +245,4 @@ app.include_router(standalone_router)
 app.include_router(gmail_router)
 app.include_router(notifications_router)
 app.include_router(statistics_router)
+app.include_router(chat_router)

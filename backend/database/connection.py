@@ -188,6 +188,29 @@ class DatabaseConnection:
                 CREATE INDEX IF NOT EXISTS idx_topic_history_clustered ON topic_history(clustered_at DESC);
                 CREATE INDEX IF NOT EXISTS idx_topic_history_hash ON topic_history(topic_hash);
                 CREATE INDEX IF NOT EXISTS idx_topic_history_period ON topic_history(period_start, period_end);
+
+                -- Article chat for refining summaries and Q&A
+                CREATE TABLE IF NOT EXISTS article_chats (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    article_id INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+                    user_id INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(article_id, user_id)
+                );
+
+                CREATE TABLE IF NOT EXISTS chat_messages (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    chat_id INTEGER NOT NULL REFERENCES article_chats(id) ON DELETE CASCADE,
+                    role TEXT NOT NULL CHECK(role IN ('user', 'assistant')),
+                    content TEXT NOT NULL,
+                    model_used TEXT,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_article_chats_article ON article_chats(article_id);
+                CREATE INDEX IF NOT EXISTS idx_article_chats_user ON article_chats(user_id);
+                CREATE INDEX IF NOT EXISTS idx_chat_messages_chat ON chat_messages(chat_id, created_at);
             """)
 
             # Migrate existing read/bookmark state from articles table to user_article_state

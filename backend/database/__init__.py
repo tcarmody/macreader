@@ -6,8 +6,9 @@ Supports multi-user with per-user read/bookmark state and per-user library.
 """
 
 from .connection import DatabaseConnection
-from .models import DBArticle, DBFeed, DBUser, DBUserArticleState
+from .models import DBArticle, DBArticleChat, DBChatMessage, DBFeed, DBUser, DBUserArticleState
 from .article_repository import ArticleRepository
+from .chat_repository import ChatRepository
 from .feed_repository import FeedRepository
 from .library_repository import LibraryRepository
 from .settings_repository import SettingsRepository
@@ -20,10 +21,13 @@ __all__ = [
     "Database",
     "DatabaseConnection",
     "DBArticle",
+    "DBArticleChat",
+    "DBChatMessage",
     "DBFeed",
     "DBUser",
     "DBUserArticleState",
     "ArticleRepository",
+    "ChatRepository",
     "FeedRepository",
     "LibraryRepository",
     "SettingsRepository",

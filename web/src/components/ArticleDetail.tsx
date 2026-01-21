@@ -25,6 +25,7 @@ import {
   useFetchContent,
   useSummarizeArticle,
 } from '@/hooks/use-queries'
+import { ArticleChat } from './ArticleChat'
 
 export function ArticleDetail() {
   const { selectedArticleId } = useAppStore()
@@ -246,6 +247,9 @@ export function ArticleDetail() {
               )}
             </section>
           )}
+
+          {/* Chat Section - for Q&A and summary refinement */}
+          {hasSummary && <ArticleChat articleId={article.id} />}
 
           {/* Main Content */}
           {hasContent ? (

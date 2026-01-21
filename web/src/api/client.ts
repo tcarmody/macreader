@@ -331,6 +331,41 @@ export async function batchSummarize(
   })
 }
 
+// Chat API
+export interface ChatMessage {
+  id: number
+  role: 'user' | 'assistant'
+  content: string
+  model_used: string | null
+  created_at: string
+}
+
+export interface ChatHistoryResponse {
+  article_id: number
+  messages: ChatMessage[]
+  has_chat: boolean
+}
+
+export async function getChatHistory(articleId: number): Promise<ChatHistoryResponse> {
+  return fetchApi(`/articles/${articleId}/chat`)
+}
+
+export async function sendChatMessage(
+  articleId: number,
+  message: string
+): Promise<ChatMessage> {
+  return fetchApi(`/articles/${articleId}/chat`, {
+    method: 'POST',
+    body: JSON.stringify({ message }),
+  })
+}
+
+export async function clearChatHistory(
+  articleId: number
+): Promise<{ success: boolean; deleted: boolean; message: string }> {
+  return fetchApi(`/articles/${articleId}/chat`, { method: 'DELETE' })
+}
+
 // OAuth Authentication
 export async function getAuthStatus(): Promise<OAuthStatus> {
   const config = getApiConfig()

@@ -143,6 +143,82 @@ class AnthropicProvider(LLMProvider):
             }
         )
 
+    def complete_chat(
+        self,
+        messages: list[dict],
+        system_prompt: str | None = None,
+        model: str | None = None,
+        max_tokens: int = 1024,
+        temperature: float = 0.7,
+        use_cache: bool = False,
+    ) -> LLMResponse:
+        """
+        Generate completion from multi-turn conversation using native Claude API.
+
+        Args:
+            messages: List of message dicts with 'role' and 'content'
+            system_prompt: System prompt for context
+            model: Model to use
+            max_tokens: Maximum response tokens
+            temperature: Sampling temperature
+            use_cache: Enable prompt caching for system prompt
+
+        Returns:
+            LLMResponse with generated text
+        """
+        resolved_model = self._resolve_model(model) if model else self._default_model
+
+        # Convert messages to Anthropic format
+        anthropic_messages = []
+        for msg in messages:
+            anthropic_messages.append({
+                "role": msg["role"],
+                "content": msg["content"]
+            })
+
+        # Build system prompt with optional caching
+        system = None
+        if system_prompt:
+            if use_cache:
+                system = [{
+                    "type": "text",
+                    "text": system_prompt,
+                    "cache_control": {"type": "ephemeral"}
+                }]
+            else:
+                system = system_prompt
+
+        # Make API call
+        kwargs = {
+            "model": resolved_model,
+            "max_tokens": max_tokens,
+            "messages": anthropic_messages,
+        }
+        if temperature > 0:
+            kwargs["temperature"] = temperature
+        if system:
+            kwargs["system"] = system
+
+        response = self.client.messages.create(**kwargs)
+
+        # Extract usage info
+        usage = response.usage
+        cached_tokens = 0
+        if hasattr(usage, "cache_read_input_tokens"):
+            cached_tokens = usage.cache_read_input_tokens or 0
+
+        return LLMResponse(
+            text=response.content[0].text,
+            model=resolved_model,
+            input_tokens=usage.input_tokens,
+            output_tokens=usage.output_tokens,
+            cached_tokens=cached_tokens,
+            metadata={
+                "stop_reason": response.stop_reason,
+                "provider": "anthropic",
+            }
+        )
+
     def complete_with_cacheable_prefix(
         self,
         system_prompt: str,

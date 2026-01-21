@@ -103,3 +103,24 @@ class DBTopicHistory:
     clustered_at: datetime
     period_start: datetime
     period_end: datetime
+
+
+@dataclass
+class DBArticleChat:
+    """Chat session for an article (one per user per article)."""
+    id: int
+    article_id: int
+    user_id: int
+    created_at: datetime
+    updated_at: datetime
+
+
+@dataclass
+class DBChatMessage:
+    """Individual message in an article chat."""
+    id: int
+    chat_id: int
+    role: str  # 'user' or 'assistant'
+    content: str
+    model_used: str | None
+    created_at: datetime

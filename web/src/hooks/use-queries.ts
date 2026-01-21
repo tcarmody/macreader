@@ -13,6 +13,7 @@ export const queryKeys = {
   articles: (filter: FilterType, sortBy: SortBy) => ['articles', filter, sortBy] as const,
   articlesGrouped: (groupBy: GroupBy) => ['articles', 'grouped', groupBy] as const,
   article: (id: number) => ['article', id] as const,
+  articleChat: (id: number) => ['articleChat', id] as const,
   search: (query: string) => ['search', query] as const,
   library: (params?: { content_type?: string; bookmarked_only?: boolean }) =>
     ['library', params] as const,
@@ -370,6 +371,67 @@ export function useSummarizeLibraryItem() {
         queryKey: queryKeys.libraryItem(itemId),
         invalidateKeys: [['library']],
       })
+    },
+  })
+}
+
+// Chat hooks
+export function useChatHistory(articleId: number | null) {
+  return useQuery({
+    queryKey: queryKeys.articleChat(articleId!),
+    queryFn: () => api.getChatHistory(articleId!),
+    enabled: articleId !== null,
+    staleTime: 30000,
+  })
+}
+
+export function useSendChatMessage() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ articleId, message }: { articleId: number; message: string }) =>
+      api.sendChatMessage(articleId, message),
+    onSuccess: (newMessage, { articleId }) => {
+      // Update chat history with the new messages
+      queryClient.setQueryData<api.ChatHistoryResponse>(
+        queryKeys.articleChat(articleId),
+        (old) => {
+          if (!old) {
+            return {
+              article_id: articleId,
+              messages: [
+                // Note: user message was already added by the service
+                newMessage,
+              ],
+              has_chat: true,
+            }
+          }
+          return {
+            ...old,
+            messages: [...old.messages, newMessage],
+            has_chat: true,
+          }
+        }
+      )
+      // Also invalidate to get the full updated history (includes user message)
+      queryClient.invalidateQueries({ queryKey: queryKeys.articleChat(articleId) })
+    },
+  })
+}
+
+export function useClearChatHistory() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: api.clearChatHistory,
+    onSuccess: (_, articleId) => {
+      // Clear the chat history in cache
+      queryClient.setQueryData<api.ChatHistoryResponse>(
+        queryKeys.articleChat(articleId),
+        {
+          article_id: articleId,
+          messages: [],
+          has_chat: false,
+        }
+      )
     },
   })
 }

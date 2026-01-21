@@ -10,6 +10,7 @@ from pathlib import Path
 
 from .connection import DatabaseConnection
 from .article_repository import ArticleRepository
+from .chat_repository import ChatRepository
 from .feed_repository import FeedRepository
 from .library_repository import LibraryRepository
 from .settings_repository import SettingsRepository
@@ -53,6 +54,9 @@ class Database:
         # Multi-user support repositories
         self.users = UserRepository(self._connection)
         self.user_state = UserArticleStateRepository(self._connection)
+
+        # Chat repository for article discussions
+        self.chat = ChatRepository(self._connection)
 
     # ─────────────────────────────────────────────────────────────
     # Feed operations (delegated to FeedRepository)
@@ -182,6 +186,11 @@ class Database:
         return self.articles.get(article_id)
 
     def get_article_with_state(self, article_id: int, user_id: int) -> DBArticle | None:
+        """Get article with user-specific read/bookmark state."""
+        return self.articles.get_with_user_state(article_id, user_id)
+
+    # Alias for service layer compatibility
+    def get_article_with_user_state(self, article_id: int, user_id: int) -> DBArticle | None:
         """Get article with user-specific read/bookmark state."""
         return self.articles.get_with_user_state(article_id, user_id)
 

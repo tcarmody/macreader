@@ -136,3 +136,72 @@ class LLMProvider(ABC):
                 json_mode=json_mode,
             )
         )
+
+    def complete_chat(
+        self,
+        messages: list[dict],
+        system_prompt: str | None = None,
+        model: str | None = None,
+        max_tokens: int = 1024,
+        temperature: float = 0.7,
+        use_cache: bool = False,
+    ) -> LLMResponse:
+        """
+        Generate a completion from a multi-turn conversation.
+
+        Args:
+            messages: List of message dicts with 'role' ('user'|'assistant') and 'content'
+            system_prompt: Optional system prompt for context
+            model: Specific model to use (defaults to provider's default)
+            max_tokens: Maximum tokens in response
+            temperature: Sampling temperature (higher for conversational)
+            use_cache: Enable prompt caching if supported
+
+        Returns:
+            LLMResponse with the generated text and metadata
+
+        Default implementation converts to single-turn for providers without
+        native multi-turn support.
+        """
+        # Default: combine history into a single prompt
+        combined_prompt = ""
+        for msg in messages:
+            role = msg.get("role", "user")
+            content = msg.get("content", "")
+            if role == "user":
+                combined_prompt += f"User: {content}\n\n"
+            else:
+                combined_prompt += f"Assistant: {content}\n\n"
+
+        return self.complete(
+            user_prompt=combined_prompt.strip(),
+            system_prompt=system_prompt,
+            model=model,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            use_cache=use_cache,
+        )
+
+    async def complete_chat_async(
+        self,
+        messages: list[dict],
+        system_prompt: str | None = None,
+        model: str | None = None,
+        max_tokens: int = 1024,
+        temperature: float = 0.7,
+        use_cache: bool = False,
+    ) -> LLMResponse:
+        """Async version of complete_chat."""
+        import asyncio
+        loop = asyncio.get_event_loop()
+        return await loop.run_in_executor(
+            None,
+            lambda: self.complete_chat(
+                messages=messages,
+                system_prompt=system_prompt,
+                model=model,
+                max_tokens=max_tokens,
+                temperature=temperature,
+                use_cache=use_cache,
+            )
+        )

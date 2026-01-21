@@ -29,6 +29,7 @@ class StateSnapshot:
     fetcher: Fetcher | None
     summarizer: Any
     clusterer: Any
+    chat_service: Any
 
 
 @contextmanager
@@ -56,6 +57,7 @@ def isolated_test_state(
         fetcher=state.fetcher,
         summarizer=state.summarizer,
         clusterer=state.clusterer,
+        chat_service=state.chat_service,
     )
 
     try:
@@ -67,6 +69,7 @@ def isolated_test_state(
         state.fetcher = Fetcher()
         state.summarizer = None  # Disable for tests (requires API key)
         state.clusterer = None
+        state.chat_service = None  # Disable for tests (requires API key)
 
         yield test_db
     finally:
@@ -77,6 +80,7 @@ def isolated_test_state(
         state.fetcher = snapshot.fetcher
         state.summarizer = snapshot.summarizer
         state.clusterer = snapshot.clusterer
+        state.chat_service = snapshot.chat_service
 
 
 @pytest.fixture

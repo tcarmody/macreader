@@ -17,6 +17,7 @@ if TYPE_CHECKING:
     from .summarizer import Summarizer
     from .clustering import Clusterer
     from .providers import LLMProvider
+    from .services.chat_service import ChatService
 
 # Load environment variables from project root
 # Use the backend directory's parent to find .env
@@ -131,6 +132,7 @@ class AppState:
     provider: "LLMProvider | None" = None  # LLM provider instance
     summarizer: "Summarizer | None" = None
     clusterer: "Clusterer | None" = None
+    chat_service: "ChatService | None" = None  # Chat service for article Q&A
     feed_parser: "FeedParser | None" = None
     fetcher: "Fetcher | None" = None
     enhanced_fetcher: "object | None" = None  # EnhancedFetcher from advanced module
@@ -146,3 +148,8 @@ def get_db() -> "Database":
     if not state.db:
         raise HTTPException(status_code=500, detail="Database not initialized")
     return state.db
+
+
+def get_chat_service() -> "ChatService | None":
+    """Dependency to get chat service instance (may be None if LLM not configured)."""
+    return state.chat_service
