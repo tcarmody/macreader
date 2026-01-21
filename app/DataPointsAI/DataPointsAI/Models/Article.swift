@@ -484,3 +484,53 @@ struct LibraryStats: Codable, Sendable {
         case byType = "by_type"
     }
 }
+
+
+// MARK: - Article Chat
+
+/// A chat message for an article
+struct ChatMessage: Identifiable, Codable, Sendable {
+    let id: Int
+    let role: String  // "user" or "assistant"
+    let content: String
+    let modelUsed: String?
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id
+        case role
+        case content
+        case modelUsed = "model_used"
+        case createdAt = "created_at"
+    }
+
+    var isUser: Bool { role == "user" }
+    var isAssistant: Bool { role == "assistant" }
+
+    /// Format time for display
+    var timeDisplay: String {
+        let formatter = DateFormatter()
+        formatter.timeStyle = .short
+        return formatter.string(from: createdAt)
+    }
+}
+
+/// Response from chat history API
+struct ChatHistoryResponse: Codable, Sendable {
+    let articleId: Int
+    let messages: [ChatMessage]
+    let hasChat: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case articleId = "article_id"
+        case messages
+        case hasChat = "has_chat"
+    }
+}
+
+/// Response from clear chat API
+struct ClearChatResponse: Codable, Sendable {
+    let success: Bool
+    let deleted: Bool
+    let message: String
+}

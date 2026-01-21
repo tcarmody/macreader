@@ -136,6 +136,16 @@ struct ArticleDetailView: View {
             // Key Points
             keyPointsSection(article: article, fontSize: fontSize, lineSpacing: lineSpacing, appTypeface: appTypeface)
 
+            // Chat section - for Q&A and summary refinement
+            if article.summaryFull != nil {
+                ArticleChatSection(
+                    article: article,
+                    fontSize: fontSize,
+                    lineSpacing: lineSpacing,
+                    appTypeface: appTypeface
+                )
+            }
+
             Divider()
 
             // Actions

@@ -565,6 +565,30 @@ final class APIClient {
         return try await get(path: "/statistics/topics/trends", queryItems: queryItems)
     }
 
+    // MARK: - Article Chat
+
+    /// Get chat history for an article
+    func getChatHistory(articleId: Int) async throws -> ChatHistoryResponse {
+        return try await get(path: "/articles/\(articleId)/chat")
+    }
+
+    /// Send a chat message about an article
+    func sendChatMessage(articleId: Int, message: String) async throws -> ChatMessage {
+        struct ChatRequest: Encodable {
+            let message: String
+        }
+        return try await post(
+            path: "/articles/\(articleId)/chat",
+            body: ChatRequest(message: message),
+            timeout: 120  // Chat responses can take time for complex questions
+        )
+    }
+
+    /// Clear chat history for an article
+    func clearChatHistory(articleId: Int) async throws -> ClearChatResponse {
+        return try await delete(path: "/articles/\(articleId)/chat")
+    }
+
     // MARK: - HTTP Methods
 
     private func get<T: Decodable>(
