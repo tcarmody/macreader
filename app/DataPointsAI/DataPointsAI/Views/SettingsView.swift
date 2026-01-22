@@ -746,16 +746,24 @@ struct NewsletterSettingsView: View {
 
                     HStack {
                         Button {
-                            fetchGmailNow()
+                            fetchGmailNow(fetchAll: false)
                         } label: {
                             if isFetchingGmail {
                                 ProgressView()
                                     .scaleEffect(0.8)
                             } else {
-                                Label("Fetch Now", systemImage: "arrow.down.circle")
+                                Label("Fetch New", systemImage: "arrow.down.circle")
                             }
                         }
                         .disabled(isFetchingGmail)
+
+                        Button {
+                            fetchGmailNow(fetchAll: true)
+                        } label: {
+                            Label("Fetch All", systemImage: "arrow.down.circle.fill")
+                        }
+                        .disabled(isFetchingGmail)
+                        .help("Re-import all newsletters from Gmail (ignores previously fetched)")
 
                         if let result = gmailFetchResult {
                             Text(result)
@@ -1077,13 +1085,13 @@ struct NewsletterSettingsView: View {
         }
     }
 
-    private func fetchGmailNow() {
+    private func fetchGmailNow(fetchAll: Bool = false) {
         isFetchingGmail = true
         gmailFetchResult = nil
 
         Task {
             do {
-                let response = try await appState.apiClient.triggerGmailFetch()
+                let response = try await appState.apiClient.triggerGmailFetch(fetchAll: fetchAll)
 
                 await MainActor.run {
                     isFetchingGmail = false
@@ -1094,7 +1102,7 @@ struct NewsletterSettingsView: View {
                             try? await appState.refreshFeeds()
                         }
                     } else if response.success {
-                        gmailFetchResult = "No new newsletters"
+                        gmailFetchResult = response.message ?? "No new newsletters"
                     } else {
                         gmailFetchResult = response.message ?? "Fetch failed"
                     }

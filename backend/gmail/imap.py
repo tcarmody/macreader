@@ -254,6 +254,7 @@ class GmailFetchResult:
     imported: int = 0
     failed: int = 0
     skipped: int = 0  # Duplicates
+    empty: int = 0  # Emails with insufficient content
     errors: list[str] | None = None
     message: str | None = None
 
@@ -299,17 +300,20 @@ async def fetch_newsletters_from_gmail(db: "Database", fetch_all: bool = False) 
 
             # Fetch emails - either all or since last UID
             last_uid = 0 if fetch_all else config.get("last_fetched_uid", 0)
+            logger.info(f"Fetching emails since UID {last_uid} (fetch_all={fetch_all})")
             emails = client.fetch_since_uid(last_uid)
 
             if not emails:
+                logger.info(f"No emails found with UID > {last_uid}")
                 return GmailFetchResult(
                     success=True,
-                    message="No new emails to import"
+                    message=f"No new emails to import (last UID: {last_uid})"
                 )
 
             imported = 0
             failed = 0
-            skipped = 0
+            skipped = 0  # Duplicates
+            empty = 0  # Insufficient content
             errors = []
             max_uid = last_uid
 
@@ -325,10 +329,12 @@ async def fetch_newsletters_from_gmail(db: "Database", fetch_all: bool = False) 
                     article_html = extract_article_content(parsed)
 
                     if not article_html or len(article_html.strip()) < 50:
-                        logger.warning(f"Email '{fetched.subject}' has insufficient content")
-                        skipped += 1
+                        logger.warning(f"Email '{fetched.subject}' has insufficient content (length: {len(article_html.strip()) if article_html else 0})")
+                        empty += 1
                         max_uid = max(max_uid, fetched.uid)
                         continue
+
+                    logger.info(f"Processing email: {fetched.subject} (content length: {len(article_html)})")
 
                     # Get or create feed for this newsletter sender
                     sender_email = parsed.sender_email
@@ -358,32 +364,55 @@ async def fetch_newsletters_from_gmail(db: "Database", fetch_all: bool = False) 
                         imported += 1
                         logger.info(f"Imported newsletter: {parsed.title} -> {parsed.sender}")
                     else:
-                        # Duplicate
+                        # Duplicate (article with same URL already exists)
                         skipped += 1
-                        logger.debug(f"Skipped duplicate: {parsed.title}")
+                        logger.info(f"Skipped duplicate: {parsed.title} (URL: {newsletter_url})")
 
                     max_uid = max(max_uid, fetched.uid)
 
                 except EmailParseError as e:
                     failed += 1
-                    errors.append(f"Parse error for '{fetched.subject}': {e}")
+                    error_msg = f"Parse error for '{fetched.subject}': {e}"
+                    errors.append(error_msg)
+                    logger.warning(error_msg)
+                    logger.exception("Full traceback for parse error:")
                     max_uid = max(max_uid, fetched.uid)
                 except Exception as e:
                     failed += 1
-                    errors.append(f"Import error for '{fetched.subject}': {e}")
+                    error_msg = f"Import error for '{fetched.subject}': {e}"
+                    errors.append(error_msg)
+                    logger.warning(error_msg)
+                    logger.exception("Full traceback for import error:")
                     max_uid = max(max_uid, fetched.uid)
 
             # Update last fetched UID
             if max_uid > last_uid:
                 db.update_gmail_last_fetched_uid(max_uid)
 
+            # Build informative message
+            parts = []
+            if imported > 0:
+                parts.append(f"Imported {imported}")
+            if skipped > 0:
+                parts.append(f"{skipped} duplicates")
+            if empty > 0:
+                parts.append(f"{empty} empty/insufficient content")
+            if failed > 0:
+                parts.append(f"{failed} failed")
+            message = ", ".join(parts) if parts else "No newsletters found"
+
+            logger.info(f"Gmail fetch complete: {message}")
+            if errors:
+                logger.warning(f"Fetch errors ({len(errors)}): {errors[:5]}")  # Log first 5 errors
+
             return GmailFetchResult(
                 success=True,
                 imported=imported,
                 failed=failed,
                 skipped=skipped,
+                empty=empty,
                 errors=errors if errors else None,
-                message=f"Imported {imported} newsletters" + (f", {skipped} skipped" if skipped else "")
+                message=message
             )
 
         finally:

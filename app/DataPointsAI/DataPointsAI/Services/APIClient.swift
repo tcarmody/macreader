@@ -397,8 +397,12 @@ final class APIClient {
     }
 
     /// Trigger Gmail newsletter fetch
-    func triggerGmailFetch() async throws -> GmailFetchResponse {
-        return try await post(path: "/gmail/fetch")
+    func triggerGmailFetch(fetchAll: Bool = false) async throws -> GmailFetchResponse {
+        var queryItems: [URLQueryItem] = []
+        if fetchAll {
+            queryItems.append(URLQueryItem(name: "fetch_all", value: "true"))
+        }
+        return try await post(path: "/gmail/fetch", queryItems: queryItems)
     }
 
     /// Disconnect Gmail account

@@ -90,6 +90,8 @@ def parse_eml_bytes(content: bytes) -> ParsedEmail:
     """
     try:
         msg = email.message_from_bytes(content, policy=policy.default)
+        if msg is None:
+            raise EmailParseError("Failed to parse email: message is None")
         return _extract_email_content(msg)
     except EmailParseError:
         raise
@@ -143,6 +145,8 @@ def _extract_email_content(msg: EmailMessage) -> ParsedEmail:
 
     if msg.is_multipart():
         for part in msg.walk():
+            if part is None:
+                continue
             content_type = part.get_content_type()
             if content_type == "text/html" and not content_html:
                 payload = part.get_payload(decode=True)
@@ -233,21 +237,31 @@ def _clean_newsletter_html(html: str) -> str:
     """
     soup = BeautifulSoup(html, "html.parser")
 
+    def safe_get_attr(elem, attr: str, default: str = "") -> str:
+        """Safely get an attribute from a BeautifulSoup element."""
+        if elem is None or elem.attrs is None:
+            return default
+        return elem.get(attr, default) or default
+
     # Remove tracking pixels (1x1 images)
     for img in soup.find_all("img"):
-        width = img.get("width", "")
-        height = img.get("height", "")
+        if img is None or img.attrs is None:
+            continue
+        width = safe_get_attr(img, "width", "")
+        height = safe_get_attr(img, "height", "")
         if width in ("1", "0") or height in ("1", "0"):
             img.decompose()
             continue
         # Also check style
-        style = img.get("style", "")
+        style = safe_get_attr(img, "style", "")
         if "width:1px" in style or "height:1px" in style or "width:0" in style:
             img.decompose()
 
     # Remove hidden preview text spans
     for span in soup.find_all("span"):
-        style = span.get("style", "")
+        if span is None or span.attrs is None:
+            continue
+        style = safe_get_attr(span, "style", "")
         if "display:none" in style or "visibility:hidden" in style:
             span.decompose()
         elif "max-height:0" in style and "overflow:hidden" in style:
@@ -255,27 +269,33 @@ def _clean_newsletter_html(html: str) -> str:
 
     # Remove script and style tags
     for tag in soup.find_all(["script", "style", "head"]):
+        if tag is None:
+            continue
         tag.decompose()
 
     # Remove empty divs that are just spacers
     for div in soup.find_all("div"):
+        if div is None or div.attrs is None:
+            continue
         if not div.get_text(strip=True) and not div.find("img"):
             # Check if it's just a spacer
-            style = div.get("style", "")
+            style = safe_get_attr(div, "style", "")
             if "height:" in style and not div.find_all():
                 div.decompose()
 
     # Unwrap excessive table wrappers (common in email templates)
     # Keep the content but remove unnecessary nesting
     for table in soup.find_all("table"):
+        if table is None or table.attrs is None:
+            continue
         # If table has only one row with one cell, and no important styling
         rows = table.find_all("tr", recursive=False)
-        if len(rows) == 1:
+        if len(rows) == 1 and rows[0] is not None:
             cells = rows[0].find_all(["td", "th"], recursive=False)
-            if len(cells) == 1:
+            if len(cells) == 1 and cells[0] is not None:
                 # Check if it's just a layout wrapper
                 cell = cells[0]
-                role = table.get("role", "")
+                role = safe_get_attr(table, "role", "")
                 if role != "presentation":
                     continue
                 # Replace table with its content
@@ -286,6 +306,8 @@ def _clean_newsletter_html(html: str) -> str:
 
     # Remove common footer elements
     for elem in soup.find_all(class_=re.compile(r"footer|unsubscribe|preferences", re.I)):
+        if elem is None:
+            continue
         elem.decompose()
 
     return str(soup)
