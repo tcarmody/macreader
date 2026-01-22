@@ -20,9 +20,12 @@ struct MainView: View {
                 ArticleListView()
             }
         } detail: {
-            if appState.showNewsletters || appState.showLibrary {
+            if appState.showLibrary {
+                // Library items use their own detail view
                 LibraryItemDetailView()
             } else {
+                // Both RSS feeds and newsletters use ArticleDetailView
+                // (newsletters are now stored as regular articles in feeds)
                 ArticleDetailView(scrollState: articleScrollState)
             }
         }
