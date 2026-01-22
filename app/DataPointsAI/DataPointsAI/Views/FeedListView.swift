@@ -13,18 +13,12 @@ struct FeedListView: View {
 
     var body: some View {
         List(selection: $appState.selectedFilter) {
-            // Library & Newsletters section
+            // Library section
             Section {
                 LibrarySidebarRow(isSelected: appState.showLibrary, count: appState.libraryItemCount)
                     .contentShape(Rectangle())
                     .onTapGesture {
                         appState.selectLibrary()
-                    }
-
-                NewslettersSidebarRow(isSelected: appState.showNewsletters, count: appState.newsletterUnreadCount)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        appState.selectNewsletters()
                     }
             }
 
@@ -105,6 +99,27 @@ struct FeedListView: View {
                     }
                 }
             }
+
+            // Newsletters section (shows newsletter feeds like RSS feeds)
+            if !appState.newsletterFeeds.isEmpty {
+                Section {
+                    if !appState.collapsedCategories.contains("Newsletters") {
+                        ForEach(appState.newsletterFeeds) { feed in
+                            newsletterFeedRow(for: feed)
+                        }
+                    }
+                } header: {
+                    CategoryHeader(
+                        category: "Newsletters",
+                        feedCount: appState.newsletterFeeds.count,
+                        unreadCount: appState.newsletterUnreadCount,
+                        isCollapsed: appState.collapsedCategories.contains("Newsletters"),
+                        onToggle: { appState.toggleCategoryCollapsed("Newsletters") },
+                        isDropTarget: false
+                    )
+                }
+                .collapsible(false)
+            }
         }
         .listStyle(.sidebar)
         .navigationTitle("Feeds")
@@ -167,13 +182,9 @@ struct FeedListView: View {
             // Only react to actual filter changes
             guard oldValue != newValue else { return }
 
-            // If library or newsletters is showing and user selects a different filter,
-            // deselect library/newsletters and reload articles
+            // If library is showing and user selects a different filter, deselect library
             if appState.showLibrary {
                 appState.deselectLibrary()
-            }
-            if appState.showNewsletters {
-                appState.deselectNewsletters()
             }
 
             // Reload articles for the new filter
@@ -269,6 +280,37 @@ struct FeedListView: View {
                         toggleFeedSelection(feed.id)
                     }
             )
+    }
+
+    @ViewBuilder
+    private func newsletterFeedRow(for feed: Feed) -> some View {
+        NewsletterFeedRow(feed: feed, isSelected: appState.selectedFilter == .feed(feed.id))
+            .tag(ArticleFilter.feed(feed.id))
+            .contextMenu {
+                newsletterFeedContextMenu(for: feed)
+            }
+            .onTapGesture(count: 1) {
+                appState.selectedFilter = .feed(feed.id)
+            }
+    }
+
+    @ViewBuilder
+    private func newsletterFeedContextMenu(for feed: Feed) -> some View {
+        Button {
+            Task {
+                try? await appState.markFeedRead(feedId: feed.id)
+            }
+        } label: {
+            Label("Mark All as Read", systemImage: "checkmark.circle")
+        }
+
+        Divider()
+
+        Button {
+            appState.feedBeingEdited = feed
+        } label: {
+            Label("Rename...", systemImage: "pencil")
+        }
     }
 
     @ViewBuilder

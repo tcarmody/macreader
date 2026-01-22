@@ -243,70 +243,60 @@ export function Sidebar({ onOpenSettings, onAddFeed }: SidebarProps) {
 
             <Separator className="my-2" />
 
-            {/* Newsletters Section */}
+            {/* Newsletters Section - shown like RSS feeds by category */}
             {newsletterFeeds.length > 0 && (
-              <>
-                <div className="px-2 space-y-1">
-                  <div className="flex items-center justify-between px-2 py-1">
-                    <span className="text-xs font-semibold text-muted-foreground uppercase">Newsletters</span>
-                    {newsletterUnreadCount > 0 && (
-                      <Badge variant="secondary" className="text-xs">
-                        {newsletterUnreadCount}
-                      </Badge>
-                    )}
-                  </div>
-
-                  <button
-                    onClick={() => setCollapsedNewsletters(!collapsedNewsletters)}
-                    className="w-full flex items-center gap-1 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
-                  >
-                    {collapsedNewsletters ? (
-                      <ChevronRight className="h-3 w-3" />
-                    ) : (
-                      <ChevronDown className="h-3 w-3" />
-                    )}
-                    <Mail className="h-3 w-3" />
-                    <span className="flex-1 text-left truncate">All Newsletters</span>
-                  </button>
-
-                  {!collapsedNewsletters && (
-                    <div className="ml-4 space-y-0.5">
-                      {newsletterFeeds.map((feed) => {
-                        const isSelected =
-                          typeof selectedFilter === 'object' &&
-                          selectedFilter.type === 'feed' &&
-                          selectedFilter.feedId === feed.id
-
-                        return (
-                          <button
-                            key={feed.id}
-                            onClick={() => {
-                              setSelectedFilter({ type: 'feed', feedId: feed.id })
-                              setIsSearching(false)
-                            }}
-                            className={cn(
-                              "w-full flex items-center gap-2 px-2 py-1 rounded-md text-sm transition-colors",
-                              isSelected
-                                ? "bg-secondary text-secondary-foreground"
-                                : "hover:bg-muted text-muted-foreground hover:text-foreground"
-                            )}
-                          >
-                            <Mail className="h-3 w-3 flex-shrink-0 text-orange-500" />
-                            <span className="flex-1 text-left truncate">{feed.name}</span>
-                            {feed.unread_count > 0 && (
-                              <Badge variant="secondary" className="text-xs">
-                                {feed.unread_count}
-                              </Badge>
-                            )}
-                          </button>
-                        )
-                      })}
-                    </div>
+              <div key="Newsletters">
+                <button
+                  onClick={() => setCollapsedNewsletters(!collapsedNewsletters)}
+                  className="w-full flex items-center gap-1 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
+                >
+                  {collapsedNewsletters ? (
+                    <ChevronRight className="h-3 w-3" />
+                  ) : (
+                    <ChevronDown className="h-3 w-3" />
                   )}
-                </div>
+                  <FolderOpen className="h-3 w-3" />
+                  <span className="flex-1 text-left truncate">Newsletters</span>
+                  <span className="text-xs">
+                    {newsletterUnreadCount}
+                  </span>
+                </button>
 
-                <Separator className="my-2" />
-              </>
+                {!collapsedNewsletters && (
+                  <div className="ml-4 space-y-0.5">
+                    {newsletterFeeds.map((feed) => {
+                      const isSelected =
+                        typeof selectedFilter === 'object' &&
+                        selectedFilter.type === 'feed' &&
+                        selectedFilter.feedId === feed.id
+
+                      return (
+                        <button
+                          key={feed.id}
+                          onClick={() => {
+                            setSelectedFilter({ type: 'feed', feedId: feed.id })
+                            setIsSearching(false)
+                          }}
+                          className={cn(
+                            "w-full flex items-center gap-2 px-2 py-1 rounded-md text-sm transition-colors",
+                            isSelected
+                              ? "bg-secondary text-secondary-foreground"
+                              : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          <Mail className="h-3 w-3 flex-shrink-0 text-orange-500" />
+                          <span className="flex-1 text-left truncate">{feed.name}</span>
+                          {feed.unread_count > 0 && (
+                            <Badge variant="secondary" className="text-xs">
+                              {feed.unread_count}
+                            </Badge>
+                          )}
+                        </button>
+                      )
+                    })}
+                  </div>
+                )}
+              </div>
             )}
 
             {/* RSS Feeds by Category */}

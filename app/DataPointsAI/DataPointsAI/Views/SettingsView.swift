@@ -1089,9 +1089,9 @@ struct NewsletterSettingsView: View {
                     isFetchingGmail = false
                     if response.imported > 0 {
                         gmailFetchResult = "Imported \(response.imported) newsletter(s)"
-                        // Reload newsletters list
+                        // Reload feeds to show new newsletter feeds
                         Task {
-                            await appState.loadNewsletterItems()
+                            try? await appState.refreshFeeds()
                         }
                     } else if response.success {
                         gmailFetchResult = "No new newsletters"

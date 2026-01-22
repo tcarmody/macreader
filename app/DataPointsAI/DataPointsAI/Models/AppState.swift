@@ -80,14 +80,6 @@ class AppState: ObservableObject {
     @Published var showAddToLibrary: Bool = false
     @Published var showLibrary: Bool = false
 
-    // Newsletters state
-    @Published var newsletterItems: [LibraryItem] = []
-    @Published var newsletterCount: Int = 0
-    @Published var showNewsletters: Bool = false
-    @Published var selectedNewsletterFeed: Feed?  // Currently selected newsletter feed
-    @Published var newsletterArticles: [Article] = []  // Articles for selected newsletter feed
-    @Published var collapsedNewsletterFeeds: Set<Int> = []  // Collapsed newsletter feeds in sidebar
-
     // MARK: - Dependencies
 
     let apiClient: APIClient

@@ -12,11 +12,10 @@ struct MainView: View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             FeedListView()
         } content: {
-            if appState.showNewsletters {
-                NewslettersView()
-            } else if appState.showLibrary {
+            if appState.showLibrary {
                 LibraryView()
             } else {
+                // ArticleListView handles both RSS feeds and newsletter feeds
                 ArticleListView()
             }
         } detail: {
