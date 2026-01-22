@@ -258,12 +258,14 @@ class GmailFetchResult:
     message: str | None = None
 
 
-async def fetch_newsletters_from_gmail(db: "Database") -> GmailFetchResult:
+async def fetch_newsletters_from_gmail(db: "Database", fetch_all: bool = False) -> GmailFetchResult:
     """
     Fetch newsletters from Gmail and import them.
 
     Args:
         db: Database instance
+        fetch_all: If True, fetch all emails regardless of last_fetched_uid.
+                   Useful for importing existing newsletters.
 
     Returns:
         GmailFetchResult with import statistics
@@ -295,8 +297,8 @@ async def fetch_newsletters_from_gmail(db: "Database") -> GmailFetchResult:
             label = config.get("monitored_label", "Newsletters")
             client.select_label(label)
 
-            # Fetch emails since last UID
-            last_uid = config.get("last_fetched_uid", 0)
+            # Fetch emails - either all or since last UID
+            last_uid = 0 if fetch_all else config.get("last_fetched_uid", 0)
             emails = client.fetch_since_uid(last_uid)
 
             if not emails:
@@ -304,6 +306,9 @@ async def fetch_newsletters_from_gmail(db: "Database") -> GmailFetchResult:
                     success=True,
                     message="No new emails to import"
                 )
+
+            # Get user_id for the API user (Gmail imports go to the default user)
+            user_id = db.users.get_or_create_api_user()
 
             imported = 0
             failed = 0
@@ -331,6 +336,7 @@ async def fetch_newsletters_from_gmail(db: "Database") -> GmailFetchResult:
 
                     # Import to database
                     item_id = db.add_standalone_item(
+                        user_id=user_id,
                         url=newsletter_url,
                         title=parsed.title,
                         content=article_html,

@@ -387,6 +387,7 @@ class GmailConfigUpdateRequest(BaseModel):
     monitored_label: str | None = None
     poll_interval_minutes: int | None = None
     is_enabled: bool | None = None
+    reset_uid: bool = False  # Reset last_fetched_uid to 0 to re-fetch all emails
 
 
 class GmailLabelResponse(BaseModel):

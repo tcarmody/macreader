@@ -189,6 +189,11 @@ async def update_gmail_config(
         is_enabled=request.is_enabled,
     )
 
+    # Reset UID tracking if requested (useful when changing labels)
+    if request.reset_uid:
+        db.update_gmail_last_fetched_uid(0)
+        logger.info("Reset Gmail last_fetched_uid to 0")
+
     # Restart scheduler if interval changed
     if request.poll_interval_minutes is not None or request.is_enabled is not None:
         from ..gmail import gmail_scheduler
@@ -200,14 +205,20 @@ async def update_gmail_config(
 
 @router.post("/fetch")
 async def trigger_gmail_fetch(
+    fetch_all: bool = Query(False, description="Fetch all emails, ignoring last fetched UID"),
     db: Database = Depends(get_db)
 ) -> GmailFetchResponse:
     """
     Trigger an immediate fetch of newsletters from Gmail.
 
+    Args:
+        fetch_all: If True, fetches all emails in the label regardless of
+                   whether they were previously seen. Useful for importing
+                   existing newsletters or after changing the monitored label.
+
     Returns the number of newsletters imported.
     """
-    result = await fetch_newsletters_from_gmail(db)
+    result = await fetch_newsletters_from_gmail(db, fetch_all=fetch_all)
 
     return GmailFetchResponse(
         success=result.success,
