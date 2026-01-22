@@ -170,6 +170,7 @@ async def refresh_single_feed(feed_id: int, feed_url: str) -> list[NotificationM
 
     # Skip newsletter feeds - they're fetched via Gmail, not RSS
     if feed_url.startswith("newsletter://"):
+        print(f"Skipping newsletter feed {feed_id}: {feed_url}")
         return []
 
     try:

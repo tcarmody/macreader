@@ -26,7 +26,7 @@ struct Feed: Identifiable, Codable, Hashable, Sendable {
     /// Whether this is a local feed (Library or Newsletters) that doesn't need HTTP fetching
     var isLocalFeed: Bool {
         let scheme = url.scheme?.lowercased() ?? ""
-        return scheme == "local" || scheme == "file"
+        return scheme == "local" || scheme == "file" || scheme == "newsletter"
     }
 
     /// Health status of the feed based on fetch history
