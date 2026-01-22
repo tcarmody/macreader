@@ -168,6 +168,10 @@ async def refresh_single_feed(feed_id: int, feed_url: str) -> list[NotificationM
     if not state.db or not state.feed_parser:
         return []
 
+    # Skip newsletter feeds - they're fetched via Gmail, not RSS
+    if feed_url.startswith("newsletter://"):
+        return []
+
     try:
         feed = await state.feed_parser.fetch(feed_url)
         matches = await fetch_feed_articles(feed_id, feed)
