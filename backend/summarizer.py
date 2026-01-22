@@ -100,8 +100,9 @@ Structure for MULTI-STORY articles:
 1. HEADLINE: Create a headline that references the source or format (e.g., "AI Newsletter: Three developments in robotics, language models, and chip design")
 
 2. SUMMARY: Write ONE PARAGRAPH PER STORY, with a blank line between paragraphs:
-   - Each paragraph should be 2-3 sentences covering one distinct story
+   - Each paragraph should be 4-5 sentences covering one distinct story
    - Start each paragraph with the key news item for that story
+   - Include relevant details like technical specs, pricing, availability, or implications
    - Order stories by importance or prominence in the original
    - Aim for 3-6 paragraphs total depending on how many stories are present
 
