@@ -65,6 +65,8 @@ xcuserdata/
 
 # Runtime data
 data/articles.db
+data/articles.db-shm
+data/articles.db-wal
 data/cache/
 data/chromadb/
 
