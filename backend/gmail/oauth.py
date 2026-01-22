@@ -4,7 +4,6 @@ Gmail OAuth 2.0 Authentication for IMAP Access.
 Handles the OAuth flow to get tokens for Gmail IMAP access.
 """
 
-import base64
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
 import secrets
@@ -258,7 +257,9 @@ def generate_xoauth2_string(email: str, access_token: str) -> str:
         access_token: OAuth access token
 
     Returns:
-        Base64-encoded XOAUTH2 string
+        XOAUTH2 string (NOT base64-encoded - imaplib handles encoding)
     """
-    auth_string = f"user={email}\x01auth=Bearer {access_token}\x01\x01"
-    return base64.b64encode(auth_string.encode()).decode()
+    # Format: "user={email}\x01auth=Bearer {token}\x01\x01"
+    # Note: imaplib.authenticate() handles base64 encoding internally,
+    # so we return the raw string here
+    return f"user={email}\x01auth=Bearer {access_token}\x01\x01"
