@@ -21,7 +21,7 @@ struct FeedListView: View {
                         appState.selectLibrary()
                     }
 
-                NewslettersSidebarRow(isSelected: appState.showNewsletters, count: appState.newsletterCount)
+                NewslettersSidebarRow(isSelected: appState.showNewsletters, count: appState.newsletterUnreadCount)
                     .contentShape(Rectangle())
                     .onTapGesture {
                         appState.selectNewsletters()

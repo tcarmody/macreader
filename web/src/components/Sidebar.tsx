@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useMemo } from 'react'
 import {
   Newspaper,
   BookMarked,
@@ -15,6 +15,7 @@ import {
   FolderOpen,
   Search,
   Menu,
+  Mail,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -49,16 +50,40 @@ export function Sidebar({ onOpenSettings, onAddFeed }: SidebarProps) {
   const refreshFeeds = useRefreshFeeds()
 
   const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
+  const [collapsedNewsletters, setCollapsedNewsletters] = useState(false)
 
-  // Group feeds by category
-  const feedsByCategory = feeds.reduce((acc, feed) => {
-    const category = feed.category || 'Uncategorized'
-    if (!acc[category]) acc[category] = []
-    acc[category].push(feed)
-    return acc
-  }, {} as Record<string, Feed[]>)
+  // Separate newsletter feeds from RSS feeds
+  const { rssFeeds, newsletterFeeds } = useMemo(() => {
+    const rss: Feed[] = []
+    const newsletters: Feed[] = []
+
+    for (const feed of feeds) {
+      if (feed.url.startsWith('newsletter://')) {
+        newsletters.push(feed)
+      } else {
+        rss.push(feed)
+      }
+    }
+
+    return { rssFeeds: rss, newsletterFeeds: newsletters.sort((a, b) => a.name.localeCompare(b.name)) }
+  }, [feeds])
+
+  // Group RSS feeds by category (excluding newsletter feeds)
+  const feedsByCategory = useMemo(() => {
+    return rssFeeds.reduce((acc, feed) => {
+      const category = feed.category || 'Uncategorized'
+      if (!acc[category]) acc[category] = []
+      acc[category].push(feed)
+      return acc
+    }, {} as Record<string, Feed[]>)
+  }, [rssFeeds])
 
   const categories = Object.keys(feedsByCategory).sort()
+
+  // Calculate newsletter unread count
+  const newsletterUnreadCount = useMemo(() => {
+    return newsletterFeeds.reduce((sum, f) => sum + f.unread_count, 0)
+  }, [newsletterFeeds])
 
   const toggleCategory = (category: string) => {
     const newCollapsed = new Set(collapsedCategories)
@@ -218,7 +243,73 @@ export function Sidebar({ onOpenSettings, onAddFeed }: SidebarProps) {
 
             <Separator className="my-2" />
 
-            {/* Feeds by Category */}
+            {/* Newsletters Section */}
+            {newsletterFeeds.length > 0 && (
+              <>
+                <div className="px-2 space-y-1">
+                  <div className="flex items-center justify-between px-2 py-1">
+                    <span className="text-xs font-semibold text-muted-foreground uppercase">Newsletters</span>
+                    {newsletterUnreadCount > 0 && (
+                      <Badge variant="secondary" className="text-xs">
+                        {newsletterUnreadCount}
+                      </Badge>
+                    )}
+                  </div>
+
+                  <button
+                    onClick={() => setCollapsedNewsletters(!collapsedNewsletters)}
+                    className="w-full flex items-center gap-1 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
+                  >
+                    {collapsedNewsletters ? (
+                      <ChevronRight className="h-3 w-3" />
+                    ) : (
+                      <ChevronDown className="h-3 w-3" />
+                    )}
+                    <Mail className="h-3 w-3" />
+                    <span className="flex-1 text-left truncate">All Newsletters</span>
+                  </button>
+
+                  {!collapsedNewsletters && (
+                    <div className="ml-4 space-y-0.5">
+                      {newsletterFeeds.map((feed) => {
+                        const isSelected =
+                          typeof selectedFilter === 'object' &&
+                          selectedFilter.type === 'feed' &&
+                          selectedFilter.feedId === feed.id
+
+                        return (
+                          <button
+                            key={feed.id}
+                            onClick={() => {
+                              setSelectedFilter({ type: 'feed', feedId: feed.id })
+                              setIsSearching(false)
+                            }}
+                            className={cn(
+                              "w-full flex items-center gap-2 px-2 py-1 rounded-md text-sm transition-colors",
+                              isSelected
+                                ? "bg-secondary text-secondary-foreground"
+                                : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                            )}
+                          >
+                            <Mail className="h-3 w-3 flex-shrink-0 text-orange-500" />
+                            <span className="flex-1 text-left truncate">{feed.name}</span>
+                            {feed.unread_count > 0 && (
+                              <Badge variant="secondary" className="text-xs">
+                                {feed.unread_count}
+                              </Badge>
+                            )}
+                          </button>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+
+                <Separator className="my-2" />
+              </>
+            )}
+
+            {/* RSS Feeds by Category */}
             <div className="px-2 space-y-1">
               <div className="flex items-center justify-between px-2 py-1">
                 <span className="text-xs font-semibold text-muted-foreground uppercase">Feeds</span>

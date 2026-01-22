@@ -155,14 +155,70 @@ extension AppState {
         selectedArticleDetail = nil
         selectedLibraryItem = nil
         selectedLibraryItemDetail = nil
-        Task {
-            await loadNewsletterItems()
-        }
+        selectedNewsletterFeed = nil
+        newsletterArticles = []
     }
 
     func deselectNewsletters() {
         showNewsletters = false
         selectedLibraryItem = nil
         selectedLibraryItemDetail = nil
+        selectedNewsletterFeed = nil
+        newsletterArticles = []
+    }
+
+    /// Select a specific newsletter feed and load its articles
+    func selectNewsletterFeed(_ feed: Feed) async {
+        showNewsletters = true
+        showLibrary = false
+        selectedNewsletterFeed = feed
+        selectedArticle = nil
+        selectedArticleDetail = nil
+        selectedLibraryItem = nil
+        selectedLibraryItemDetail = nil
+
+        // Load articles for this newsletter feed
+        do {
+            newsletterArticles = try await apiClient.getArticles(feedId: feed.id)
+        } catch {
+            self.error = error.localizedDescription
+            newsletterArticles = []
+        }
+    }
+
+    /// Deselect newsletter feed and go back to all newsletters view
+    func deselectNewsletterFeed() {
+        selectedNewsletterFeed = nil
+        newsletterArticles = []
+        selectedArticle = nil
+        selectedArticleDetail = nil
+    }
+
+    /// Toggle collapsed state for a newsletter feed in the sidebar
+    func toggleNewsletterFeedCollapsed(_ feedId: Int) {
+        if collapsedNewsletterFeeds.contains(feedId) {
+            collapsedNewsletterFeeds.remove(feedId)
+        } else {
+            collapsedNewsletterFeeds.insert(feedId)
+        }
+    }
+
+    /// Load detail for a newsletter article (from a newsletter feed)
+    func loadNewsletterArticleDetail(for article: Article) async {
+        do {
+            let detail = try await apiClient.getArticle(id: article.id)
+            selectedArticleDetail = detail
+            selectedArticle = article
+
+            if settings.markReadOnOpen && !article.isRead {
+                try await markRead(articleId: article.id)
+                // Update local state
+                if let index = newsletterArticles.firstIndex(where: { $0.id == article.id }) {
+                    newsletterArticles[index].isRead = true
+                }
+            }
+        } catch {
+            self.error = error.localizedDescription
+        }
     }
 }

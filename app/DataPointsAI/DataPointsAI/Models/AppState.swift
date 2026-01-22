@@ -84,6 +84,9 @@ class AppState: ObservableObject {
     @Published var newsletterItems: [LibraryItem] = []
     @Published var newsletterCount: Int = 0
     @Published var showNewsletters: Bool = false
+    @Published var selectedNewsletterFeed: Feed?  // Currently selected newsletter feed
+    @Published var newsletterArticles: [Article] = []  // Articles for selected newsletter feed
+    @Published var collapsedNewsletterFeeds: Set<Int> = []  // Collapsed newsletter feeds in sidebar
 
     // MARK: - Dependencies
 
@@ -194,8 +197,11 @@ class AppState: ObservableObject {
         return articles.filter { ($0.publishedAt ?? $0.createdAt) >= startOfToday }.count
     }
 
+    /// RSS feeds grouped by category (excludes newsletter feeds)
     var feedsByCategory: [(category: String?, feeds: [Feed])] {
-        let grouped = Dictionary(grouping: feeds) { $0.category }
+        // Exclude newsletter feeds from the RSS section
+        let rssFeeds = feeds.filter { !$0.url.absoluteString.hasPrefix("newsletter://") }
+        let grouped = Dictionary(grouping: rssFeeds) { $0.category }
 
         let sortedKeys = grouped.keys.sorted { key1, key2 in
             if key1 == nil { return true }
@@ -208,8 +214,22 @@ class AppState: ObservableObject {
         }
     }
 
+    /// Newsletter feeds (feeds with newsletter:// URL scheme)
+    var newsletterFeeds: [Feed] {
+        feeds.filter { $0.url.absoluteString.hasPrefix("newsletter://") }
+            .sorted { $0.name < $1.name }
+    }
+
+    /// Total unread count across all newsletter feeds
+    var newsletterUnreadCount: Int {
+        newsletterFeeds.reduce(0) { $0 + $1.unreadCount }
+    }
+
     var categories: [String] {
-        Set(feeds.compactMap { $0.category }).sorted()
+        // Exclude "Newsletters" category from RSS categories
+        Set(feeds.compactMap { $0.category })
+            .filter { $0 != "Newsletters" }
+            .sorted()
     }
 
     // MARK: - Initialization
