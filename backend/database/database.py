@@ -145,6 +145,10 @@ class Database:
     def get_standalone_item(self, user_id: int, article_id: int) -> DBArticle | None:
         return self.library.get_item(user_id, article_id)
 
+    # Alias for routes that use get_library_item
+    def get_library_item(self, user_id: int, article_id: int) -> DBArticle | None:
+        return self.library.get_item(user_id, article_id)
+
     def delete_standalone_item(self, user_id: int, article_id: int) -> bool:
         return self.library.delete(user_id, article_id)
 
