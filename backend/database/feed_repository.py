@@ -110,3 +110,54 @@ class FeedRepository:
         with self._db.conn() as conn:
             placeholders = ",".join("?" * len(feed_ids))
             conn.execute(f"DELETE FROM feeds WHERE id IN ({placeholders})", feed_ids)
+
+    def get_or_create_newsletter_feed(
+        self,
+        sender_email: str,
+        sender_name: str,
+        newsletter_name: str | None = None
+    ) -> int:
+        """
+        Get or create a feed for a newsletter sender.
+
+        Each unique sender_email gets its own feed, allowing newsletters
+        to be browsed like regular RSS feeds.
+
+        Args:
+            sender_email: The sender's email address (used as unique identifier)
+            sender_name: Display name of the sender
+            newsletter_name: Optional newsletter name (e.g., "The Batch")
+
+        Returns:
+            Feed ID for this newsletter
+        """
+        # Use a special URL scheme to identify newsletter feeds
+        feed_url = f"newsletter://{sender_email}"
+
+        with self._db.conn() as conn:
+            # Check if feed already exists
+            row = conn.execute(
+                "SELECT id FROM feeds WHERE url = ?",
+                (feed_url,)
+            ).fetchone()
+
+            if row:
+                return row["id"]
+
+            # Create new feed for this newsletter
+            # Use newsletter_name if available, otherwise sender_name
+            display_name = newsletter_name or sender_name or sender_email
+            cursor = conn.execute(
+                "INSERT INTO feeds (url, name, category) VALUES (?, ?, ?)",
+                (feed_url, display_name, "Newsletters")
+            )
+            return cursor.lastrowid
+
+    def is_newsletter_feed(self, feed_id: int) -> bool:
+        """Check if a feed is a newsletter feed (vs RSS feed)."""
+        with self._db.conn() as conn:
+            row = conn.execute(
+                "SELECT url FROM feeds WHERE id = ?",
+                (feed_id,)
+            ).fetchone()
+            return row is not None and row["url"].startswith("newsletter://")

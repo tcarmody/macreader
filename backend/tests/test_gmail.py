@@ -344,3 +344,85 @@ class TestGmailConfigWithDatabase:
         config = test_db.get_gmail_config()
         assert config["email"] == "second@gmail.com"
         assert config["access_token"] == "token2"
+
+
+class TestNewsletterFeeds:
+    """Tests for newsletter feed functionality."""
+
+    def test_get_or_create_newsletter_feed_creates_new(self, test_db):
+        """Should create a new feed for a newsletter sender."""
+        feed_id = test_db.get_or_create_newsletter_feed(
+            sender_email="newsletter@example.com",
+            sender_name="Example Newsletter",
+            newsletter_name="The Example"
+        )
+
+        assert feed_id is not None
+        feed = test_db.get_feed(feed_id)
+        assert feed is not None
+        assert feed.name == "The Example"
+        assert feed.category == "Newsletters"
+        assert feed.url == "newsletter://newsletter@example.com"
+
+    def test_get_or_create_newsletter_feed_returns_existing(self, test_db):
+        """Should return existing feed for same sender."""
+        feed_id1 = test_db.get_or_create_newsletter_feed(
+            sender_email="newsletter@example.com",
+            sender_name="Example Newsletter",
+            newsletter_name="The Example"
+        )
+
+        feed_id2 = test_db.get_or_create_newsletter_feed(
+            sender_email="newsletter@example.com",
+            sender_name="Different Name",
+            newsletter_name="Different Newsletter"
+        )
+
+        assert feed_id1 == feed_id2
+
+    def test_get_or_create_newsletter_feed_uses_sender_name_fallback(self, test_db):
+        """Should use sender_name when newsletter_name is None."""
+        feed_id = test_db.get_or_create_newsletter_feed(
+            sender_email="author@example.com",
+            sender_name="John Doe",
+            newsletter_name=None
+        )
+
+        feed = test_db.get_feed(feed_id)
+        assert feed.name == "John Doe"
+
+    def test_is_newsletter_feed(self, test_db):
+        """Should correctly identify newsletter feeds."""
+        # Create a newsletter feed
+        newsletter_feed_id = test_db.get_or_create_newsletter_feed(
+            sender_email="test@example.com",
+            sender_name="Test",
+        )
+
+        # Create a regular RSS feed
+        rss_feed_id = test_db.add_feed(
+            url="https://example.com/feed.xml",
+            name="RSS Feed"
+        )
+
+        assert test_db.is_newsletter_feed(newsletter_feed_id) is True
+        assert test_db.is_newsletter_feed(rss_feed_id) is False
+
+    def test_different_senders_get_different_feeds(self, test_db):
+        """Each sender should get their own feed."""
+        feed_id1 = test_db.get_or_create_newsletter_feed(
+            sender_email="sender1@example.com",
+            sender_name="Sender One",
+        )
+
+        feed_id2 = test_db.get_or_create_newsletter_feed(
+            sender_email="sender2@example.com",
+            sender_name="Sender Two",
+        )
+
+        assert feed_id1 != feed_id2
+
+        feed1 = test_db.get_feed(feed_id1)
+        feed2 = test_db.get_feed(feed_id2)
+        assert feed1.name == "Sender One"
+        assert feed2.name == "Sender Two"

@@ -89,6 +89,21 @@ class Database:
     def bulk_delete_feeds(self, feed_ids: list[int]):
         return self.feeds.bulk_delete(feed_ids)
 
+    def get_or_create_newsletter_feed(
+        self,
+        sender_email: str,
+        sender_name: str,
+        newsletter_name: str | None = None
+    ) -> int:
+        """Get or create a feed for a newsletter sender."""
+        return self.feeds.get_or_create_newsletter_feed(
+            sender_email, sender_name, newsletter_name
+        )
+
+    def is_newsletter_feed(self, feed_id: int) -> bool:
+        """Check if a feed is a newsletter feed."""
+        return self.feeds.is_newsletter_feed(feed_id)
+
     # ─────────────────────────────────────────────────────────────
     # Standalone (Library) operations (delegated to LibraryRepository)
     # Library items are per-user - all methods require user_id

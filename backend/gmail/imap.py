@@ -307,14 +307,14 @@ async def fetch_newsletters_from_gmail(db: "Database", fetch_all: bool = False) 
                     message="No new emails to import"
                 )
 
-            # Get user_id for the API user (Gmail imports go to the default user)
-            user_id = db.users.get_or_create_api_user()
-
             imported = 0
             failed = 0
             skipped = 0
             errors = []
             max_uid = last_uid
+
+            # Cache for newsletter feed IDs to avoid repeated lookups
+            feed_cache: dict[str, int] = {}
 
             for fetched in emails:
                 try:
@@ -330,24 +330,33 @@ async def fetch_newsletters_from_gmail(db: "Database", fetch_all: bool = False) 
                         max_uid = max(max_uid, fetched.uid)
                         continue
 
-                    # Generate unique URL for this newsletter
-                    date_str = parsed.date.strftime("%Y%m%d%H%M%S") if parsed.date else "unknown"
-                    newsletter_url = f"newsletter://gmail/{parsed.sender_email}_{date_str}"
+                    # Get or create feed for this newsletter sender
+                    sender_email = parsed.sender_email
+                    if sender_email not in feed_cache:
+                        feed_cache[sender_email] = db.get_or_create_newsletter_feed(
+                            sender_email=sender_email,
+                            sender_name=parsed.sender,
+                            newsletter_name=parsed.newsletter_name,
+                        )
+                    feed_id = feed_cache[sender_email]
 
-                    # Import to database
-                    item_id = db.add_standalone_item(
-                        user_id=user_id,
+                    # Generate unique URL for this newsletter issue
+                    date_str = parsed.date.strftime("%Y%m%d%H%M%S") if parsed.date else "unknown"
+                    newsletter_url = f"newsletter://{sender_email}/{date_str}"
+
+                    # Import as article to the newsletter feed
+                    article_id = db.add_article(
+                        feed_id=feed_id,
                         url=newsletter_url,
                         title=parsed.title,
                         content=article_html,
-                        content_type="newsletter",
                         author=parsed.author,
                         published_at=parsed.date,
                     )
 
-                    if item_id:
+                    if article_id:
                         imported += 1
-                        logger.info(f"Imported newsletter: {parsed.title}")
+                        logger.info(f"Imported newsletter: {parsed.title} -> {parsed.sender}")
                     else:
                         # Duplicate
                         skipped += 1
