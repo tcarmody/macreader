@@ -74,7 +74,14 @@ Style conventions:
     # Static instruction prompt (cacheable) - separated from dynamic content
     INSTRUCTION_PROMPT = """Summarize the article below following these guidelines:
 
-Structure:
+IMPORTANT - Multi-story detection:
+First, determine whether this article contains multiple distinct stories (common in newsletters, news roundups, or digest-style articles). Signs of multi-story content include:
+- Clear section breaks or headers separating different topics
+- Multiple unrelated subjects (e.g., different companies, different events)
+- "In other news..." or similar transitional phrases
+- Newsletter format with several items
+
+Structure for SINGLE-STORY articles:
 1. HEADLINE: Create a headline in sentence case that:
    - Captures the core news or development
    - Uses strong, specific verbs
@@ -88,8 +95,19 @@ Structure:
    - Write as flowing prose, NOT as a list of bullet points
 
 3. KEY POINTS: 3-5 bullet points that highlight distinct, scannable takeaways.
-   - These must be different from the summary sentences - extract specific facts, numbers, or implications not fully covered in the summary
-   - Do not simply rephrase what the summary already says
+
+Structure for MULTI-STORY articles:
+1. HEADLINE: Create a headline that references the source or format (e.g., "AI Newsletter: Three developments in robotics, language models, and chip design")
+
+2. SUMMARY: Write ONE PARAGRAPH PER STORY, with a blank line between paragraphs:
+   - Each paragraph should be 2-3 sentences covering one distinct story
+   - Start each paragraph with the key news item for that story
+   - Order stories by importance or prominence in the original
+   - Aim for 3-6 paragraphs total depending on how many stories are present
+
+3. KEY POINTS: 3-5 bullet points covering the most important takeaways ACROSS ALL stories.
+   - Include the most significant facts, numbers, or implications from any of the stories
+   - Don't try to have one bullet per story - prioritize by importance
 
 Style guidelines:
 - Use active voice (e.g., 'Company released product' not 'Product was released by company')
@@ -114,7 +132,7 @@ HEADLINE:
 [Your headline here]
 
 SUMMARY:
-[Your five sentence summary here]
+[Your summary here - either five sentences for single-story, or multiple paragraphs for multi-story]
 
 URL: [article URL will be provided]
 
