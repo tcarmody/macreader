@@ -280,6 +280,15 @@ struct RSSReaderApp: App {
 
             // Feed menu
             CommandMenu("Feed") {
+                Button("Manage Feeds...") {
+                    DispatchQueue.main.async {
+                        appState.showFeedManager = true
+                    }
+                }
+                .keyboardShortcut("f", modifiers: [.command, .option])
+
+                Divider()
+
                 Button("Rename Feed...") {
                     if case .feed(let feedId) = appState.selectedFilter,
                        let feed = appState.feeds.first(where: { $0.id == feedId }) {

@@ -47,6 +47,7 @@ class AppState: ObservableObject {
     @Published var showSettings: Bool = false
     @Published var showImportOPML: Bool = false
     @Published var showQuickOpen: Bool = false
+    @Published var showFeedManager: Bool = false
     @Published var groupByMode: GroupByMode = .date
     @Published var sortOption: ArticleSortOption = .newestFirst
     @Published var hideReadArticles: Bool = false

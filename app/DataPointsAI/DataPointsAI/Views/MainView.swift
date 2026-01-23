@@ -48,6 +48,9 @@ struct MainView: View {
         .sheet(isPresented: $appState.showQuickOpen) {
             QuickOpenView()
         }
+        .sheet(isPresented: $appState.showFeedManager) {
+            FeedManagerView()
+        }
         .alert("Error", isPresented: Binding(
             get: { appState.error != nil },
             set: { if !$0 { appState.error = nil } }

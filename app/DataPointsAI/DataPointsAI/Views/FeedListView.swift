@@ -159,6 +159,16 @@ struct FeedListView: View {
                     } label: {
                         Label("Import OPML...", systemImage: "square.and.arrow.down")
                     }
+
+                    Divider()
+
+                    Button {
+                        DispatchQueue.main.async {
+                            appState.showFeedManager = true
+                        }
+                    } label: {
+                        Label("Manage Feeds...", systemImage: "slider.horizontal.3")
+                    }
                 } label: {
                     Image(systemName: "plus")
                 }
