@@ -29,6 +29,9 @@ class ArticleResponse(BaseModel):
     reading_time_minutes: int | None = None
     author: str | None = None
 
+    # Original feed name for archived articles (when feed was deleted but article preserved)
+    feed_name: str | None = None
+
     @classmethod
     def from_db(cls, article: DBArticle) -> "ArticleResponse":
         return cls(
@@ -44,6 +47,7 @@ class ArticleResponse(BaseModel):
             created_at=article.created_at.isoformat(),
             reading_time_minutes=article.reading_time_minutes,
             author=article.author,
+            feed_name=article.feed_name,
         )
 
 
@@ -71,6 +75,9 @@ class ArticleDetailResponse(BaseModel):
     has_code_blocks: bool = False
     site_name: str | None = None
 
+    # Original feed name for archived articles (when feed was deleted but article preserved)
+    feed_name: str | None = None
+
     @classmethod
     def from_db(cls, article: DBArticle) -> "ArticleDetailResponse":
         return cls(
@@ -93,6 +100,7 @@ class ArticleDetailResponse(BaseModel):
             featured_image=article.featured_image,
             has_code_blocks=article.has_code_blocks,
             site_name=article.site_name,
+            feed_name=article.feed_name,
         )
 
 

@@ -158,6 +158,9 @@ class DatabaseConnection:
             # RSS articles have user_id = NULL (shared), library items have user_id set
             self._migrate_add_column(connection, "articles", "user_id", "INTEGER REFERENCES users(id) ON DELETE CASCADE")
 
+            # Store original feed name for archived articles (when feed is deleted but article is preserved)
+            self._migrate_add_column(connection, "articles", "feed_name", "TEXT")
+
             # Create notification_rules table for smart notifications
             connection.executescript("""
                 CREATE TABLE IF NOT EXISTS notification_rules (

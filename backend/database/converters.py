@@ -94,6 +94,7 @@ def row_to_article(row: sqlite3.Row) -> DBArticle:
         has_code_blocks=safe_get_bool("has_code_blocks"),
         site_name=safe_get("site_name"),
         user_id=safe_get_int("user_id"),
+        feed_name=safe_get("feed_name"),
     )
 
 

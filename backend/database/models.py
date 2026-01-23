@@ -36,6 +36,9 @@ class DBArticle:
     # Multi-user support: owner for library items (NULL for shared RSS articles)
     user_id: int | None = None
 
+    # Original feed name for archived articles (when feed was deleted but article preserved)
+    feed_name: str | None = None
+
 
 @dataclass
 class DBUser:

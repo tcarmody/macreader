@@ -396,7 +396,19 @@ export function Sidebar({ onOpenSettings, onAddFeed }: SidebarProps) {
               )}
             >
               <BookMarked className="h-4 w-4" />
-              <span>Bookmarked</span>
+              <span>Saved</span>
+            </button>
+            <button
+              onClick={() => setSelectedFilter('summarized')}
+              className={cn(
+                "w-full flex items-center gap-2 px-2 py-1.5 rounded-md text-sm transition-colors",
+                selectedFilter === 'summarized'
+                  ? "bg-secondary text-secondary-foreground"
+                  : "hover:bg-muted text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Sparkles className="h-4 w-4" />
+              <span>Summarized</span>
             </button>
           </div>
         )}
