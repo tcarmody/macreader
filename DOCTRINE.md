@@ -297,6 +297,53 @@ Global `prefers-reduced-motion` support disables animations for users who prefer
 
 **Rationale**: For personal reading, archives often have the content. This is an optional fallback, not a circumvention tool. The heuristic checks for known paywalled domains before attempting.
 
+### Gmail Newsletter Integration
+
+**Decision**: Import newsletters from Gmail via IMAP OAuth2, creating virtual "feeds" with `newsletter://` URLs.
+
+**Alternatives Considered**:
+- Gmail API with push notifications: More complex OAuth scopes, webhook infrastructure required
+- Forwarding to a catch-all email: Requires email server setup, less reliable
+- Manual paste/upload: Poor UX for regular newsletters
+
+**Rationale**: Many valuable newsletters arrive via email, not RSS. Gmail IMAP provides read-only access to the inbox with standard OAuth2 authentication. The `newsletter://sender@email.com` URL scheme creates a feed-like experience while making it clear these aren't traditional RSS feeds.
+
+**Email Parsing**: Newsletter HTML is cleaned aggressively:
+- Remove tracking pixels (1x1 images, known tracker domains)
+- Strip invisible elements (`display:none`, `visibility:hidden`)
+- Remove base64-encoded images (bloat, often tracking)
+- Extract sender-specific content using known newsletter patterns
+
+**Fetch Modes**: Two fetch options handle different use cases:
+- **Fetch New**: Only imports emails since last fetch (default, fast)
+- **Fetch All**: Re-scans entire inbox for the configured label (initial import, recovery)
+
+**Result Tracking**: Import results distinguish between:
+- **Imported**: New articles successfully created
+- **Skipped**: Duplicates (already imported based on message ID)
+- **Empty**: Emails with insufficient content after cleaning
+- **Failed**: Parse errors (logged with full traceback for debugging)
+
+### Content Source Types
+
+**Decision**: Use URL schemes to distinguish content sources: `http(s)://` for RSS feeds, `newsletter://` for Gmail newsletters, `local://` for Library items.
+
+**Alternatives Considered**:
+- Separate tables per source type: Would complicate queries and UI code
+- Flags on feed table: Less extensible, harder to reason about
+- Single URL scheme with metadata: Loses semantic clarity
+
+**Rationale**: Different content sources have fundamentally different fetch mechanisms:
+- **RSS feeds** (`http://`, `https://`): Fetched via HTTP using feedparser, subject to SSRF validation
+- **Newsletter feeds** (`newsletter://sender@email.com`): Fetched via Gmail IMAP OAuth, no HTTP involved
+- **Library items** (`local://library`): User-uploaded content (PDFs, URLs), stored directly in database
+
+The URL scheme makes the fetch mechanism immediately apparent in code. A simple scheme check determines whether a feed needs HTTP refresh, Gmail fetch, or no refresh at all.
+
+**Feed Health Dashboard**: The Feed Health view only shows RSS feeds since it monitors HTTP fetch status (last fetched, fetch errors, stale feeds). Newsletter and Library feeds are excluded via the `isLocalFeed` property which returns `true` for non-HTTP schemes. This prevents confusing "Never fetched" status for feeds that don't use HTTP fetching.
+
+**SSRF Protection**: The URL validation in `safe_fetch.py` only allows `http` and `https` schemes. Newsletter feeds bypass this entirely since they're fetched via Gmail IMAP, not HTTP. This prevents "URL scheme newsletter is not allowed" errors during feed refresh.
+
 ### Topic Clustering (Optional)
 
 **Decision**: Simple keyword-based clustering, not ML-based.
@@ -432,11 +479,19 @@ This setup requires no DevOps expertise and costs ~$0-5/month for personal use.
 - Documented scaling path (SQLite → PostgreSQL → Hybrid → Microservices)
 - SCALE.md with detailed migration guides for each tier
 
+### Phase 9: Gmail Newsletter Integration
+- Gmail IMAP OAuth2 for newsletter import
+- URL scheme pattern (`newsletter://sender@email.com`) for distinct content sources
+- Feed Health dashboard excludes non-HTTP feeds
+- Separate tracking for empty/insufficient vs duplicate emails
+- Email content cleaning (tracking pixels, invisible elements, base64 images)
+
 ### Current: Stable Platform
 - Native macOS app + Web PWA
 - Railway backend + Vercel frontend
 - Multi-provider LLM support
 - Multi-user support with OAuth
+- Gmail newsletter integration via IMAP
 - Reading statistics and topic trends
 - Polished reading experience with themes and typography
 - Accessibility-first design system with 9 visual variants
