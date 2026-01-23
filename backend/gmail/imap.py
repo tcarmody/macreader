@@ -11,7 +11,12 @@ from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
 from .oauth import generate_xoauth2_string, get_valid_access_token, GmailOAuthError
-from ..email_parser import parse_eml_bytes, extract_article_content, EmailParseError
+from ..email_parser import (
+    parse_eml_bytes,
+    extract_article_content,
+    extract_newsletter_web_url,
+    EmailParseError,
+)
 
 if TYPE_CHECKING:
     from ..database import Database
@@ -19,10 +24,137 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
+# Minimum content length threshold (in characters) to consider email content
+# as "complete". Below this, we'll try to fetch from the web URL.
+MIN_CONTENT_LENGTH = 2000
+
 
 class GmailIMAPError(Exception):
     """Gmail IMAP operation error."""
     pass
+
+
+async def _fetch_content_from_url(url: str) -> str | None:
+    """
+    Fetch full newsletter content from a web URL.
+
+    Used as a fallback when email content is truncated.
+
+    Args:
+        url: URL to fetch content from
+
+    Returns:
+        HTML content string, or None if fetch failed
+    """
+    try:
+        import aiohttp
+        from bs4 import BeautifulSoup
+
+        # Use full browser-like headers to avoid bot detection
+        headers = {
+            "User-Agent": (
+                "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) "
+                "AppleWebKit/537.36 (KHTML, like Gecko) "
+                "Chrome/120.0.0.0 Safari/537.36"
+            ),
+            "Accept": "text/html,application/xhtml+xml,application/xml;q=0.9,image/avif,image/webp,*/*;q=0.8",
+            "Accept-Language": "en-US,en;q=0.9",
+            "Accept-Encoding": "gzip, deflate, br",
+            "Cache-Control": "no-cache",
+            "Sec-Fetch-Dest": "document",
+            "Sec-Fetch-Mode": "navigate",
+            "Sec-Fetch-Site": "none",
+            "Sec-Fetch-User": "?1",
+            "Upgrade-Insecure-Requests": "1",
+        }
+
+        async with aiohttp.ClientSession() as session:
+            # For Substack app-links, follow the redirect chain to get the actual URL
+            # App-links → open.substack.com (JS redirect) → publication domain
+            if "substack.com/app-link" in url or "open.substack.com" in url:
+                try:
+                    async with session.get(
+                        url,
+                        headers=headers,
+                        timeout=aiohttp.ClientTimeout(total=10),
+                        allow_redirects=True,
+                    ) as redirect_resp:
+                        final_url = str(redirect_resp.url)
+
+                        # open.substack.com returns a JS redirect page
+                        # Parse the actual URL from the noscript/meta or script
+                        if "open.substack.com" in final_url:
+                            redirect_html = await redirect_resp.text()
+
+                            # Try noscript meta refresh first
+                            import re
+                            meta_match = re.search(
+                                r'<META[^>]+content="[^"]*URL=([^"]+)"',
+                                redirect_html, re.IGNORECASE
+                            )
+                            if meta_match:
+                                final_url = meta_match.group(1)
+                            else:
+                                # Try location.replace in script
+                                script_match = re.search(
+                                    r'location\.replace\("([^"]+)"\)',
+                                    redirect_html
+                                )
+                                if script_match:
+                                    final_url = script_match.group(1)
+
+                        if final_url != url and "app-link" not in final_url:
+                            logger.info(f"Substack redirected to: {final_url}")
+                            url = final_url
+                except Exception as e:
+                    logger.warning(f"Failed to follow Substack redirect: {e}")
+                    # Continue with original URL
+
+            async with session.get(
+                url,
+                headers=headers,
+                timeout=aiohttp.ClientTimeout(total=30),
+                allow_redirects=True,
+            ) as resp:
+                if resp.status != 200:
+                    logger.warning(f"Failed to fetch {url}: status {resp.status}")
+                    return None
+
+                html = await resp.text()
+
+                # Parse and extract main content
+                soup = BeautifulSoup(html, "html.parser")
+
+                # Remove scripts, styles, nav, footer
+                for tag in soup.find_all(["script", "style", "nav", "footer", "header"]):
+                    tag.decompose()
+
+                # Try common content selectors for newsletter platforms
+                selectors = [
+                    "article",
+                    ".post-content",
+                    ".body-markup",
+                    ".available-content",
+                    "[data-component-name='PostBody']",
+                    ".single-post",
+                    "main",
+                ]
+
+                for selector in selectors:
+                    content = soup.select_one(selector)
+                    if content:
+                        return str(content)
+
+                # Fallback to body
+                body = soup.body
+                if body:
+                    return str(body)
+
+                return None
+
+    except Exception as e:
+        logger.warning(f"Error fetching content from {url}: {e}")
+        return None
 
 
 @dataclass
@@ -325,8 +457,28 @@ async def fetch_newsletters_from_gmail(db: "Database", fetch_all: bool = False) 
                     # Parse email using existing parser
                     parsed = parse_eml_bytes(fetched.raw_bytes)
 
-                    # Extract article content
+                    # Extract article content from email
                     article_html = extract_article_content(parsed)
+
+                    # If content is too short, try fetching from web URL
+                    # Many newsletter platforms (Substack, Beehiiv) send truncated
+                    # previews in emails with a "read in browser" link
+                    content_length = len(article_html.strip()) if article_html else 0
+
+                    if content_length < MIN_CONTENT_LENGTH:
+                        web_url = extract_newsletter_web_url(parsed)
+                        if web_url:
+                            logger.info(
+                                f"Email '{fetched.subject}' has short content "
+                                f"({content_length} chars), trying web URL: {web_url}"
+                            )
+                            web_content = await _fetch_content_from_url(web_url)
+                            if web_content and len(web_content) > content_length:
+                                logger.info(
+                                    f"Fetched {len(web_content)} chars from web "
+                                    f"(was {content_length} from email)"
+                                )
+                                article_html = web_content
 
                     if not article_html or len(article_html.strip()) < 50:
                         logger.warning(f"Email '{fetched.subject}' has insufficient content (length: {len(article_html.strip()) if article_html else 0})")

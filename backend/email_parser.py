@@ -140,6 +140,8 @@ def _extract_email_content(msg: EmailMessage) -> ParsedEmail:
             pass
 
     # Extract body content
+    # For multipart emails, keep the LONGEST HTML part (some newsletters have
+    # multiple HTML parts - e.g., a preview header and full content body)
     content_html = None
     content_text = None
 
@@ -148,14 +150,17 @@ def _extract_email_content(msg: EmailMessage) -> ParsedEmail:
             if part is None:
                 continue
             content_type = part.get_content_type()
-            if content_type == "text/html" and not content_html:
+            if content_type == "text/html":
                 payload = part.get_payload(decode=True)
                 if payload:
                     charset = part.get_content_charset() or "utf-8"
                     try:
-                        content_html = payload.decode(charset, errors="replace")
+                        decoded_html = payload.decode(charset, errors="replace")
                     except (LookupError, UnicodeDecodeError):
-                        content_html = payload.decode("utf-8", errors="replace")
+                        decoded_html = payload.decode("utf-8", errors="replace")
+                    # Keep the longest HTML part (most content)
+                    if not content_html or len(decoded_html) > len(content_html):
+                        content_html = decoded_html
             elif content_type == "text/plain" and not content_text:
                 payload = part.get_payload(decode=True)
                 if payload:
@@ -442,3 +447,83 @@ def _escape_html(text: str) -> str:
         .replace(">", "&gt;")
         .replace('"', "&quot;")
     )
+
+
+def extract_newsletter_web_url(parsed_email: ParsedEmail) -> Optional[str]:
+    """
+    Extract the web URL for a newsletter post from the email.
+
+    Many newsletter platforms (Substack, Beehiiv, etc.) include a link to the
+    full web version of the post. This can be used as a fallback when the
+    email content is truncated.
+
+    Args:
+        parsed_email: Parsed email data
+
+    Returns:
+        URL to the full web version, or None if not found
+    """
+    if not parsed_email.content_html:
+        return None
+
+    soup = BeautifulSoup(parsed_email.content_html, "html.parser")
+
+    # Look for common "read in browser" / "view online" links
+    for link in soup.find_all("a", href=True):
+        href = link.get("href", "")
+        text = link.get_text(strip=True).lower()
+
+        # Common patterns for "view in browser" links
+        view_patterns = [
+            "view in browser",
+            "view online",
+            "read in browser",
+            "read online",
+            "view this email",
+            "open in browser",
+        ]
+        if any(pattern in text for pattern in view_patterns):
+            if href.startswith("http"):
+                return href
+
+    # Look for Substack/Beehiiv post links
+    # Prefer direct publication links over app-links (which don't work well with fetch)
+    app_link_url = None
+
+    for link in soup.find_all("a", href=True):
+        href = link.get("href", "")
+
+        # Direct Substack post link (e.g., publication.substack.com/p/post-slug)
+        # These work better than app-links for fetching
+        if ".substack.com/p/" in href:
+            return href
+
+        # Custom domain Substack posts often have /p/ in the path
+        # e.g., lastweekin.ai/p/post-slug (but avoid matching /publish/ etc)
+        if "/p/" in href and "substack" not in href.lower():
+            # Check if it looks like a Substack custom domain post
+            # These typically don't have other common path segments
+            path_parts = href.split("/p/")
+            if len(path_parts) == 2 and "?" not in path_parts[0]:
+                return href
+
+        # Beehiiv links
+        if "beehiiv.com" in href and "/p/" in href:
+            return href
+
+        # Save app-link as fallback (less reliable but better than nothing)
+        if "substack.com/app-link/post" in href and not app_link_url:
+            app_link_url = href
+
+    # Use app-link as last resort
+    if app_link_url:
+        return app_link_url
+
+    # Look for post title link (often the first h1 > a)
+    title_link = soup.select_one("h1.post-title a, h1 a, .post-title a")
+    if title_link:
+        href = title_link.get("href", "")
+        if href.startswith("http"):
+            return href
+
+    return None
