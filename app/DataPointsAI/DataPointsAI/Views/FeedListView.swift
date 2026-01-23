@@ -22,6 +22,25 @@ struct FeedListView: View {
                     }
             }
 
+            // Newsletters section - right below Library
+            if !appState.newsletterFeeds.isEmpty {
+                Section {
+                    if !appState.collapsedCategories.contains("Newsletters") {
+                        ForEach(appState.newsletterFeeds) { feed in
+                            newsletterFeedRow(for: feed)
+                        }
+                    }
+                } header: {
+                    NewsletterHeader(
+                        feedCount: appState.newsletterFeeds.count,
+                        unreadCount: appState.newsletterUnreadCount,
+                        isCollapsed: appState.collapsedCategories.contains("Newsletters"),
+                        onToggle: { appState.toggleCategoryCollapsed("Newsletters") }
+                    )
+                }
+                .collapsible(false)
+            }
+
             Section("Filters") {
                 FilterRow(filter: .all, count: nil)
                     .contextMenu {
@@ -100,26 +119,6 @@ struct FeedListView: View {
                 }
             }
 
-            // Newsletters section (shows newsletter feeds like RSS feeds)
-            if !appState.newsletterFeeds.isEmpty {
-                Section {
-                    if !appState.collapsedCategories.contains("Newsletters") {
-                        ForEach(appState.newsletterFeeds) { feed in
-                            newsletterFeedRow(for: feed)
-                        }
-                    }
-                } header: {
-                    CategoryHeader(
-                        category: "Newsletters",
-                        feedCount: appState.newsletterFeeds.count,
-                        unreadCount: appState.newsletterUnreadCount,
-                        isCollapsed: appState.collapsedCategories.contains("Newsletters"),
-                        onToggle: { appState.toggleCategoryCollapsed("Newsletters") },
-                        isDropTarget: false
-                    )
-                }
-                .collapsible(false)
-            }
         }
         .listStyle(.sidebar)
         .navigationTitle("Feeds")

@@ -103,13 +103,25 @@ class FeedRepository:
         with self._db.conn() as conn:
             conn.execute("DELETE FROM feeds WHERE id = ?", (feed_id,))
 
-    def bulk_delete(self, feed_ids: list[int]):
-        """Delete multiple feeds and their articles."""
+    def bulk_delete(self, feed_ids: list[int], exclude_newsletters: bool = True):
+        """
+        Delete multiple feeds and their articles.
+
+        Args:
+            feed_ids: List of feed IDs to delete
+            exclude_newsletters: If True, newsletter feeds (newsletter://) are preserved
+        """
         if not feed_ids:
             return
         with self._db.conn() as conn:
             placeholders = ",".join("?" * len(feed_ids))
-            conn.execute(f"DELETE FROM feeds WHERE id IN ({placeholders})", feed_ids)
+            if exclude_newsletters:
+                conn.execute(
+                    f"DELETE FROM feeds WHERE id IN ({placeholders}) AND url NOT LIKE 'newsletter://%'",
+                    feed_ids
+                )
+            else:
+                conn.execute(f"DELETE FROM feeds WHERE id IN ({placeholders})", feed_ids)
 
     def get_or_create_newsletter_feed(
         self,
