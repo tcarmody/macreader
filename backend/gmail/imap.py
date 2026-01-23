@@ -24,9 +24,10 @@ if TYPE_CHECKING:
 
 logger = logging.getLogger(__name__)
 
-# Minimum content length threshold (in characters) to consider email content
+# Minimum TEXT content length threshold (in characters) to consider email content
 # as "complete". Below this, we'll try to fetch from the web URL.
-MIN_CONTENT_LENGTH = 2000
+# This measures actual text, not HTML markup, so a lower threshold is appropriate.
+MIN_TEXT_CONTENT_LENGTH = 500
 
 
 class GmailIMAPError(Exception):
@@ -463,22 +464,31 @@ async def fetch_newsletters_from_gmail(db: "Database", fetch_all: bool = False) 
                     # If content is too short, try fetching from web URL
                     # Many newsletter platforms (Substack, Beehiiv) send truncated
                     # previews in emails with a "read in browser" link
-                    content_length = len(article_html.strip()) if article_html else 0
+                    # Check TEXT length (not HTML) since email templates have lots of markup
+                    from bs4 import BeautifulSoup
+                    text_content = ""
+                    if article_html:
+                        soup = BeautifulSoup(article_html, "html.parser")
+                        text_content = soup.get_text(separator=" ", strip=True)
+                    text_length = len(text_content)
 
-                    if content_length < MIN_CONTENT_LENGTH:
+                    if text_length < MIN_TEXT_CONTENT_LENGTH:
                         web_url = extract_newsletter_web_url(parsed)
                         if web_url:
                             logger.info(
-                                f"Email '{fetched.subject}' has short content "
-                                f"({content_length} chars), trying web URL: {web_url}"
+                                f"Email '{fetched.subject}' has short text content "
+                                f"({text_length} chars), trying web URL: {web_url}"
                             )
                             web_content = await _fetch_content_from_url(web_url)
-                            if web_content and len(web_content) > content_length:
-                                logger.info(
-                                    f"Fetched {len(web_content)} chars from web "
-                                    f"(was {content_length} from email)"
-                                )
-                                article_html = web_content
+                            if web_content:
+                                web_soup = BeautifulSoup(web_content, "html.parser")
+                                web_text_length = len(web_soup.get_text(separator=" ", strip=True))
+                                if web_text_length > text_length:
+                                    logger.info(
+                                        f"Fetched {web_text_length} text chars from web "
+                                        f"(was {text_length} from email)"
+                                    )
+                                    article_html = web_content
 
                     if not article_html or len(article_html.strip()) < 50:
                         logger.warning(f"Email '{fetched.subject}' has insufficient content (length: {len(article_html.strip()) if article_html else 0})")
