@@ -10,6 +10,9 @@ interface AppState {
   theme: 'light' | 'dark' | 'system'
   designStyle: DesignStyle
 
+  // Onboarding State
+  hasCompletedInitialSetup: boolean
+
   // Selection State
   selectedFilter: FilterType
   selectedArticleId: number | null
@@ -55,14 +58,17 @@ interface AppState {
 
 export const useAppStore = create<AppState>()(
   persist(
-    (set) => ({
+    (set, get) => ({
       // Initial UI State
       sidebarCollapsed: false,
       theme: 'system',
       designStyle: 'default',
 
-      // Initial Selection State
-      selectedFilter: 'all',
+      // Initial Onboarding State
+      hasCompletedInitialSetup: false,
+
+      // Initial Selection State - use 'unread' for new users
+      selectedFilter: 'unread',
       selectedArticleId: null,
       selectedLibraryItemId: null,
 
@@ -139,6 +145,7 @@ export const useAppStore = create<AppState>()(
         sidebarCollapsed: state.sidebarCollapsed,
         theme: state.theme,
         designStyle: state.designStyle,
+        hasCompletedInitialSetup: state.hasCompletedInitialSetup,
         selectedFilter: state.selectedFilter,
         currentView: state.currentView,
         groupBy: state.groupBy,

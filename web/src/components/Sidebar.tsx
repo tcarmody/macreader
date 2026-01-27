@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useEffect } from 'react'
 import {
   Newspaper,
   BookMarked,
@@ -45,14 +45,12 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
     searchQuery,
     setSearchQuery,
     setIsSearching,
+    hasCompletedInitialSetup,
   } = useAppStore()
 
   const { data: feeds = [], isLoading: feedsLoading } = useFeeds()
   const { data: stats } = useStats()
   const refreshFeeds = useRefreshFeeds()
-
-  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(new Set())
-  const [collapsedNewsletters, setCollapsedNewsletters] = useState(false)
 
   // Separate newsletter feeds from RSS feeds
   const { rssFeeds, newsletterFeeds } = useMemo(() => {
@@ -81,6 +79,31 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
   }, [rssFeeds])
 
   const categories = Object.keys(feedsByCategory).sort()
+
+  // For new users, collapse all categories by default. For returning users, expand all.
+  const [collapsedCategories, setCollapsedCategories] = useState<Set<string>>(() =>
+    !hasCompletedInitialSetup ? new Set(categories) : new Set()
+  )
+  const [collapsedNewsletters, setCollapsedNewsletters] = useState(false)
+
+  // Rotating search placeholders for discoverability
+  const searchPlaceholders = [
+    "Search articles... (Press '/' to focus)",
+    "Try searching by author, title, or content",
+    "Search across all your feeds",
+    "Find articles by keyword",
+  ]
+  const [searchPlaceholder, setSearchPlaceholder] = useState(searchPlaceholders[0])
+
+  useEffect(() => {
+    let index = 0
+    const interval = setInterval(() => {
+      index = (index + 1) % searchPlaceholders.length
+      setSearchPlaceholder(searchPlaceholders[index])
+    }, 5000) // Change every 5 seconds
+
+    return () => clearInterval(interval)
+  }, [])
 
   // Calculate newsletter unread count
   const newsletterUnreadCount = useMemo(() => {
@@ -180,7 +203,7 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
-              placeholder="Search articles..."
+              placeholder={searchPlaceholder}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
               className="pl-8 h-9"
@@ -307,11 +330,22 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
             {/* RSS Feeds by Category */}
             <div className="px-2 space-y-1">
               <div className="flex items-center justify-between px-2 py-1">
-                <span className="text-xs font-semibold text-muted-foreground uppercase">Feeds</span>
+                <span className="text-xs font-semibold text-muted-foreground uppercase">
+                  Feeds {rssFeeds.length > 0 && `(${rssFeeds.length})`}
+                </span>
                 <div className="flex gap-0.5">
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onManageFeeds} title="Manage feeds">
-                    <ListFilter className="h-3 w-3" />
-                  </Button>
+                  {rssFeeds.length > 0 && (
+                    <Button
+                      variant="ghost"
+                      size="sm"
+                      className="h-6 px-2 text-xs"
+                      onClick={onManageFeeds}
+                      title="Bulk edit, organize, and manage your feeds"
+                    >
+                      <ListFilter className="h-3 w-3 mr-1" />
+                      Manage
+                    </Button>
+                  )}
                   <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onAddFeed} title="Add feed">
                     <Plus className="h-3 w-3" />
                   </Button>
