@@ -5,6 +5,7 @@ import { useArticles, useMarkArticleRead, useToggleBookmark, useRefreshFeeds } f
 interface UseKeyboardShortcutsOptions {
   onOpenSettings?: () => void
   onOpenAddFeed?: () => void
+  onOpenFeedManager?: () => void
 }
 
 export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) {
@@ -116,4 +117,9 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
   useHotkeys('mod+n', () => {
     options.onOpenAddFeed?.()
   }, { preventDefault: true }, [options.onOpenAddFeed])
+
+  // Mod+Shift+f (Cmd/Ctrl + Shift + f) - manage feeds
+  useHotkeys('mod+shift+f', () => {
+    options.onOpenFeedManager?.()
+  }, { preventDefault: true }, [options.onOpenFeedManager])
 }

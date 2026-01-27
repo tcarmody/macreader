@@ -6,6 +6,7 @@ import { ArticleDetail } from '@/components/ArticleDetail'
 import { LibraryList, LibraryItemDetail } from '@/components/LibraryView'
 import { SettingsDialog } from '@/components/SettingsDialog'
 import { AddFeedDialog } from '@/components/AddFeedDialog'
+import { FeedManagerDialog } from '@/components/FeedManagerDialog'
 import { LoginScreen } from '@/components/LoginScreen'
 import { useAppStore, applyTheme, applyDesignStyle } from '@/store/app-store'
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts'
@@ -40,6 +41,7 @@ function AppContent() {
   const { currentView, theme, designStyle, apiConfig } = useAppStore()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [addFeedOpen, setAddFeedOpen] = useState(false)
+  const [feedManagerOpen, setFeedManagerOpen] = useState(false)
 
   // Handle OAuth token from URL (workaround for third-party cookie blocking)
   useEffect(() => {
@@ -88,6 +90,7 @@ function AppContent() {
   useKeyboardShortcuts({
     onOpenSettings: () => setSettingsOpen(true),
     onOpenAddFeed: () => setAddFeedOpen(true),
+    onOpenFeedManager: () => setFeedManagerOpen(true),
   })
 
   if (needsSetup) {
@@ -134,6 +137,7 @@ function AppContent() {
       <Sidebar
         onOpenSettings={() => setSettingsOpen(true)}
         onAddFeed={() => setAddFeedOpen(true)}
+        onManageFeeds={() => setFeedManagerOpen(true)}
       />
 
       {/* Main Content */}
@@ -152,6 +156,14 @@ function AppContent() {
       {/* Dialogs */}
       <SettingsDialog isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
       <AddFeedDialog isOpen={addFeedOpen} onClose={() => setAddFeedOpen(false)} />
+      <FeedManagerDialog
+        isOpen={feedManagerOpen}
+        onClose={() => setFeedManagerOpen(false)}
+        onAddFeed={() => {
+          setFeedManagerOpen(false)
+          setAddFeedOpen(true)
+        }}
+      />
     </div>
   )
 }

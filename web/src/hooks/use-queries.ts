@@ -152,6 +152,27 @@ export function useExportOpml() {
   })
 }
 
+export function useBulkDeleteFeeds() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: api.bulkDeleteFeeds,
+    onSuccess: () => {
+      invalidateArticleRelated(queryClient)
+    },
+  })
+}
+
+export function useRefreshSingleFeed() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: api.refreshSingleFeed,
+    onSuccess: () => {
+      // Delay invalidation to allow backend to start fetching
+      setTimeout(() => invalidateArticleRelated(queryClient), 2000)
+    },
+  })
+}
+
 // Articles - paginated with infinite scroll
 const ARTICLES_PAGE_SIZE = 50
 

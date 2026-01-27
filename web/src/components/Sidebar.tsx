@@ -16,6 +16,7 @@ import {
   Search,
   Menu,
   Mail,
+  ListFilter,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -30,9 +31,10 @@ import type { Feed, FilterType } from '@/types'
 interface SidebarProps {
   onOpenSettings: () => void
   onAddFeed: () => void
+  onManageFeeds: () => void
 }
 
-export function Sidebar({ onOpenSettings, onAddFeed }: SidebarProps) {
+export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarProps) {
   const {
     selectedFilter,
     setSelectedFilter,
@@ -306,9 +308,14 @@ export function Sidebar({ onOpenSettings, onAddFeed }: SidebarProps) {
             <div className="px-2 space-y-1">
               <div className="flex items-center justify-between px-2 py-1">
                 <span className="text-xs font-semibold text-muted-foreground uppercase">Feeds</span>
-                <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onAddFeed} title="Add feed">
-                  <Plus className="h-3 w-3" />
-                </Button>
+                <div className="flex gap-0.5">
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onManageFeeds} title="Manage feeds">
+                    <ListFilter className="h-3 w-3" />
+                  </Button>
+                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onAddFeed} title="Add feed">
+                    <Plus className="h-3 w-3" />
+                  </Button>
+                </div>
               </div>
 
               {feedsLoading ? (

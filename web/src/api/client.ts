@@ -175,6 +175,17 @@ export async function exportOpml(): Promise<{ opml: string; feed_count: number }
   return fetchApi('/feeds/export-opml')
 }
 
+export async function bulkDeleteFeeds(feedIds: number[]): Promise<{ deleted: number }> {
+  return fetchApi('/feeds/bulk/delete', {
+    method: 'POST',
+    body: JSON.stringify({ feed_ids: feedIds }),
+  })
+}
+
+export async function refreshSingleFeed(feedId: number): Promise<{ message: string }> {
+  return fetchApi(`/feeds/${feedId}/refresh`, { method: 'POST' })
+}
+
 // Articles
 export async function getArticles(params: {
   feed_id?: number
