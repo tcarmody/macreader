@@ -23,6 +23,14 @@ interface AppState {
   searchQuery: string
   isSearching: boolean
 
+  // Feature Usage Tracking
+  featureUsage: {
+    hasUsedGroupBy: boolean
+    hasUsedSummarize: boolean
+    hasUsedLibrary: boolean
+    hasUsedFeedManager: boolean
+  }
+
   // API Configuration
   apiConfig: ApiKeyConfig
 
@@ -42,6 +50,7 @@ interface AppState {
   setApiConfig: (config: ApiKeyConfig) => void
   clearApiKeys: () => void
   setDesignStyle: (style: DesignStyle) => void
+  markFeatureUsed: (feature: keyof AppState['featureUsage']) => void
 }
 
 export const useAppStore = create<AppState>()(
@@ -65,6 +74,14 @@ export const useAppStore = create<AppState>()(
       searchQuery: '',
       isSearching: false,
 
+      // Initial Feature Usage
+      featureUsage: {
+        hasUsedGroupBy: false,
+        hasUsedSummarize: false,
+        hasUsedLibrary: false,
+        hasUsedFeedManager: false,
+      },
+
       // Initial API Configuration
       apiConfig: {
         backendUrl: import.meta.env.DEV ? '/api' : (import.meta.env.VITE_API_URL || ''),
@@ -76,12 +93,22 @@ export const useAppStore = create<AppState>()(
       setSelectedFilter: (filter) => set({ selectedFilter: filter, selectedArticleId: null }),
       setSelectedArticleId: (id) => set({ selectedArticleId: id }),
       setSelectedLibraryItemId: (id) => set({ selectedLibraryItemId: id }),
-      setCurrentView: (view) => set({
+      setCurrentView: (view) => set((state) => ({
         currentView: view,
         selectedArticleId: null,
         selectedLibraryItemId: null,
-      }),
-      setGroupBy: (groupBy) => set({ groupBy }),
+        featureUsage: {
+          ...state.featureUsage,
+          hasUsedLibrary: view === 'library' ? true : state.featureUsage.hasUsedLibrary,
+        },
+      })),
+      setGroupBy: (groupBy) => set((state) => ({
+        groupBy,
+        featureUsage: {
+          ...state.featureUsage,
+          hasUsedGroupBy: groupBy !== 'none' ? true : state.featureUsage.hasUsedGroupBy,
+        },
+      })),
       setSortBy: (sortBy) => set({ sortBy }),
       setHideRead: (hideRead) => set({ hideRead }),
       toggleHideRead: () => set((state) => ({ hideRead: !state.hideRead })),
@@ -99,6 +126,12 @@ export const useAppStore = create<AppState>()(
         set({ apiConfig: newConfig })
       },
       setDesignStyle: (style) => set({ designStyle: style }),
+      markFeatureUsed: (feature) => set((state) => ({
+        featureUsage: {
+          ...state.featureUsage,
+          [feature]: true,
+        },
+      })),
     }),
     {
       name: 'datapoints-app-storage',
@@ -111,6 +144,7 @@ export const useAppStore = create<AppState>()(
         groupBy: state.groupBy,
         sortBy: state.sortBy,
         hideRead: state.hideRead,
+        featureUsage: state.featureUsage,
         apiConfig: state.apiConfig,
       }),
     }

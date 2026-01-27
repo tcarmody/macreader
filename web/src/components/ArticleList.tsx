@@ -14,6 +14,8 @@ import {
   Brain,
   Loader2,
   CheckCheck,
+  Inbox,
+  Plus,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDate, stripHtml } from '@/lib/utils'
@@ -21,6 +23,8 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
+import { EmptyState } from '@/components/ui/empty-state'
+import { BadgePulse } from '@/components/ui/badge-pulse'
 import { useAppStore } from '@/store/app-store'
 import { useArticles, useArticlesGrouped, useSearch, useMarkArticleRead, useMarkAllRead } from '@/hooks/use-queries'
 import type { Article, SortBy, GroupBy } from '@/types'
@@ -40,7 +44,11 @@ const GROUP_OPTIONS: { value: GroupBy; label: string; icon: typeof LayoutList }[
   { value: 'topic', label: 'Topic', icon: Tags },
 ]
 
-export function ArticleList() {
+interface ArticleListProps {
+  onAddFeed?: () => void
+}
+
+export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
   const {
     selectedFilter,
     selectedArticleId,
@@ -53,6 +61,7 @@ export function ArticleList() {
     setSortBy,
     hideRead,
     toggleHideRead,
+    featureUsage,
   } = useAppStore()
 
   // Fetch flat articles with pagination when groupBy is 'none', otherwise fetch grouped
@@ -245,12 +254,13 @@ export function ArticleList() {
         <div className="flex gap-0.5 p-0.5 rounded-md border border-input bg-muted/30">
           {GROUP_OPTIONS.map((option) => {
             const Icon = option.icon
+            const showBadge = !featureUsage.hasUsedGroupBy && option.value !== 'none'
             return (
               <button
                 key={option.value}
                 onClick={() => setGroupBy(option.value)}
                 className={cn(
-                  "flex-1 flex items-center justify-center gap-1 px-2 py-1 text-xs rounded transition-colors",
+                  "flex-1 flex items-center justify-center gap-1 px-2 py-1 text-xs rounded transition-colors relative",
                   groupBy === option.value
                     ? "bg-background text-foreground shadow-sm"
                     : "text-muted-foreground hover:text-foreground"
@@ -259,6 +269,11 @@ export function ArticleList() {
               >
                 <Icon className="h-3 w-3" />
                 <span className="hidden sm:inline">{option.label}</span>
+                {showBadge && (
+                  <span className="absolute -top-0.5 -right-0.5">
+                    <BadgePulse />
+                  </span>
+                )}
               </button>
             )
           })}
@@ -286,9 +301,28 @@ export function ArticleList() {
       {/* Article List */}
       <ScrollArea className="flex-1">
         {totalCount === 0 ? (
-          <div className="p-8 text-center text-muted-foreground">
-            <p>No articles found</p>
-          </div>
+          <EmptyState
+            icon={Inbox}
+            title="No articles found"
+            description={
+              isSearching
+                ? "Try a different search term"
+                : selectedFilter === 'all'
+                ? "Add feeds to start reading"
+                : selectedFilter === 'unread'
+                ? "All caught up! No unread articles"
+                : "No articles match this filter"
+            }
+            action={
+              !isSearching && selectedFilter === 'all' && onAddFeed ? (
+                <Button onClick={onAddFeed} size="sm">
+                  <Plus className="h-4 w-4 mr-1" />
+                  Add Your First Feed
+                </Button>
+              ) : null
+            }
+            className="p-8"
+          />
         ) : groupBy !== 'none' && !isSearching ? (
           // Server-side grouping (date, feed, or topic)
           <div className="p-2">

@@ -320,6 +320,15 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
 
               {feedsLoading ? (
                 <div className="px-2 py-2 text-sm text-muted-foreground">Loading feeds...</div>
+              ) : categories.length === 0 ? (
+                <div className="px-2 py-8 text-center">
+                  <Inbox className="h-8 w-8 mx-auto mb-2 opacity-20 text-muted-foreground" />
+                  <p className="text-xs text-muted-foreground mb-3">No feeds yet</p>
+                  <Button size="sm" variant="outline" onClick={onAddFeed} className="w-full">
+                    <Plus className="h-3 w-3 mr-1" />
+                    Add Your First Feed
+                  </Button>
+                </div>
               ) : (
                 categories.map((category) => (
                   <div key={category}>

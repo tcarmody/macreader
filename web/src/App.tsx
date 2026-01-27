@@ -1,5 +1,7 @@
 import { useState, useEffect } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { Server, Sparkles, Rss, ExternalLink } from 'lucide-react'
+import { Button } from '@/components/ui/button'
 import { Sidebar } from '@/components/Sidebar'
 import { ArticleList } from '@/components/ArticleList'
 import { ArticleDetail } from '@/components/ArticleDetail'
@@ -95,18 +97,95 @@ function AppContent() {
 
   if (needsSetup) {
     return (
-      <div className="h-screen flex items-center justify-center bg-background">
-        <div className="max-w-md mx-auto text-center p-8">
-          <h1 className="text-2xl font-bold mb-4">Welcome to DataPoints</h1>
-          <p className="text-muted-foreground mb-6">
-            To get started, you need to configure your backend server URL.
-          </p>
-          <button
-            onClick={() => setSettingsOpen(true)}
-            className="px-4 py-2 bg-primary text-primary-foreground rounded-md hover:bg-primary/90"
-          >
-            Open Settings
-          </button>
+      <div className="h-screen flex items-center justify-center bg-background p-4">
+        <div className="max-w-2xl w-full">
+          <div className="text-center mb-8">
+            <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
+              <Server className="h-8 w-8 text-primary" />
+            </div>
+            <h1 className="text-3xl font-bold mb-2">Welcome to DataPoints</h1>
+            <p className="text-lg text-muted-foreground">
+              Your AI-powered RSS reader with intelligent summarization
+            </p>
+          </div>
+
+          <div className="bg-card border border-border rounded-lg p-6 mb-6">
+            <h2 className="text-lg font-semibold mb-4">Getting Started</h2>
+            <div className="space-y-4">
+              <div className="flex gap-3">
+                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-primary/10 flex items-center justify-center text-sm font-semibold text-primary">
+                  1
+                </div>
+                <div>
+                  <h3 className="font-medium mb-1">Configure your backend</h3>
+                  <p className="text-sm text-muted-foreground">
+                    Set your backend server URL in settings
+                  </p>
+                  <div className="mt-2 p-2 bg-muted rounded text-xs font-mono">
+                    Example: https://your-backend.railway.app
+                  </div>
+                </div>
+              </div>
+
+              <div className="flex gap-3 opacity-60">
+                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-muted flex items-center justify-center text-sm font-semibold">
+                  2
+                </div>
+                <div>
+                  <h3 className="font-medium mb-1 flex items-center gap-2">
+                    <Rss className="h-4 w-4" />
+                    Add your feeds
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Subscribe to RSS feeds and newsletters
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex gap-3 opacity-60">
+                <div className="flex-shrink-0 w-6 h-6 rounded-full bg-muted flex items-center justify-center text-sm font-semibold">
+                  3
+                </div>
+                <div>
+                  <h3 className="font-medium mb-1 flex items-center gap-2">
+                    <Sparkles className="h-4 w-4" />
+                    Enable AI features
+                  </h3>
+                  <p className="text-sm text-muted-foreground">
+                    Configure your API keys for summarization
+                  </p>
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <div className="flex flex-col sm:flex-row gap-3">
+            <Button
+              onClick={() => setSettingsOpen(true)}
+              size="lg"
+              className="flex-1"
+            >
+              <Server className="h-4 w-4 mr-2" />
+              Configure Backend
+            </Button>
+            <Button
+              variant="outline"
+              size="lg"
+              asChild
+              className="sm:w-auto"
+            >
+              <a
+                href="https://github.com/yourusername/datapoints#deployment"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="flex items-center"
+              >
+                <ExternalLink className="h-4 w-4 mr-2" />
+                Deployment Guide
+              </a>
+            </Button>
+          </div>
+
           <SettingsDialog isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
         </div>
       </div>
@@ -143,7 +222,7 @@ function AppContent() {
       {/* Main Content */}
       {currentView === 'feeds' ? (
         <>
-          <ArticleList />
+          <ArticleList onAddFeed={() => setAddFeedOpen(true)} />
           <ArticleDetail />
         </>
       ) : (

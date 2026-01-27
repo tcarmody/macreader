@@ -171,8 +171,30 @@ export function LibraryList() {
         {items.length === 0 ? (
           <div className="p-8 text-center text-muted-foreground">
             <Library className="h-12 w-12 mx-auto mb-4 opacity-20" />
-            <p>No items in library</p>
-            <p className="text-sm mt-1">Add URLs or upload files</p>
+            <p className="font-medium mb-1">No items in library</p>
+            <p className="text-sm mb-4">Save web pages, PDFs, and documents for later</p>
+            <div className="flex gap-2 justify-center">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowAddUrl(true)}
+              >
+                <Plus className="h-3 w-3 mr-1" />
+                Add URL
+              </Button>
+              <Button variant="outline" size="sm" asChild>
+                <label className="cursor-pointer">
+                  <Upload className="h-3 w-3 mr-1" />
+                  Upload File
+                  <input
+                    type="file"
+                    className="hidden"
+                    accept=".pdf,.docx,.txt,.md,.html"
+                    onChange={handleFileUpload}
+                  />
+                </label>
+              </Button>
+            </div>
           </div>
         ) : (
           <div className="p-2 space-y-1">
