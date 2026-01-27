@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   Library,
   BookMarked,
@@ -19,6 +19,7 @@ import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
+import { useToast } from '@/components/ui/toast'
 import { useAppStore } from '@/store/app-store'
 import {
   useLibrary,
@@ -32,13 +33,22 @@ import {
 import type {} from '@/types'
 
 export function LibraryList() {
-  const { selectedFilter, selectedLibraryItemId, setSelectedLibraryItemId } = useAppStore()
+  const { selectedFilter, selectedLibraryItemId, setSelectedLibraryItemId, hasShownToast, markToastShown } = useAppStore()
+  const { showToast } = useToast()
 
   const { data: items = [], isLoading } = useLibrary({
     bookmarked_only: selectedFilter === 'bookmarked',
   })
 
   const [showAddUrl, setShowAddUrl] = useState(false)
+
+  // Show first-time toast when Library is opened
+  useEffect(() => {
+    if (!hasShownToast('first-library')) {
+      showToast('Library lets you save web pages, PDFs, and documents for later.', 'info')
+      markToastShown('first-library')
+    }
+  }, [hasShownToast, markToastShown, showToast])
   const [newUrl, setNewUrl] = useState('')
   const addUrl = useAddLibraryUrl()
   const uploadFile = useUploadLibraryFile()

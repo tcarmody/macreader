@@ -1,4 +1,4 @@
-import { useMemo } from 'react'
+import { useMemo, useEffect } from 'react'
 import {
   BookMarked,
   Circle,
@@ -16,6 +16,7 @@ import {
   CheckCheck,
   Inbox,
   Plus,
+  Info,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDate, stripHtml } from '@/lib/utils'
@@ -25,6 +26,8 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { BadgePulse } from '@/components/ui/badge-pulse'
+import { Tooltip } from '@/components/ui/tooltip'
+import { useToast } from '@/components/ui/toast'
 import { useAppStore } from '@/store/app-store'
 import { useArticles, useArticlesGrouped, useSearch, useMarkArticleRead, useMarkAllRead } from '@/hooks/use-queries'
 import type { Article, SortBy, GroupBy } from '@/types'
@@ -62,7 +65,10 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
     hideRead,
     toggleHideRead,
     featureUsage,
+    hasShownToast,
+    markToastShown,
   } = useAppStore()
+  const { showToast } = useToast()
 
   // Fetch flat articles with pagination when groupBy is 'none', otherwise fetch grouped
   const {
@@ -73,6 +79,14 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
     isFetchingNextPage,
   } = useArticles(selectedFilter, sortBy)
   const { data: groupedData, isLoading: groupedLoading } = useArticlesGrouped(groupBy)
+
+  // Show first-time toast when Group By Topic is used
+  useEffect(() => {
+    if (groupBy === 'topic' && !hasShownToast('first-group-by-topic')) {
+      showToast('Analyzing articles with AI. This works best with 10+ articles.', 'info')
+      markToastShown('first-group-by-topic')
+    }
+  }, [groupBy, hasShownToast, markToastShown, showToast])
   const { data: searchResults = [], isLoading: searchLoading } = useSearch(
     isSearching ? searchQuery : ''
   )
@@ -255,7 +269,9 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
           {GROUP_OPTIONS.map((option) => {
             const Icon = option.icon
             const showBadge = !featureUsage.hasUsedGroupBy && option.value !== 'none'
-            return (
+            const showInfo = option.value === 'topic'
+
+            const buttonContent = (
               <button
                 key={option.value}
                 onClick={() => setGroupBy(option.value)}
@@ -274,8 +290,21 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
                     <BadgePulse />
                   </span>
                 )}
+                {showInfo && (
+                  <Info className="h-2.5 w-2.5 ml-0.5 opacity-50" />
+                )}
               </button>
             )
+
+            return showInfo ? (
+              <Tooltip
+                key={option.value}
+                content="AI analyzes and groups similar articles by topic (works best with 10+ articles)"
+                side="bottom"
+              >
+                {buttonContent}
+              </Tooltip>
+            ) : buttonContent
           })}
         </div>
 

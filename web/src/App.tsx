@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Server, Sparkles, Rss, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { ToastProvider } from '@/components/ui/toast'
 import { Sidebar } from '@/components/Sidebar'
 import { ArticleList } from '@/components/ArticleList'
 import { ArticleDetail } from '@/components/ArticleDetail'
@@ -250,7 +251,9 @@ function AppContent() {
 export default function App() {
   return (
     <QueryClientProvider client={queryClient}>
-      <AppContent />
+      <ToastProvider>
+        <AppContent />
+      </ToastProvider>
     </QueryClientProvider>
   )
 }

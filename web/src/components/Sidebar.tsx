@@ -17,6 +17,7 @@ import {
   Menu,
   Mail,
   ListFilter,
+  Info,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -24,6 +25,7 @@ import { Input } from '@/components/ui/input'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
+import { Tooltip } from '@/components/ui/tooltip'
 import { useAppStore } from '@/store/app-store'
 import { useFeeds, useRefreshFeeds, useStats } from '@/hooks/use-queries'
 import type { Feed, FilterType } from '@/types'
@@ -224,15 +226,21 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
             <Rss className="h-4 w-4 mr-1" />
             Feeds
           </Button>
-          <Button
-            variant={currentView === 'library' ? 'secondary' : 'ghost'}
-            size="sm"
-            className="flex-1"
-            onClick={() => setCurrentView('library')}
+          <Tooltip
+            content="Save web pages, PDFs, and documents for later reading"
+            side="bottom"
           >
-            <Library className="h-4 w-4 mr-1" />
-            Library
-          </Button>
+            <Button
+              variant={currentView === 'library' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="flex-1"
+              onClick={() => setCurrentView('library')}
+            >
+              <Library className="h-4 w-4 mr-1" />
+              Library
+              <Info className="h-2.5 w-2.5 ml-1 opacity-50" />
+            </Button>
+          </Tooltip>
         </div>
 
         <Separator className="my-2" />

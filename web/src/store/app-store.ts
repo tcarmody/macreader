@@ -34,6 +34,9 @@ interface AppState {
     hasUsedFeedManager: boolean
   }
 
+  // First-Time Toast Tracking
+  shownToasts: Set<string>
+
   // API Configuration
   apiConfig: ApiKeyConfig
 
@@ -54,6 +57,8 @@ interface AppState {
   clearApiKeys: () => void
   setDesignStyle: (style: DesignStyle) => void
   markFeatureUsed: (feature: keyof AppState['featureUsage']) => void
+  markToastShown: (toastId: string) => void
+  hasShownToast: (toastId: string) => boolean
 }
 
 export const useAppStore = create<AppState>()(
@@ -87,6 +92,9 @@ export const useAppStore = create<AppState>()(
         hasUsedLibrary: false,
         hasUsedFeedManager: false,
       },
+
+      // Initial Toast Tracking
+      shownToasts: new Set<string>(),
 
       // Initial API Configuration
       apiConfig: {
@@ -138,6 +146,10 @@ export const useAppStore = create<AppState>()(
           [feature]: true,
         },
       })),
+      markToastShown: (toastId) => set((state) => ({
+        shownToasts: new Set([...state.shownToasts, toastId]),
+      })),
+      hasShownToast: (toastId) => get().shownToasts.has(toastId),
     }),
     {
       name: 'datapoints-app-storage',
@@ -152,6 +164,7 @@ export const useAppStore = create<AppState>()(
         sortBy: state.sortBy,
         hideRead: state.hideRead,
         featureUsage: state.featureUsage,
+        shownToasts: state.shownToasts,
         apiConfig: state.apiConfig,
       }),
     }

@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { useState, useEffect } from 'react'
 import {
   BookMarked,
   ExternalLink,
@@ -9,6 +9,7 @@ import {
   Loader2,
   ChevronDown,
   ChevronUp,
+  Info,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatFullDate, getDomain } from '@/lib/utils'
@@ -17,6 +18,8 @@ import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
+import { Tooltip } from '@/components/ui/tooltip'
+import { useToast } from '@/components/ui/toast'
 import { useAppStore } from '@/store/app-store'
 import {
   useArticle,
@@ -28,14 +31,24 @@ import {
 import { ArticleChat } from './ArticleChat'
 
 export function ArticleDetail() {
-  const { selectedArticleId } = useAppStore()
+  const { selectedArticleId, hasShownToast, markToastShown, markFeatureUsed } = useAppStore()
   const { data: article, isLoading } = useArticle(selectedArticleId)
   const markRead = useMarkArticleRead()
   const toggleBookmark = useToggleBookmark()
   const fetchContent = useFetchContent()
   const summarize = useSummarizeArticle()
+  const { showToast } = useToast()
 
   const [showSummary, setShowSummary] = useState(true)
+
+  // Show first-time toast when summarization starts
+  useEffect(() => {
+    if (summarize.isPending && !hasShownToast('first-summarize')) {
+      showToast('AI is generating a summary. This may take a few seconds.', 'info')
+      markToastShown('first-summarize')
+      markFeatureUsed('hasUsedSummarize')
+    }
+  }, [summarize.isPending, hasShownToast, markToastShown, showToast, markFeatureUsed])
 
   if (!selectedArticleId) {
     return (
@@ -145,19 +158,25 @@ export function ArticleDetail() {
           </Button>
         )}
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleSummarize}
-          disabled={summarize.isPending || !!article.summary_full}
+        <Tooltip
+          content="AI generates a concise summary using your configured provider (Anthropic, OpenAI, or Google)"
+          side="bottom"
         >
-          {summarize.isPending ? (
-            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-          ) : (
-            <Sparkles className={cn("h-4 w-4 mr-1", hasSummary && "text-purple-500")} />
-          )}
-          {hasSummary ? 'Summarized' : 'Summarize'}
-        </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleSummarize}
+            disabled={summarize.isPending || !!article.summary_full}
+          >
+            {summarize.isPending ? (
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : (
+              <Sparkles className={cn("h-4 w-4 mr-1", hasSummary && "text-purple-500")} />
+            )}
+            {hasSummary ? 'Summarized' : 'Summarize'}
+            {!hasSummary && <Info className="h-2.5 w-2.5 ml-1 opacity-50" />}
+          </Button>
+        </Tooltip>
 
         <div className="ml-auto flex items-center gap-1">
           <Button variant="ghost" size="sm" onClick={handleShare}>
