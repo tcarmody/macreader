@@ -224,7 +224,7 @@ final class APIClient {
         keepBookmarked: Bool = true,
         keepUnread: Bool = false
     ) async throws -> ArchiveResponse {
-        var queryItems: [URLQueryItem] = [
+        let queryItems: [URLQueryItem] = [
             URLQueryItem(name: "days", value: String(days)),
             URLQueryItem(name: "keep_bookmarked", value: String(keepBookmarked)),
             URLQueryItem(name: "keep_unread", value: String(keepUnread))

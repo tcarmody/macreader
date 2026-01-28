@@ -128,7 +128,7 @@ final class BackgroundRefreshService: ObservableObject {
 
     private func scheduleTimer(fireDate: Date) {
         timer = Timer(fire: fireDate, interval: 0, repeats: false) { [weak self] _ in
-            Task { @MainActor in
+            Task { @MainActor [weak self] in
                 self?.timedRefresh()
             }
         }

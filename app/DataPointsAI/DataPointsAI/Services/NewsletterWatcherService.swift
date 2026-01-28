@@ -193,7 +193,7 @@ actor NewsletterWatcherService {
         )
 
         if let stream = eventStream {
-            FSEventStreamScheduleWithRunLoop(stream, CFRunLoopGetMain(), CFRunLoopMode.defaultMode.rawValue)
+            FSEventStreamSetDispatchQueue(stream, DispatchQueue.main)
             FSEventStreamStart(stream)
             print("Newsletter watcher: Started watching \(folderURL.path)")
         }

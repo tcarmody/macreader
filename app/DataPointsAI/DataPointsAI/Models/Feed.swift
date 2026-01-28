@@ -88,7 +88,7 @@ enum FeedHealthStatus: Equatable {
 
 /// Custom UTType for feed drag and drop
 extension UTType {
-    static let feedTransfer = UTType(exportedAs: "com.datapointsai.feed-transfer")
+    static let feedTransfer = UTType(importedAs: "com.datapointsai.feed-transfer")
 }
 
 /// Transferable data for dragging feeds between categories

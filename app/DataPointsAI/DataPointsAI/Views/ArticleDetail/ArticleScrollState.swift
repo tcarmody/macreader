@@ -80,7 +80,9 @@ class ArticleScrollState: ObservableObject {
             object: scrollView?.contentView,
             queue: .main
         ) { [weak self] _ in
-            self?.updateScrollProgress()
+            Task { @MainActor [weak self] in
+                self?.updateScrollProgress()
+            }
         }
 
         // Enable bounds change notifications

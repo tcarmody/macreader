@@ -1,6 +1,38 @@
 import Foundation
 import WebKit
 
+/// Configuration for AuthenticatedFetcher
+struct AuthenticatedFetcherConfig: Sendable {
+    /// Timeout in seconds for page load
+    var timeout: TimeInterval
+
+    /// Additional time to wait after page load for JS rendering
+    var postLoadDelay: TimeInterval
+
+    /// Whether to scroll page to trigger lazy loading
+    var scrollToLoadContent: Bool
+
+    /// Number of scroll iterations to perform
+    var scrollIterations: Int
+
+    /// Delay between scroll iterations
+    var scrollDelay: TimeInterval
+
+    init(timeout: TimeInterval = 45,
+         postLoadDelay: TimeInterval = 2.0,
+         scrollToLoadContent: Bool = true,
+         scrollIterations: Int = 3,
+         scrollDelay: TimeInterval = 0.5) {
+        self.timeout = timeout
+        self.postLoadDelay = postLoadDelay
+        self.scrollToLoadContent = scrollToLoadContent
+        self.scrollIterations = scrollIterations
+        self.scrollDelay = scrollDelay
+    }
+
+    nonisolated static let `default` = AuthenticatedFetcherConfig()
+}
+
 /// Fetches web pages using WKWebView with persistent cookie storage.
 /// The app maintains its own session - users need to log in once via the app's WebView.
 ///
@@ -21,30 +53,12 @@ final class AuthenticatedFetcher: NSObject {
         let error: String?
     }
 
-    /// Configuration for the fetcher
-    struct Config {
-        /// Timeout in seconds for page load
-        var timeout: TimeInterval = 45
-
-        /// Additional time to wait after page load for JS rendering
-        var postLoadDelay: TimeInterval = 2.0
-
-        /// Whether to scroll page to trigger lazy loading
-        var scrollToLoadContent: Bool = true
-
-        /// Number of scroll iterations to perform
-        var scrollIterations: Int = 3
-
-        /// Delay between scroll iterations
-        var scrollDelay: TimeInterval = 0.5
-    }
-
     private var webView: WKWebView?
     private var continuation: CheckedContinuation<FetchResult, Never>?
     private var timeoutTask: Task<Void, Never>?
-    private var config: Config
+    private var config: AuthenticatedFetcherConfig
 
-    init(config: Config = Config()) {
+    nonisolated init(config: AuthenticatedFetcherConfig = .default) {
         self.config = config
         super.init()
     }
@@ -82,7 +96,7 @@ final class AuthenticatedFetcher: NSObject {
             timeoutTask = Task { [weak self] in
                 try? await Task.sleep(nanoseconds: UInt64(self?.config.timeout ?? 30) * 1_000_000_000)
                 guard !Task.isCancelled else { return }
-                await self?.handleTimeout()
+                self?.handleTimeout()
             }
 
             // Start loading
@@ -146,7 +160,7 @@ final class AuthenticatedFetcher: NSObject {
     }
 
     private func extractHTML() {
-        guard let webView = webView, let continuation = self.continuation else { return }
+        guard let continuation = self.continuation, webView != nil else { return }
         self.continuation = nil
 
         Task { [weak self] in
@@ -341,10 +355,10 @@ extension AuthenticatedFetcher: WKNavigationDelegate {
         decidePolicyFor navigationResponse: WKNavigationResponse,
         decisionHandler: @escaping (WKNavigationResponsePolicy) -> Void
     ) {
-        // Check for HTTP errors
-        if let httpResponse = navigationResponse.response as? HTTPURLResponse {
-            if httpResponse.statusCode >= 400 {
-                Task { @MainActor in
+        Task { @MainActor in
+            // Check for HTTP errors
+            if let httpResponse = navigationResponse.response as? HTTPURLResponse {
+                if httpResponse.statusCode >= 400 {
                     guard let continuation = self.continuation else {
                         decisionHandler(.cancel)
                         return
@@ -361,12 +375,12 @@ extension AuthenticatedFetcher: WKNavigationDelegate {
 
                     self.cleanup()
                     continuation.resume(returning: result)
+                    decisionHandler(.cancel)
+                    return
                 }
-                decisionHandler(.cancel)
-                return
             }
-        }
 
-        decisionHandler(.allow)
+            decisionHandler(.allow)
+        }
     }
 }
