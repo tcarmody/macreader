@@ -52,6 +52,20 @@ struct RSSReaderApp: App {
 
                 Divider()
 
+                Button("Add to Library...") {
+                    DispatchQueue.main.async {
+                        appState.showAddToLibrary = true
+                    }
+                }
+                .keyboardShortcut("a", modifiers: [.command, .shift])
+
+                Button("Newsletter Setup...") {
+                    showSetupWizard = true
+                }
+                .keyboardShortcut("n", modifiers: [.command, .shift])
+
+                Divider()
+
                 Button("Import OPML...") {
                     DispatchQueue.main.async {
                         appState.showImportOPML = true
@@ -133,6 +147,19 @@ struct RSSReaderApp: App {
 
                 Divider()
 
+                Button(appState.showLibrary ? "✓ Show Library" : "Show Library") {
+                    DispatchQueue.main.async {
+                        if appState.showLibrary {
+                            appState.deselectLibrary()
+                        } else {
+                            appState.selectLibrary()
+                        }
+                    }
+                }
+                .keyboardShortcut("l", modifiers: [.command, .shift])
+
+                Divider()
+
                 // Grouping options
                 Picker("Group By", selection: Binding(
                     get: { appState.groupByMode },
@@ -147,6 +174,33 @@ struct RSSReaderApp: App {
                     }
                 }
                 .pickerStyle(.inline)
+
+                Divider()
+
+                // Sorting options
+                Picker("Sort By", selection: Binding(
+                    get: { appState.sortOption },
+                    set: { newOption in
+                        appState.sortOption = newOption
+                    }
+                )) {
+                    ForEach(ArticleSortOption.allCases, id: \.self) { option in
+                        Text(option.label).tag(option)
+                    }
+                }
+                .pickerStyle(.inline)
+
+                Divider()
+
+                Button(appState.hideReadArticles ? "Show Read Articles" : "Hide Read Articles") {
+                    appState.hideReadArticles.toggle()
+                }
+                .keyboardShortcut("h", modifiers: .command)
+
+                Button("Toggle Sidebar") {
+                    appState.sidebarVisible.toggle()
+                }
+                .keyboardShortcut("s", modifiers: [.command, .control])
 
                 Divider()
 
@@ -214,6 +268,14 @@ struct RSSReaderApp: App {
 
                 Divider()
 
+                Button("Share Article...") {
+                    appState.shareArticle()
+                }
+                .keyboardShortcut(".", modifiers: [.command, .shift])
+                .disabled(appState.selectedArticle == nil)
+
+                Divider()
+
                 Button("Summarize Article") {
                     if let article = appState.selectedArticle {
                         Task {
@@ -253,6 +315,18 @@ struct RSSReaderApp: App {
                 }
                 .keyboardShortcut("c", modifiers: [.command, .shift])
                 .disabled(appState.selectedArticle == nil)
+
+                Button("Copy Title") {
+                    appState.copyArticleTitle()
+                }
+                .keyboardShortcut("t", modifiers: [.command, .option])
+                .disabled(appState.selectedArticle == nil)
+
+                Button("Copy Summary") {
+                    appState.copyArticleSummary()
+                }
+                .keyboardShortcut("c", modifiers: [.command, .option])
+                .disabled(appState.selectedArticle == nil || appState.selectedArticleDetail?.summaryFull == nil && appState.selectedArticleDetail?.summaryShort == nil)
 
                 Divider()
 
@@ -318,6 +392,114 @@ struct RSSReaderApp: App {
                     }
                 }
                 .disabled(!isCurrentlyViewingFeed)
+            }
+
+            // Library menu
+            CommandMenu("Library") {
+                Button("Open Library") {
+                    DispatchQueue.main.async {
+                        if !appState.showLibrary {
+                            appState.selectLibrary()
+                        }
+                    }
+                }
+                .keyboardShortcut("l", modifiers: [.command, .shift])
+
+                Divider()
+
+                Button("Add to Library...") {
+                    DispatchQueue.main.async {
+                        appState.showAddToLibrary = true
+                    }
+                }
+                .keyboardShortcut("a", modifiers: [.command, .shift])
+
+                Button("Add File to Library...") {
+                    appState.openFilePickerForLibrary()
+                }
+                .keyboardShortcut("o", modifiers: [.command, .shift])
+
+                Divider()
+
+                Button("Share Library Item...") {
+                    appState.shareLibraryItem()
+                }
+                .keyboardShortcut(".", modifiers: [.command, .shift])
+                .disabled(appState.selectedLibraryItem == nil)
+
+                Divider()
+
+                Button("Copy Library Item Title") {
+                    appState.copyLibraryItemTitle()
+                }
+                .keyboardShortcut("t", modifiers: [.command, .option])
+                .disabled(appState.selectedLibraryItem == nil)
+
+                Button("Copy Library Item Summary") {
+                    appState.copyLibraryItemSummary()
+                }
+                .keyboardShortcut("c", modifiers: [.command, .option])
+                .disabled(appState.selectedLibraryItem == nil || appState.selectedLibraryItemDetail?.summaryFull == nil && appState.selectedLibraryItemDetail?.summaryShort == nil)
+
+                Divider()
+
+                Button("Summarize Library Item") {
+                    if let item = appState.selectedLibraryItem {
+                        Task {
+                            try? await appState.summarizeLibraryItem(itemId: item.id)
+                        }
+                    }
+                }
+                .keyboardShortcut("s", modifiers: [.command, .shift])
+                .disabled(appState.selectedLibraryItem == nil || appState.selectedLibraryItemDetail?.summaryFull != nil)
+
+                Button("Toggle Library Bookmark") {
+                    if let item = appState.selectedLibraryItem {
+                        Task {
+                            try? await appState.toggleLibraryItemBookmark(itemId: item.id)
+                        }
+                    }
+                }
+                .keyboardShortcut("b", modifiers: .command)
+                .disabled(appState.selectedLibraryItem == nil)
+
+                Divider()
+
+                Button("Delete Library Item") {
+                    if let item = appState.selectedLibraryItem {
+                        Task {
+                            try? await appState.deleteLibraryItem(itemId: item.id)
+                        }
+                    }
+                }
+                .keyboardShortcut(.delete, modifiers: .command)
+                .disabled(appState.selectedLibraryItem == nil)
+            }
+
+            // Window menu
+            CommandGroup(after: .windowArrangement) {
+                Divider()
+
+                Button("Quick Open...") {
+                    DispatchQueue.main.async {
+                        appState.showQuickOpen = true
+                    }
+                }
+                .keyboardShortcut("k", modifiers: .command)
+
+                Button("Settings...") {
+                    DispatchQueue.main.async {
+                        appState.showSettings = true
+                    }
+                }
+                .keyboardShortcut(",", modifiers: .command)
+
+                Button("Feed Manager...") {
+                    DispatchQueue.main.async {
+                        appState.showFeedManager = true
+                    }
+                }
+                .keyboardShortcut("f", modifiers: [.command, .option])
             }
 
             // Help menu

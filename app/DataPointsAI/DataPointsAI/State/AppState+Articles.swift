@@ -269,4 +269,45 @@ extension AppState {
             }
         }
     }
+
+    // MARK: - Copy & Share Operations
+
+    /// Copy article title to clipboard
+    func copyArticleTitle() {
+        guard let article = selectedArticle else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(article.title, forType: .string)
+    }
+
+    /// Copy article summary to clipboard
+    func copyArticleSummary() {
+        guard let detail = selectedArticleDetail,
+              let summary = detail.summaryFull ?? detail.summaryShort else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(summary, forType: .string)
+    }
+
+    /// Share article using native macOS sharing
+    func shareArticle() {
+        guard let article = selectedArticle else { return }
+
+        // Prepare share items
+        var items: [Any] = [article.originalUrl]
+
+        // Add summary text if available
+        if let detail = selectedArticleDetail,
+           let summary = detail.summaryFull ?? detail.summaryShort, !summary.isEmpty {
+            let shareText = "\(article.title)\n\n\(summary)\n\n\(article.originalUrl.absoluteString)"
+            items.append(shareText)
+        }
+
+        // Show share picker
+        let picker = NSSharingServicePicker(items: items)
+
+        // Find the key window and position the picker
+        if let window = NSApp.keyWindow,
+           let contentView = window.contentView {
+            picker.show(relativeTo: .zero, of: contentView, preferredEdge: .minY)
+        }
+    }
 }

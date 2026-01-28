@@ -132,4 +132,77 @@ extension AppState {
         selectedLibraryItem = nil
         selectedLibraryItemDetail = nil
     }
+
+    // MARK: - File Operations
+
+    /// Open file picker to add file to library
+    func openFilePickerForLibrary() {
+        let panel = NSOpenPanel()
+        panel.title = "Add File to Library"
+        panel.allowsMultipleSelection = false
+        panel.canChooseDirectories = false
+        panel.allowedContentTypes = [
+            .pdf,
+            .plainText,
+            .html,
+            UTType(filenameExtension: "docx") ?? .data,
+            UTType(filenameExtension: "md") ?? .text
+        ]
+
+        panel.begin { response in
+            if response == .OK, let url = panel.url {
+                Task { @MainActor in
+                    do {
+                        let data = try Data(contentsOf: url)
+                        let filename = url.lastPathComponent
+                        try await self.uploadFileToLibrary(
+                            data: data,
+                            filename: filename,
+                            title: url.deletingPathExtension().lastPathComponent,
+                            autoSummarize: false
+                        )
+                    } catch {
+                        self.error = "Failed to add file: \(error.localizedDescription)"
+                    }
+                }
+            }
+        }
+    }
+
+    // MARK: - Copy & Share Operations
+
+    /// Copy library item title to clipboard
+    func copyLibraryItemTitle() {
+        guard let item = selectedLibraryItem else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(item.title, forType: .string)
+    }
+
+    /// Copy library item summary to clipboard
+    func copyLibraryItemSummary() {
+        guard let detail = selectedLibraryItemDetail,
+              let summary = detail.summaryFull ?? detail.summaryShort else { return }
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(summary, forType: .string)
+    }
+
+    /// Share library item using native macOS sharing
+    func shareLibraryItem() {
+        guard let item = selectedLibraryItem else { return }
+
+        var items: [Any] = [item.url]
+
+        if let detail = selectedLibraryItemDetail,
+           let summary = detail.summaryFull ?? detail.summaryShort, !summary.isEmpty {
+            let shareText = "\(item.title)\n\n\(summary)\n\n\(item.url.absoluteString)"
+            items.append(shareText)
+        }
+
+        let picker = NSSharingServicePicker(items: items)
+
+        if let window = NSApp.keyWindow,
+           let contentView = window.contentView {
+            picker.show(relativeTo: .zero, of: contentView, preferredEdge: .minY)
+        }
+    }
 }

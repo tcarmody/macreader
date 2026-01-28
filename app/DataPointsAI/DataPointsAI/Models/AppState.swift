@@ -80,6 +80,8 @@ class AppState: ObservableObject {
     @Published var selectedLibraryItemDetail: LibraryItemDetail?
     @Published var showAddToLibrary: Bool = false
     @Published var showLibrary: Bool = false
+    @Published var showNewsletterSetup: Bool = false
+    @Published var sidebarVisible: Bool = true
 
     // MARK: - Dependencies
 

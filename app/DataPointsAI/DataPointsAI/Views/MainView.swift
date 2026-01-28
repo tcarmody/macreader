@@ -95,6 +95,15 @@ struct MainView: View {
                 columnVisibility = isEnabled ? .detailOnly : .all
             }
         }
+        .onChange(of: appState.sidebarVisible) { _, isVisible in
+            withAnimation(.easeInOut(duration: 0.25)) {
+                if appState.readerModeEnabled {
+                    // Don't override reader mode
+                    return
+                }
+                columnVisibility = isVisible ? .all : .doubleColumn
+            }
+        }
     }
 
     private func setupKeyboardMonitor() {
