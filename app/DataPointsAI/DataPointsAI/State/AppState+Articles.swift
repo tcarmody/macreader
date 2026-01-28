@@ -143,7 +143,7 @@ extension AppState {
     }
 
     func fetchArticleContentAuthenticated(articleId: Int, url: URL) async throws {
-        let fetcher = AuthenticatedFetcher()
+        let fetcher = await MainActor.run { AuthenticatedFetcher() }
         let result = await fetcher.fetch(url: url)
 
         if result.success {
