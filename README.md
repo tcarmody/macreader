@@ -13,6 +13,7 @@ A modern RSS reader with AI-powered summarization, available as a native macOS a
 ### Core
 - **RSS Feed Management** - Subscribe to feeds, organize by category, import/export OPML
 - **AI Summarization** - Automatic article summaries with key points extraction
+- **Related Links** - Neural search-powered discovery of semantically related articles via Exa
 - **Multi-Provider LLM Support** - Choose between Anthropic Claude, OpenAI GPT, or Google Gemini
 - **Library** - Save URLs and upload documents (PDF, DOCX, TXT) for summarization
 - **Full-Text Search** - Fast search across all articles with SQLite FTS5
@@ -123,6 +124,10 @@ ANTHROPIC_API_KEY=sk-ant-...
 # OPENAI_API_KEY=sk-...
 # GOOGLE_API_KEY=AI...
 
+# Related Links (optional)
+# EXA_API_KEY=your-exa-key    # Neural search for related articles
+# ENABLE_RELATED_LINKS=true   # Default: true
+
 # Server settings
 PORT=5005
 LOG_LEVEL=INFO
@@ -182,6 +187,7 @@ macreader/
 |----------|-------------|
 | `GET /articles` | List articles with filtering |
 | `POST /articles/{id}/summarize` | Trigger AI summarization |
+| `POST /articles/{id}/related` | Find semantically related articles |
 | `GET /feeds` | List subscribed feeds |
 | `POST /feeds` | Subscribe to a new feed |
 | `POST /feeds/refresh` | Refresh all feeds |

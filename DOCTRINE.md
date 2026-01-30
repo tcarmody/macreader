@@ -377,6 +377,37 @@ The URL scheme makes the fetch mechanism immediately apparent in code. A simple 
 
 **Rationale**: Power users need ways to manage large article lists. Grouping by topic (AI-powered) surfaces related stories. Grouping by feed helps when catching up on specific sources. Sorting by title helps find specific articles. Hide-read toggle reduces visual clutter. These controls match the macOS app's capabilities for feature parity.
 
+### Related Links via Neural Search
+
+**Decision**: Integrate Exa's neural search API for semantic article discovery.
+
+**Alternatives Considered**:
+- **Traditional search APIs** (Brave, SERP proxies): Keyword-based, misses conceptual relationships
+- **Internal embeddings** (OpenAI): Only searches your own database, no external discovery
+- **LLM-based search** (Claude with web tool): Higher cost, slower
+- **Tavily**: Similar capability but 2x cost and slower than Exa
+
+**Rationale**: Research papers and technical articles often have related content that keyword search misses. Exa's neural embeddings understand semantic similarity—if you're reading about "transformers in NLP," it finds related work on attention mechanisms even if they don't share exact keywords. At $5 per 1,000 searches with sub-second latency, Exa offers the best price/performance for semantic discovery.
+
+**Query Construction Strategy**: Three-tier fallback system maximizes quality while minimizing cost:
+1. **Title + Key Points** (from existing summary): Best quality, no additional cost
+2. **Title + LLM Keywords** (Claude Haiku extraction): Good quality, ~$0.001/article
+3. **Title Only**: Acceptable fallback when no content available
+
+This strategy ensures good results even for articles without summaries while opportunistically using existing summary data when available.
+
+**Deduplication**: Research papers appear on multiple platforms (arXiv, university sites, ResearchGate). The implementation filters:
+- Exact URL matches with source article
+- Same domain as source article
+- Duplicate titles (case-insensitive)
+- More than 2 results from any single domain
+
+This prevents "5 copies of the same arXiv paper" results common with naive semantic search.
+
+**Performance**: Results are cached for 24 hours with normalized query keys (lowercase, whitespace-stripped, SHA256 hashed). Cache hit rates >30% after initial use significantly reduce API costs. Background task execution ensures the UI never blocks during the 0.5-1.5 second search.
+
+**Platform Support**: Currently macOS-only with independent "Find Related" button. The feature enhances article discovery without requiring it—users can opt in when they want deeper exploration of a topic.
+
 ---
 
 ## Lessons Learned
@@ -486,14 +517,25 @@ This setup requires no DevOps expertise and costs ~$0-5/month for personal use.
 - Separate tracking for empty/insufficient vs duplicate emails
 - Email content cleaning (tracking pixels, invisible elements, base64 images)
 
+### Phase 10: Neural Search for Article Discovery
+- Exa API integration for semantic article similarity
+- 3-tier query construction (key points → LLM keywords → title fallback)
+- Intelligent deduplication (filters duplicates by URL, domain, title)
+- 24-hour caching with normalized query keys
+- Background task execution with polling (30s timeout)
+- Database columns for related_links (JSON) and extracted_keywords cache
+- macOS-only "Find Related" button in article detail view
+- Comprehensive test coverage (25+ tests)
+
 ### Current: Stable Platform
 - Native macOS app + Web PWA
 - Railway backend + Vercel frontend
-- Multi-provider LLM support
-- Multi-user support with OAuth
+- Multi-provider LLM support (Claude, GPT, Gemini)
+- Multi-user support with OAuth (Google, GitHub)
 - Gmail newsletter integration via IMAP
+- Neural search for related articles (Exa)
 - Reading statistics and topic trends
 - Polished reading experience with themes and typography
 - Accessibility-first design system with 9 visual variants
 - Performance-optimized SQLite with scaling documentation
-- ~2,500 lines of Python backend
+- ~2,700 lines of Python backend
