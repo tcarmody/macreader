@@ -324,6 +324,24 @@ export function useSummarizeArticle() {
   })
 }
 
+export function useFindRelatedLinks() {
+  const { startPolling } = useSummarizationPolling()
+  return useMutation({
+    mutationFn: api.findRelatedLinks,
+    onSuccess: (_, articleId) => {
+      startPolling({
+        fetchFn: () => api.getArticle(articleId),
+        // Stop polling when we get results OR an error
+        isComplete: (article) =>
+          (!!article.related_links && article.related_links.length > 0) ||
+          !!article.related_links_error,
+        queryKey: queryKeys.article(articleId),
+        invalidateKeys: [['articles']],
+      })
+    },
+  })
+}
+
 // Search
 export function useSearch(query: string) {
   return useQuery({

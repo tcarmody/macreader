@@ -253,6 +253,12 @@ export async function summarizeArticle(
   return fetchApi(`/articles/${articleId}/summarize`, { method: 'POST' })
 }
 
+export async function findRelatedLinks(
+  articleId: number
+): Promise<{ success: boolean; message: string }> {
+  return fetchApi(`/articles/${articleId}/related`, { method: 'POST' })
+}
+
 // Search
 export async function searchArticles(query: string): Promise<Article[]> {
   return fetchApi(`/search?q=${encodeURIComponent(query)}`)

@@ -154,14 +154,14 @@ struct ArticleDetailView: View {
                     lineSpacing: lineSpacing,
                     appTypeface: appTypeface,
                     isLoadingRelated: appState.isLoadingRelated,
-                    relatedLinksError: appState.relatedLinksError,
+                    relatedLinksError: article.relatedLinksError,
                     onFindRelated: {
                         Task {
                             await appState.loadRelatedLinks(for: article.id)
                         }
                     }
                 )
-            } else if appState.isLoadingRelated || appState.relatedLinksError != nil {
+            } else if appState.isLoadingRelated || article.relatedLinksError != nil {
                 // Show loading/error state even if no links yet
                 ArticleRelatedLinksSection(
                     relatedLinks: [],
@@ -169,7 +169,7 @@ struct ArticleDetailView: View {
                     lineSpacing: lineSpacing,
                     appTypeface: appTypeface,
                     isLoadingRelated: appState.isLoadingRelated,
-                    relatedLinksError: appState.relatedLinksError,
+                    relatedLinksError: article.relatedLinksError,
                     onFindRelated: {
                         Task {
                             await appState.loadRelatedLinks(for: article.id)

@@ -151,6 +151,7 @@ struct ArticleDetail: Identifiable, Codable, Sendable {
 
     // Related links from Exa neural search
     let relatedLinks: [RelatedLink]?
+    let relatedLinksError: String?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -173,6 +174,7 @@ struct ArticleDetail: Identifiable, Codable, Sendable {
         case hasCodeBlocks = "has_code_blocks"
         case siteName = "site_name"
         case relatedLinks = "related_links"
+        case relatedLinksError = "related_links_error"
     }
 
     /// The best URL to open - prefers source URL over aggregator URL

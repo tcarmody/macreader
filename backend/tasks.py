@@ -183,26 +183,37 @@ def fetch_related_links_task(article_id: int):
             # Keywords may have been extracted during query construction
             keywords = extract_keywords_llm(article, state.provider)
 
-        # Update database
+        # Update database (clear any previous error on success)
         with state.db._connection.conn() as conn:
             if keywords:
                 keywords_json = json.dumps(keywords)
                 conn.execute(
-                    "UPDATE articles SET related_links = ?, extracted_keywords = ? WHERE id = ?",
+                    "UPDATE articles SET related_links = ?, extracted_keywords = ?, related_links_error = NULL WHERE id = ?",
                     (related_links_json, keywords_json, article_id)
                 )
             else:
                 conn.execute(
-                    "UPDATE articles SET related_links = ? WHERE id = ?",
+                    "UPDATE articles SET related_links = ?, related_links_error = NULL WHERE id = ?",
                     (related_links_json, article_id)
                 )
 
         print(f"Successfully fetched {len(links)} related links for article {article_id}")
 
     except Exception as e:
-        print(f"Error fetching related links for article {article_id}: {e}")
+        error_message = str(e)
+        print(f"Error fetching related links for article {article_id}: {error_message}")
         import traceback
         traceback.print_exc()
+
+        # Store the error in the database so the frontend can display it
+        try:
+            with state.db._connection.conn() as conn:
+                conn.execute(
+                    "UPDATE articles SET related_links_error = ? WHERE id = ?",
+                    (error_message, article_id)
+                )
+        except Exception as db_error:
+            print(f"Failed to store error in database: {db_error}")
 
 
 async def refresh_all_feeds():

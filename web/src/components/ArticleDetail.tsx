@@ -27,8 +27,10 @@ import {
   useToggleBookmark,
   useFetchContent,
   useSummarizeArticle,
+  useFindRelatedLinks,
 } from '@/hooks/use-queries'
 import { ArticleChat } from './ArticleChat'
+import { RelatedLinks } from './RelatedLinks'
 
 export function ArticleDetail() {
   const { selectedArticleId, hasShownToast, markToastShown, markFeatureUsed } = useAppStore()
@@ -37,9 +39,11 @@ export function ArticleDetail() {
   const toggleBookmark = useToggleBookmark()
   const fetchContent = useFetchContent()
   const summarize = useSummarizeArticle()
+  const findRelated = useFindRelatedLinks()
   const { showToast } = useToast()
 
   const [showSummary, setShowSummary] = useState(true)
+  const [hasTriggeredRelated, setHasTriggeredRelated] = useState(false)
 
   // Show first-time toast when summarization starts
   useEffect(() => {
@@ -49,6 +53,15 @@ export function ArticleDetail() {
       markFeatureUsed('hasUsedSummarize')
     }
   }, [summarize.isPending, hasShownToast, markToastShown, showToast, markFeatureUsed])
+
+  // Show first-time toast when finding related links starts
+  useEffect(() => {
+    if (findRelated.isPending && !hasShownToast('first-related')) {
+      showToast('Finding related articles using neural search...', 'info')
+      markToastShown('first-related')
+      markFeatureUsed('hasUsedRelated')
+    }
+  }, [findRelated.isPending, hasShownToast, markToastShown, showToast, markFeatureUsed])
 
   if (!selectedArticleId) {
     return (
@@ -90,6 +103,11 @@ export function ArticleDetail() {
 
   const handleSummarize = () => {
     summarize.mutate(article.id)
+  }
+
+  const handleFindRelated = () => {
+    setHasTriggeredRelated(true)
+    findRelated.mutate(article.id)
   }
 
   const handleShare = async () => {
@@ -266,6 +284,15 @@ export function ArticleDetail() {
               )}
             </section>
           )}
+
+          {/* Related Links Section */}
+          <RelatedLinks
+            relatedLinks={article.related_links}
+            isLoading={findRelated.isPending}
+            error={article.related_links_error || findRelated.error?.message || null}
+            onFindRelated={handleFindRelated}
+            hasTriggered={hasTriggeredRelated}
+          />
 
           {/* Chat Section - for Q&A and summary refinement */}
           {hasSummary && <ArticleChat articleId={article.id} />}

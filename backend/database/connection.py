@@ -164,6 +164,7 @@ class DatabaseConnection:
             # Related links feature (Exa neural search)
             self._migrate_add_column(connection, "articles", "related_links", "TEXT")
             self._migrate_add_column(connection, "articles", "extracted_keywords", "TEXT")
+            self._migrate_add_column(connection, "articles", "related_links_error", "TEXT")
 
             # Create notification_rules table for smart notifications
             connection.executescript("""

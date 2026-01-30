@@ -160,18 +160,18 @@ extension AppState {
 
     func loadRelatedLinks(for articleId: Int) async {
         isLoadingRelated = true
-        relatedLinksError = nil
 
         do {
             // Trigger related links fetch
             try await apiClient.findRelatedLinks(articleId: articleId)
 
-            // Poll for completion (wait for background task)
+            // Poll for completion (wait for background task to finish - success or error)
             for _ in 0..<30 {  // Poll for up to 30 seconds
                 try await Task.sleep(nanoseconds: 1_000_000_000)  // 1 second
 
                 let detail = try await apiClient.getArticle(id: articleId)
-                if detail.relatedLinks != nil {
+                // Stop polling when we get either results OR an error
+                if detail.relatedLinks != nil || detail.relatedLinksError != nil {
                     if selectedArticleDetail?.id == articleId {
                         selectedArticleDetail = detail
                     }
@@ -186,7 +186,11 @@ extension AppState {
                 selectedArticleDetail = detail
             }
         } catch {
-            relatedLinksError = error.localizedDescription
+            // Network error during API call - reload article to show any server-side error
+            if let detail = try? await apiClient.getArticle(id: articleId),
+               selectedArticleDetail?.id == articleId {
+                selectedArticleDetail = detail
+            }
         }
 
         isLoadingRelated = false

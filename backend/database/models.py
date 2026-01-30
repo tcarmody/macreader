@@ -45,6 +45,9 @@ class DBArticle:
     # Extracted keywords cache for LLM - JSON string
     extracted_keywords: str | None = None
 
+    # Related links error message if fetch failed
+    related_links_error: str | None = None
+
 
 @dataclass
 class DBUser:

@@ -90,6 +90,7 @@ class ArticleDetailResponse(BaseModel):
 
     # Related links from Exa neural search
     related_links: list[RelatedLink] | None = None
+    related_links_error: str | None = None
 
     @classmethod
     def from_db(cls, article: DBArticle) -> "ArticleDetailResponse":
@@ -126,6 +127,7 @@ class ArticleDetailResponse(BaseModel):
             site_name=article.site_name,
             feed_name=article.feed_name,
             related_links=related_links,
+            related_links_error=article.related_links_error,
         )
 
 

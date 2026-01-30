@@ -23,6 +23,15 @@ export interface Article {
   created_at: string
 }
 
+export interface RelatedLink {
+  url: string
+  title: string
+  snippet: string
+  domain: string
+  published_date: string | null
+  score: number | null
+}
+
 export interface ArticleDetail extends Article {
   content: string | null
   summary_full: string | null
@@ -30,6 +39,8 @@ export interface ArticleDetail extends Article {
   model_used: string | null
   author: string | null
   source_url: string | null
+  related_links: RelatedLink[] | null
+  related_links_error: string | null
 }
 
 export interface ArticleGroup {
