@@ -8,9 +8,9 @@ struct ArticleChatSection: View {
     let appTypeface: AppTypeface
 
     @EnvironmentObject var appState: AppState
-    @State private var isExpanded: Bool = false
+    @Binding var isExpanded: Bool
+    @Binding var hasChat: Bool
     @State private var messages: [ChatMessage] = []
-    @State private var hasChat: Bool = false
     @State private var inputText: String = ""
     @State private var isLoading: Bool = false
     @State private var isSending: Bool = false
@@ -382,35 +382,46 @@ struct ArticleChatSection: View {
 }
 
 #Preview {
-    ArticleChatSection(
-        article: ArticleDetail(
-            id: 1,
-            feedId: 1,
-            url: URL(string: "https://example.com")!,
-            sourceUrl: nil,
-            title: "Test Article",
-            content: "Some content",
-            summaryShort: "Short summary",
-            summaryFull: "Full summary of the article content.",
-            keyPoints: ["Point 1", "Point 2"],
-            isRead: false,
-            isBookmarked: false,
-            publishedAt: Date(),
-            createdAt: Date(),
-            author: nil,
-            readingTimeMinutes: 5,
-            wordCountValue: nil,
-            featuredImage: nil,
-            hasCodeBlocks: nil,
-            siteName: nil,
-            relatedLinks: nil,
-            relatedLinksError: nil
-        ),
-        fontSize: .medium,
-        lineSpacing: .normal,
-        appTypeface: .system
-    )
-    .environmentObject(AppState())
-    .frame(width: 500, height: 400)
-    .padding()
+    struct PreviewWrapper: View {
+        @State private var isExpanded = false
+        @State private var hasChat = false
+
+        var body: some View {
+            ArticleChatSection(
+                article: ArticleDetail(
+                    id: 1,
+                    feedId: 1,
+                    url: URL(string: "https://example.com")!,
+                    sourceUrl: nil,
+                    title: "Test Article",
+                    content: "Some content",
+                    summaryShort: "Short summary",
+                    summaryFull: "Full summary of the article content.",
+                    keyPoints: ["Point 1", "Point 2"],
+                    isRead: false,
+                    isBookmarked: false,
+                    publishedAt: Date(),
+                    createdAt: Date(),
+                    author: nil,
+                    readingTimeMinutes: 5,
+                    wordCountValue: nil,
+                    featuredImage: nil,
+                    hasCodeBlocks: nil,
+                    siteName: nil,
+                    relatedLinks: nil,
+                    relatedLinksError: nil
+                ),
+                fontSize: .medium,
+                lineSpacing: .normal,
+                appTypeface: .system,
+                isExpanded: $isExpanded,
+                hasChat: $hasChat
+            )
+            .environmentObject(AppState())
+            .frame(width: 500, height: 400)
+            .padding()
+        }
+    }
+
+    return PreviewWrapper()
 }

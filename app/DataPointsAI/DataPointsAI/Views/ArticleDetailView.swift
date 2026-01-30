@@ -16,6 +16,8 @@ struct ArticleDetailView: View {
     @State private var showingLoginSheet: Bool = false
     @State private var loginURL: URL?
     @State private var loginSiteTitle: String = ""
+    @State private var isChatExpanded: Bool = false
+    @State private var hasChatHistory: Bool = false
 
     var body: some View {
         Group {
@@ -35,6 +37,11 @@ struct ArticleDetailView: View {
             }
         }
         .animation(.easeInOut(duration: 0.2), value: appState.selectedArticleDetail?.id)
+        .onChange(of: appState.selectedArticleDetail?.id) { _, _ in
+            // Reset chat state when article changes
+            isChatExpanded = false
+            hasChatHistory = false
+        }
         .toolbar {
             toolbarContent
         }
@@ -148,7 +155,9 @@ struct ArticleDetailView: View {
                     article: article,
                     fontSize: fontSize,
                     lineSpacing: lineSpacing,
-                    appTypeface: appTypeface
+                    appTypeface: appTypeface,
+                    isExpanded: $isChatExpanded,
+                    hasChat: $hasChatHistory
                 )
             }
 
@@ -368,6 +377,31 @@ struct ArticleDetailView: View {
             .buttonStyle(.plain)
             .disabled(appState.isLoadingRelated || (article.relatedLinks?.isEmpty == false))
             .help((article.relatedLinks?.isEmpty == false) ? "Related articles found" : "Find semantically related articles using neural search")
+
+            // Chat button - only visible if article has summary
+            if article.summaryFull != nil {
+                Button {
+                    withAnimation(.easeInOut(duration: 0.2)) {
+                        isChatExpanded.toggle()
+                    }
+                } label: {
+                    HStack(spacing: 6) {
+                        Image(systemName: hasChatHistory ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right")
+                            .font(.system(size: 14))
+                            .foregroundColor(hasChatHistory ? .blue : .secondary)
+                        Text(hasChatHistory ? "Chatted" : "Chat")
+                            .font(.system(size: 13))
+                        if !hasChatHistory {
+                            Image(systemName: "info.circle")
+                                .font(.system(size: 10))
+                                .opacity(0.5)
+                        }
+                    }
+                    .foregroundColor(hasChatHistory ? .primary : .secondary)
+                }
+                .buttonStyle(.plain)
+                .help("Ask questions and refine the summary")
+            }
 
             Spacer()
 
