@@ -10,6 +10,7 @@ import {
   ChevronDown,
   ChevronUp,
   Info,
+  Link2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatFullDate, getDomain } from '@/lib/utils'
@@ -198,6 +199,31 @@ export function ArticleDetail() {
             )}
             {hasSummary ? 'Summarized' : 'Summarize'}
             {!hasSummary && <Info className="h-2.5 w-2.5 ml-1 opacity-50" />}
+          </Button>
+        </Tooltip>
+
+        <Tooltip
+          content="Find semantically related articles using neural search"
+          side="bottom"
+        >
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleFindRelated}
+            disabled={findRelated.isPending || (!!article.related_links && article.related_links.length > 0)}
+          >
+            {findRelated.isPending ? (
+              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+            ) : (
+              <Link2 className={cn(
+                "h-4 w-4 mr-1",
+                article.related_links && article.related_links.length > 0 && "text-blue-500"
+              )} />
+            )}
+            {article.related_links && article.related_links.length > 0 ? 'Contextualized' : 'Context'}
+            {(!article.related_links || article.related_links.length === 0) && (
+              <Info className="h-2.5 w-2.5 ml-1 opacity-50" />
+            )}
           </Button>
         </Tooltip>
 
