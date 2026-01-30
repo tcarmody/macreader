@@ -47,10 +47,21 @@ In Railway dashboard, go to your service → **Variables** tab and add:
 | `ANTHROPIC_API_KEY` | Your Anthropic API key | At least one LLM key |
 | `OPENAI_API_KEY` | Your OpenAI API key | Optional |
 | `GOOGLE_API_KEY` | Your Google AI API key | Optional |
+| `EXA_API_KEY` | Your Exa API key (for Related Links) | Optional |
+| `ENABLE_RELATED_LINKS` | `true` | Optional (default: true) |
 | `CORS_ORIGINS` | `https://your-app.vercel.app` | Yes (after Vercel deploy) |
 | `LOG_LEVEL` | `INFO` | Optional |
 
 > **Note**: You can leave LLM keys empty if users will provide their own keys via the web UI.
+
+#### About Related Links (Exa)
+
+The Related Links feature uses [Exa's neural search API](https://exa.ai) to find semantically related articles. This is optional but enhances article discovery:
+
+- **Cost**: $5 per 1,000 searches (free $10 credit available)
+- **Sign up**: [exa.ai](https://exa.ai) → Get API key
+- **If not configured**: Feature is disabled, no errors shown
+- **Learn more**: See [DOCTRINE.md](DOCTRINE.md#related-links-via-neural-search) for technical details
 
 ### 1.3 Configure Persistent Storage
 
