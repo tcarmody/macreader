@@ -89,8 +89,15 @@ export function useFeeds() {
   return useQuery({
     queryKey: queryKeys.feeds,
     queryFn: api.getFeeds,
-    staleTime: 30000,
+    staleTime: 5000, // Reduced from 30s to 5s for faster updates
   })
+}
+
+export function useInvalidateFeeds() {
+  const queryClient = useQueryClient()
+  return () => {
+    queryClient.invalidateQueries({ queryKey: queryKeys.feeds })
+  }
 }
 
 export function useAddFeed() {
