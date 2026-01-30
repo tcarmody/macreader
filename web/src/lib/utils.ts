@@ -11,6 +11,11 @@ export function formatDate(date: string | Date): string {
   const diff = now.getTime() - d.getTime()
   const days = Math.floor(diff / (1000 * 60 * 60 * 24))
 
+  // Handle future dates (clock skew) by treating as "Just now"
+  if (diff < 0) {
+    return 'Just now'
+  }
+
   if (days === 0) {
     const hours = Math.floor(diff / (1000 * 60 * 60))
     if (hours === 0) {
