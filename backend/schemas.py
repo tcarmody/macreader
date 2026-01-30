@@ -2,10 +2,34 @@
 Pydantic models for API request/response validation.
 """
 
+from datetime import datetime
 from pydantic import BaseModel
 
 from .database import DBArticle, DBFeed
 from .database.models import DBNotificationRule, DBNotificationHistory
+
+
+def serialize_datetime(dt: datetime | None) -> str | None:
+    """
+    Serialize datetime to ISO format with UTC indicator.
+
+    - Timezone-aware datetimes are converted to UTC with 'Z' suffix
+    - Naive datetimes are assumed to be UTC (for backward compatibility)
+    - Returns None if dt is None
+
+    This ensures JavaScript's Date() constructor interprets timestamps correctly as UTC.
+    """
+    if dt is None:
+        return None
+
+    # If timezone-aware, convert to UTC and format with 'Z'
+    if dt.tzinfo is not None:
+        from datetime import timezone
+        utc_dt = dt.astimezone(timezone.utc)
+        return utc_dt.isoformat().replace('+00:00', 'Z')
+
+    # For naive datetimes, assume UTC and add 'Z' suffix
+    return dt.isoformat() + 'Z'
 
 
 # ─────────────────────────────────────────────────────────────
@@ -53,8 +77,8 @@ class ArticleResponse(BaseModel):
             summary_short=article.summary_short,
             is_read=article.is_read,
             is_bookmarked=article.is_bookmarked,
-            published_at=article.published_at.isoformat() if article.published_at else None,
-            created_at=article.created_at.isoformat(),
+            published_at=serialize_datetime(article.published_at),
+            created_at=serialize_datetime(article.created_at),
             reading_time_minutes=article.reading_time_minutes,
             author=article.author,
             feed_name=article.feed_name,
@@ -117,8 +141,8 @@ class ArticleDetailResponse(BaseModel):
             key_points=article.key_points,
             is_read=article.is_read,
             is_bookmarked=article.is_bookmarked,
-            published_at=article.published_at.isoformat() if article.published_at else None,
-            created_at=article.created_at.isoformat(),
+            published_at=serialize_datetime(article.published_at),
+            created_at=serialize_datetime(article.created_at),
             author=article.author,
             reading_time_minutes=article.reading_time_minutes,
             word_count=article.word_count,
@@ -181,7 +205,7 @@ class FeedResponse(BaseModel):
             name=feed.name,
             category=feed.category,
             unread_count=feed.unread_count,
-            last_fetched=feed.last_fetched.isoformat() if feed.last_fetched else None,
+            last_fetched=serialize_datetime(feed.last_fetched),
             fetch_error=feed.fetch_error
         )
 
@@ -320,7 +344,7 @@ class StandaloneItemResponse(BaseModel):
             is_bookmarked=article.is_bookmarked,
             content_type=article.content_type,
             file_name=article.file_name,
-            created_at=article.created_at.isoformat()
+            created_at=serialize_datetime(article.created_at)
         )
 
 
@@ -353,7 +377,7 @@ class StandaloneItemDetailResponse(BaseModel):
             is_bookmarked=article.is_bookmarked,
             content_type=article.content_type,
             file_name=article.file_name,
-            created_at=article.created_at.isoformat()
+            created_at=serialize_datetime(article.created_at)
         )
 
 
@@ -483,7 +507,7 @@ class NotificationRuleResponse(BaseModel):
             author=rule.author,
             priority=rule.priority,
             enabled=rule.enabled,
-            created_at=rule.created_at.isoformat(),
+            created_at=serialize_datetime(rule.created_at),
         )
 
 
@@ -532,7 +556,7 @@ class NotificationHistoryResponse(BaseModel):
             article_title=article_title,
             rule_id=history.rule_id,
             rule_name=rule_name,
-            notified_at=history.notified_at.isoformat(),
+            notified_at=serialize_datetime(history.notified_at),
             dismissed=history.dismissed,
         )
 
@@ -655,7 +679,7 @@ class ChatMessageResponse(BaseModel):
             role=msg.role,
             content=msg.content,
             model_used=msg.model_used,
-            created_at=msg.created_at.isoformat(),
+            created_at=serialize_datetime(msg.created_at),
         )
 
 

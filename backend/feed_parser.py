@@ -14,7 +14,7 @@ import aiohttp
 import asyncio
 import time
 from dataclasses import dataclass
-from datetime import datetime
+from datetime import datetime, timezone
 from urllib.parse import urlparse, urljoin
 from bs4 import BeautifulSoup
 
@@ -109,16 +109,18 @@ class FeedParser:
             elif hasattr(entry, "description"):
                 content_text = entry.description
 
-            # Parse published date
+            # Parse published date (feedparser returns UTC timestamps)
             published = None
             if hasattr(entry, "published_parsed") and entry.published_parsed:
                 try:
-                    published = datetime(*entry.published_parsed[:6])
+                    # Mark as UTC since feedparser returns UTC timestamps
+                    published = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc)
                 except (TypeError, ValueError):
                     pass
             elif hasattr(entry, "updated_parsed") and entry.updated_parsed:
                 try:
-                    published = datetime(*entry.updated_parsed[:6])
+                    # Mark as UTC since feedparser returns UTC timestamps
+                    published = datetime(*entry.updated_parsed[:6], tzinfo=timezone.utc)
                 except (TypeError, ValueError):
                     pass
 
