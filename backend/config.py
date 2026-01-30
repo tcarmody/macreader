@@ -53,6 +53,10 @@ class Config:
     # Optional: override the default model for the selected provider
     LLM_MODEL: str = os.getenv("LLM_MODEL", "")
 
+    # Related Links (Exa Neural Search)
+    EXA_API_KEY: str = os.getenv("EXA_API_KEY", "")
+    ENABLE_RELATED_LINKS: bool = _parse_bool(os.getenv("ENABLE_RELATED_LINKS"), default=True)
+
     # Legacy alias for backwards compatibility
     API_KEY: str = ANTHROPIC_API_KEY
 
@@ -133,6 +137,7 @@ class AppState:
     summarizer: "Summarizer | None" = None
     clusterer: "Clusterer | None" = None
     chat_service: "ChatService | None" = None  # Chat service for article Q&A
+    exa_service: "object | None" = None  # ExaSearchService for related links
     feed_parser: "FeedParser | None" = None
     fetcher: "Fetcher | None" = None
     enhanced_fetcher: "object | None" = None  # EnhancedFetcher from advanced module

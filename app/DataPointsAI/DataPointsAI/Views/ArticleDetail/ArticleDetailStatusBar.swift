@@ -147,7 +147,8 @@ private struct StatItem: View {
                 wordCountValue: 1250,
                 featuredImage: nil,
                 hasCodeBlocks: false,
-                siteName: nil
+                siteName: nil,
+                relatedLinks: nil
             ),
             scrollProgress: 0.45
         )

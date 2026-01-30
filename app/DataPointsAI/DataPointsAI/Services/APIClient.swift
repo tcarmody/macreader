@@ -103,6 +103,10 @@ final class APIClient {
         let _: EmptyResponse = try await post(path: "/articles/\(articleId)/summarize")
     }
 
+    func findRelatedLinks(articleId: Int) async throws {
+        let _: EmptyResponse = try await post(path: "/articles/\(articleId)/related")
+    }
+
     // MARK: - Bulk Article Operations
 
     func bulkMarkRead(articleIds: [Int], isRead: Bool = true) async throws {

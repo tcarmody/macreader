@@ -39,6 +39,12 @@ class DBArticle:
     # Original feed name for archived articles (when feed was deleted but article preserved)
     feed_name: str | None = None
 
+    # Related links (Exa neural search) - JSON string
+    related_links: str | None = None
+
+    # Extracted keywords cache for LLM - JSON string
+    extracted_keywords: str | None = None
+
 
 @dataclass
 class DBUser:

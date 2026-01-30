@@ -95,6 +95,8 @@ def row_to_article(row: sqlite3.Row) -> DBArticle:
         site_name=safe_get("site_name"),
         user_id=safe_get_int("user_id"),
         feed_name=safe_get("feed_name"),
+        related_links=safe_get("related_links"),
+        extracted_keywords=safe_get("extracted_keywords"),
     )
 
 

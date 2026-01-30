@@ -54,6 +54,10 @@ class AppState: ObservableObject {
     @Published var isClusteringLoading: Bool = false
     @Published var readerModeEnabled: Bool = false
 
+    // Related links state
+    @Published var isLoadingRelated: Bool = false
+    @Published var relatedLinksError: String?
+
     // Pagination state
     @Published var isLoadingMore: Bool = false
     @Published var hasMoreArticles: Bool = true

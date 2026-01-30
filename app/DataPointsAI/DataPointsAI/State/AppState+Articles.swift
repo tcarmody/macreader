@@ -158,6 +158,40 @@ extension AppState {
         }
     }
 
+    func loadRelatedLinks(for articleId: Int) async {
+        isLoadingRelated = true
+        relatedLinksError = nil
+
+        do {
+            // Trigger related links fetch
+            try await apiClient.findRelatedLinks(articleId: articleId)
+
+            // Poll for completion (wait for background task)
+            for _ in 0..<30 {  // Poll for up to 30 seconds
+                try await Task.sleep(nanoseconds: 1_000_000_000)  // 1 second
+
+                let detail = try await apiClient.getArticle(id: articleId)
+                if detail.relatedLinks != nil {
+                    if selectedArticleDetail?.id == articleId {
+                        selectedArticleDetail = detail
+                    }
+                    isLoadingRelated = false
+                    return
+                }
+            }
+
+            // Timeout - reload anyway to show what we have
+            let detail = try await apiClient.getArticle(id: articleId)
+            if selectedArticleDetail?.id == articleId {
+                selectedArticleDetail = detail
+            }
+        } catch {
+            relatedLinksError = error.localizedDescription
+        }
+
+        isLoadingRelated = false
+    }
+
     // MARK: - Bulk Article Actions
 
     func bulkMarkRead(articleIds: [Int], isRead: Bool = true) async throws {

@@ -88,6 +88,22 @@ async def lifespan(app: FastAPI):
             state.summarizer = Summarizer(provider=state.provider, cache=state.cache)
             state.clusterer = Clusterer(provider=state.provider, cache=state.cache)
             state.chat_service = ChatService(db=state.db, provider=state.provider)
+
+            # Initialize Exa search service for related links
+            if config.EXA_API_KEY and config.ENABLE_RELATED_LINKS:
+                from .services.related_links import ExaSearchService
+                state.exa_service = ExaSearchService(
+                    api_key=config.EXA_API_KEY,
+                    cache=state.cache,
+                    provider=state.provider
+                )
+                logger.info("Exa search service initialized for related links")
+            elif config.ENABLE_RELATED_LINKS and not config.EXA_API_KEY:
+                logger.warning(
+                    "Related links feature enabled but EXA_API_KEY not configured. "
+                    "Sign up at https://exa.ai for free $10 credits (~2,000 searches)."
+                )
+
             logger.info(f"LLM provider initialized: {state.provider.name}")
         else:
             logger.warning(

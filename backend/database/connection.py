@@ -161,6 +161,10 @@ class DatabaseConnection:
             # Store original feed name for archived articles (when feed is deleted but article is preserved)
             self._migrate_add_column(connection, "articles", "feed_name", "TEXT")
 
+            # Related links feature (Exa neural search)
+            self._migrate_add_column(connection, "articles", "related_links", "TEXT")
+            self._migrate_add_column(connection, "articles", "extracted_keywords", "TEXT")
+
             # Create notification_rules table for smart notifications
             connection.executescript("""
                 CREATE TABLE IF NOT EXISTS notification_rules (

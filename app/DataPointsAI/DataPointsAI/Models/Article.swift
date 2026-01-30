@@ -108,6 +108,23 @@ struct Article: Identifiable, Codable, Hashable, Sendable {
     }
 }
 
+/// A related article link from Exa neural search
+struct RelatedLink: Identifiable, Codable, Sendable {
+    let id = UUID()
+    let url: String
+    let title: String
+    let snippet: String
+    let domain: String
+    let publishedDate: String?
+    let score: Double?
+
+    enum CodingKeys: String, CodingKey {
+        case url, title, snippet, domain
+        case publishedDate = "published_date"
+        case score
+    }
+}
+
 /// Article with full summary for detail view (matches ArticleDetailResponse from API)
 struct ArticleDetail: Identifiable, Codable, Sendable {
     let id: Int
@@ -132,6 +149,9 @@ struct ArticleDetail: Identifiable, Codable, Sendable {
     let hasCodeBlocks: Bool?
     let siteName: String?
 
+    // Related links from Exa neural search
+    let relatedLinks: [RelatedLink]?
+
     enum CodingKeys: String, CodingKey {
         case id
         case feedId = "feed_id"
@@ -152,6 +172,7 @@ struct ArticleDetail: Identifiable, Codable, Sendable {
         case featuredImage = "featured_image"
         case hasCodeBlocks = "has_code_blocks"
         case siteName = "site_name"
+        case relatedLinks = "related_links"
     }
 
     /// The best URL to open - prefers source URL over aggregator URL

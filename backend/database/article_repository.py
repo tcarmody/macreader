@@ -21,7 +21,8 @@ class ArticleRepository:
         a.summary_short, a.summary_full, a.key_points, a.model_used, a.summarized_at,
         a.published_at, a.created_at, a.source_url, a.content_type, a.file_name,
         a.file_path, a.reading_time_minutes, a.word_count, a.featured_image,
-        a.has_code_blocks, a.site_name, a.user_id, a.feed_name
+        a.has_code_blocks, a.site_name, a.user_id, a.feed_name, a.related_links,
+        a.extracted_keywords
     """.strip()
 
     def __init__(self, db: DatabaseConnection):

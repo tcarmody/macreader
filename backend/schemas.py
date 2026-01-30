@@ -12,6 +12,16 @@ from .database.models import DBNotificationRule, DBNotificationHistory
 # Article Schemas
 # ─────────────────────────────────────────────────────────────
 
+class RelatedLink(BaseModel):
+    """A related article link from Exa neural search."""
+    url: str
+    title: str
+    snippet: str = ""
+    domain: str = ""
+    published_date: str | None = None
+    score: float | None = None
+
+
 class ArticleResponse(BaseModel):
     """Article for list view."""
     id: int
@@ -78,8 +88,22 @@ class ArticleDetailResponse(BaseModel):
     # Original feed name for archived articles (when feed was deleted but article preserved)
     feed_name: str | None = None
 
+    # Related links from Exa neural search
+    related_links: list[RelatedLink] | None = None
+
     @classmethod
     def from_db(cls, article: DBArticle) -> "ArticleDetailResponse":
+        # Parse related links from JSON
+        related_links = None
+        if article.related_links:
+            try:
+                import json
+                data = json.loads(article.related_links)
+                if isinstance(data, dict) and "links" in data:
+                    related_links = [RelatedLink(**link) for link in data["links"]]
+            except (json.JSONDecodeError, TypeError, KeyError):
+                pass  # Invalid JSON, skip
+
         return cls(
             id=article.id,
             feed_id=article.feed_id,
@@ -101,6 +125,7 @@ class ArticleDetailResponse(BaseModel):
             has_code_blocks=article.has_code_blocks,
             site_name=article.site_name,
             feed_name=article.feed_name,
+            related_links=related_links,
         )
 
 

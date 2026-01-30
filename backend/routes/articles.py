@@ -471,6 +471,30 @@ async def summarize_article_endpoint(
     return {"success": True, "message": "Summarization started"}
 
 
+@router.post("/{article_id}/related")
+async def find_related_links(
+    article_id: int,
+    db: Annotated[Database, Depends(get_db)],
+    background_tasks: BackgroundTasks
+) -> dict:
+    """Find related links for an article using Exa neural search."""
+    if not state.exa_service:
+        raise HTTPException(status_code=503, detail="Related links feature not configured")
+
+    article = require_article(db.get_article(article_id))
+
+    # Import here to avoid circular dependency
+    from ..tasks import fetch_related_links_task
+
+    # Run related links fetch in background
+    background_tasks.add_task(
+        fetch_related_links_task,
+        article_id
+    )
+
+    return {"success": True, "message": "Finding related links..."}
+
+
 @router.post("/{article_id}/extract-source")
 async def extract_source_url(
     article_id: int,

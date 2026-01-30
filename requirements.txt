@@ -28,6 +28,10 @@ anthropic>=0.75.0       # Recommended - supports prompt caching
 openai>=1.60.0          # Alternative provider
 google-genai>=1.56.0        # Alternative provider
 
+# Related Links (Exa neural search)
+exa-py>=1.1.0           # Exa API client for neural search
+tenacity>=9.0.0         # Retry logic with exponential backoff
+
 # Advanced Features (optional)
 # Install Playwright for JS rendering: pip install playwright && playwright install chromium
 playwright>=1.49.0

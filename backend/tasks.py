@@ -147,6 +147,64 @@ def summarize_article(article_id: int, content: str, url: str, title: str):
         traceback.print_exc()
 
 
+def fetch_related_links_task(article_id: int):
+    """Background task to fetch related links for an article (sync version for BackgroundTasks)."""
+    if not state.exa_service or not state.db:
+        print(f"Exa service not configured for article {article_id}")
+        return
+
+    try:
+        print(f"Fetching related links for article {article_id}")
+
+        # Get article from database
+        article = state.db.get_article(article_id)
+        if not article:
+            print(f"Article {article_id} not found")
+            return
+
+        # Fetch related links using Exa service
+        links = state.exa_service.fetch_related_links(article, num_results=5)
+
+        # Store results as JSON
+        import json
+        from datetime import datetime
+
+        related_links_json = json.dumps({
+            "links": links,
+            "fetched_at": datetime.now().isoformat(),
+            "source": "exa"
+        })
+
+        # Also store extracted keywords if they were generated during query construction
+        # The extract_keywords_llm function caches keywords in the article object
+        from .services.related_links import extract_keywords_llm
+        keywords = None
+        if article.content and not article.key_points:
+            # Keywords may have been extracted during query construction
+            keywords = extract_keywords_llm(article, state.provider)
+
+        # Update database
+        with state.db._connection.conn() as conn:
+            if keywords:
+                keywords_json = json.dumps(keywords)
+                conn.execute(
+                    "UPDATE articles SET related_links = ?, extracted_keywords = ? WHERE id = ?",
+                    (related_links_json, keywords_json, article_id)
+                )
+            else:
+                conn.execute(
+                    "UPDATE articles SET related_links = ? WHERE id = ?",
+                    (related_links_json, article_id)
+                )
+
+        print(f"Successfully fetched {len(links)} related links for article {article_id}")
+
+    except Exception as e:
+        print(f"Error fetching related links for article {article_id}: {e}")
+        import traceback
+        traceback.print_exc()
+
+
 async def refresh_all_feeds():
     """Background task to refresh all feeds."""
     if not state.db or not state.feed_parser:

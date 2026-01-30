@@ -146,6 +146,38 @@ struct ArticleDetailView: View {
                 )
             }
 
+            // Related links section - neural search results
+            if let relatedLinks = article.relatedLinks, !relatedLinks.isEmpty {
+                ArticleRelatedLinksSection(
+                    relatedLinks: relatedLinks,
+                    fontSize: fontSize,
+                    lineSpacing: lineSpacing,
+                    appTypeface: appTypeface,
+                    isLoadingRelated: appState.isLoadingRelated,
+                    relatedLinksError: appState.relatedLinksError,
+                    onFindRelated: {
+                        Task {
+                            await appState.loadRelatedLinks(for: article.id)
+                        }
+                    }
+                )
+            } else if appState.isLoadingRelated || appState.relatedLinksError != nil {
+                // Show loading/error state even if no links yet
+                ArticleRelatedLinksSection(
+                    relatedLinks: [],
+                    fontSize: fontSize,
+                    lineSpacing: lineSpacing,
+                    appTypeface: appTypeface,
+                    isLoadingRelated: appState.isLoadingRelated,
+                    relatedLinksError: appState.relatedLinksError,
+                    onFindRelated: {
+                        Task {
+                            await appState.loadRelatedLinks(for: article.id)
+                        }
+                    }
+                )
+            }
+
             Divider()
 
             // Actions
@@ -433,6 +465,17 @@ struct ArticleDetailView: View {
                 Label("Read Original", systemImage: "safari")
             }
             .buttonStyle(.borderedProminent)
+
+            Button {
+                Task {
+                    await appState.loadRelatedLinks(for: article.id)
+                }
+            } label: {
+                Label("Find Related", systemImage: "link.badge.plus")
+            }
+            .buttonStyle(.borderedProminent)
+            .disabled(appState.isLoadingRelated)
+            .help("Find related articles using neural search")
 
             Spacer()
 
