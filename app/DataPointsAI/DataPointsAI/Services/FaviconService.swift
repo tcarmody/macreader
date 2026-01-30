@@ -21,8 +21,19 @@ actor FaviconService {
     private init() {
         // Create cache directory
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let oldCacheDir = appSupport.appendingPathComponent("DataPointsAI/FaviconCache", isDirectory: true)
         cacheDirectory = appSupport.appendingPathComponent("Data Points AI/FaviconCache", isDirectory: true)
-        try? FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
+
+        // Migrate old cache directory to new name if it exists
+        let fileManager = FileManager.default
+        if fileManager.fileExists(atPath: oldCacheDir.path) && !fileManager.fileExists(atPath: cacheDirectory.path) {
+            let oldParent = appSupport.appendingPathComponent("DataPointsAI", isDirectory: true)
+            let newParent = appSupport.appendingPathComponent("Data Points AI", isDirectory: true)
+            try? fileManager.moveItem(at: oldParent, to: newParent)
+            print("Migrated cache directory from 'DataPointsAI' to 'Data Points AI'")
+        }
+
+        try? fileManager.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
 
         // Clean up old cache entries in the background
         Task {

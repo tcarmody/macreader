@@ -20,7 +20,16 @@ final class ImageCacheService {
     private init() {
         // Create cache directory in Application Support
         let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
+        let oldCacheDir = appSupport.appendingPathComponent("DataPointsAI/ImageCache", isDirectory: true)
         cacheDirectory = appSupport.appendingPathComponent("Data Points AI/ImageCache", isDirectory: true)
+
+        // Migrate old cache directory to new name if it exists
+        if fileManager.fileExists(atPath: oldCacheDir.path) && !fileManager.fileExists(atPath: cacheDirectory.path) {
+            let oldParent = appSupport.appendingPathComponent("DataPointsAI", isDirectory: true)
+            let newParent = appSupport.appendingPathComponent("Data Points AI", isDirectory: true)
+            try? fileManager.moveItem(at: oldParent, to: newParent)
+            print("Migrated cache directory from 'DataPointsAI' to 'Data Points AI'")
+        }
 
         // Create directory if it doesn't exist
         try? fileManager.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)

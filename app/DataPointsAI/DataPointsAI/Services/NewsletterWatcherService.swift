@@ -367,10 +367,18 @@ actor NewsletterWatcherService {
     /// Creates it if it doesn't exist
     static func suggestedWatchFolder() -> URL {
         let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
+        let oldFolder = documentsURL.appendingPathComponent("DataPointsAI Newsletters", isDirectory: true)
         let newsletterFolder = documentsURL.appendingPathComponent("Data Points AI Newsletters", isDirectory: true)
 
+        // Migrate old folder to new name if it exists
+        let fileManager = FileManager.default
+        if fileManager.fileExists(atPath: oldFolder.path) && !fileManager.fileExists(atPath: newsletterFolder.path) {
+            try? fileManager.moveItem(at: oldFolder, to: newsletterFolder)
+            print("Migrated newsletter folder from '\(oldFolder.lastPathComponent)' to '\(newsletterFolder.lastPathComponent)'")
+        }
+
         // Create if doesn't exist
-        try? FileManager.default.createDirectory(at: newsletterFolder, withIntermediateDirectories: true)
+        try? fileManager.createDirectory(at: newsletterFolder, withIntermediateDirectories: true)
 
         return newsletterFolder
     }
