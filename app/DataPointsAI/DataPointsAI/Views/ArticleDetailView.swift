@@ -130,6 +130,12 @@ struct ArticleDetailView: View {
 
             Divider()
 
+            // Toolbar with Read, Save, Summarize, Context actions
+            articleToolbar(article: article)
+
+            Divider()
+                .padding(.vertical, 8)
+
             // AI Summary section
             summarySection(article: article, fontSize: fontSize, lineSpacing: lineSpacing, appTypeface: appTypeface)
 
@@ -259,6 +265,161 @@ struct ArticleDetailView: View {
                     lineWidth: 1
                 )
         )
+    }
+
+    // MARK: - Toolbar Section
+
+    @ViewBuilder
+    private func articleToolbar(article: ArticleDetail) -> some View {
+        HStack(spacing: 16) {
+            // Read toggle
+            Button {
+                Task {
+                    try? await appState.markRead(articleId: article.id, isRead: !article.isRead)
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: article.isRead ? "checkmark" : "circle")
+                        .font(.system(size: 14))
+                    Text("Read")
+                        .font(.system(size: 13))
+                }
+                .foregroundColor(article.isRead ? .primary : .secondary)
+            }
+            .buttonStyle(.plain)
+            .help(article.isRead ? "Mark as unread" : "Mark as read")
+
+            // Save/Bookmark toggle
+            Button {
+                Task {
+                    try? await appState.toggleBookmark(articleId: article.id)
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: article.isBookmarked ? "bookmark.fill" : "bookmark")
+                        .font(.system(size: 14))
+                    Text("Save")
+                        .font(.system(size: 13))
+                }
+                .foregroundColor(article.isBookmarked ? .primary : .secondary)
+            }
+            .buttonStyle(.plain)
+            .help(article.isBookmarked ? "Remove from saved" : "Save article")
+
+            Rectangle()
+                .fill(Color.secondary.opacity(0.3))
+                .frame(width: 1, height: 20)
+
+            // Summarize button
+            Button {
+                if article.summaryFull == nil {
+                    startSummarization(articleId: article.id)
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    if isSummarizing {
+                        ProgressView()
+                            .scaleEffect(0.6)
+                    } else {
+                        Image(systemName: "sparkles")
+                            .font(.system(size: 14))
+                    }
+                    Text(article.summaryFull != nil ? "Summarized" : "Summarize")
+                        .font(.system(size: 13))
+                    if article.summaryFull == nil && !isSummarizing {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 10))
+                            .opacity(0.5)
+                    }
+                }
+                .foregroundColor(article.summaryFull != nil ? .primary : .secondary)
+            }
+            .buttonStyle(.plain)
+            .disabled(isSummarizing || article.summaryFull != nil)
+            .help(article.summaryFull != nil ? "Article has been summarized" : "Generate AI summary")
+
+            // Context/Related Links button
+            Button {
+                if article.relatedLinks == nil || (article.relatedLinks?.isEmpty ?? true) {
+                    Task {
+                        await appState.loadRelatedLinks(for: article.id)
+                    }
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    if appState.isLoadingRelated {
+                        ProgressView()
+                            .scaleEffect(0.6)
+                    } else {
+                        Image(systemName: "link")
+                            .font(.system(size: 14))
+                            .foregroundColor((article.relatedLinks?.isEmpty == false) ? .blue : .secondary)
+                    }
+                    Text((article.relatedLinks?.isEmpty == false) ? "Contextualized" : "Context")
+                        .font(.system(size: 13))
+                    if (article.relatedLinks?.isEmpty != false) && !appState.isLoadingRelated {
+                        Image(systemName: "info.circle")
+                            .font(.system(size: 10))
+                            .opacity(0.5)
+                    }
+                }
+                .foregroundColor((article.relatedLinks?.isEmpty == false) ? .primary : .secondary)
+            }
+            .buttonStyle(.plain)
+            .disabled(appState.isLoadingRelated || (article.relatedLinks?.isEmpty == false))
+            .help((article.relatedLinks?.isEmpty == false) ? "Related articles found" : "Find semantically related articles using neural search")
+
+            Spacer()
+
+            // Share button
+            Menu {
+                ShareLink(item: article.originalUrl) {
+                    Label("Share Link", systemImage: "link")
+                }
+
+                if let summary = article.summaryShort ?? article.summaryFull, !summary.isEmpty {
+                    ShareLink(item: shareTextWithSummary(article: article, summary: summary)) {
+                        Label("Share with Summary", systemImage: "text.quote")
+                    }
+
+                    Divider()
+
+                    Button {
+                        copySummaryToClipboard(article: article, summary: summary)
+                    } label: {
+                        Label("Copy Summary", systemImage: "doc.on.doc")
+                    }
+                }
+
+                Divider()
+
+                Button {
+                    copyLinkToClipboard(article: article)
+                } label: {
+                    Label("Copy Link", systemImage: "link")
+                }
+            } label: {
+                Image(systemName: "square.and.arrow.up")
+                    .font(.system(size: 14))
+                    .foregroundColor(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Share article")
+
+            // Open in browser button
+            Button {
+                NSWorkspace.shared.open(article.originalUrl)
+            } label: {
+                Image(systemName: "arrow.up.forward.square")
+                    .font(.system(size: 14))
+                    .foregroundColor(.secondary)
+            }
+            .buttonStyle(.plain)
+            .help("Open in browser")
+        }
+        .padding(.horizontal, 20)
+        .padding(.vertical, 12)
+        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
     }
 
     // MARK: - Summary Section

@@ -403,7 +403,8 @@ struct ArticleChatSection: View {
             featuredImage: nil,
             hasCodeBlocks: nil,
             siteName: nil,
-            relatedLinks: nil
+            relatedLinks: nil,
+            relatedLinksError: nil
         ),
         fontSize: .medium,
         lineSpacing: .normal,
