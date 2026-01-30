@@ -63,6 +63,11 @@ export function ArticleDetail() {
     }
   }, [findRelated.isPending, hasShownToast, markToastShown, showToast, markFeatureUsed])
 
+  // Reset hasTriggeredRelated when article changes
+  useEffect(() => {
+    setHasTriggeredRelated(false)
+  }, [selectedArticleId])
+
   if (!selectedArticleId) {
     return (
       <div className="flex-1 flex items-center justify-center text-muted-foreground bg-muted/30">
