@@ -99,7 +99,7 @@ export function ArticleChat({
   }
 
   return (
-    <section className="mb-8 border border-blue-500/20 rounded-lg overflow-hidden">
+    <section id="article-chat" className="mb-8 border border-blue-500/20 rounded-lg overflow-hidden">
       {/* Header - always visible */}
       <button
         onClick={() => setIsExpanded(!isExpanded)}

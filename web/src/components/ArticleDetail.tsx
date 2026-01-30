@@ -237,7 +237,16 @@ export function ArticleDetail() {
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => setIsChatExpanded(!isChatExpanded)}
+              onClick={() => {
+                setIsChatExpanded(true)
+                // Scroll to chat section
+                setTimeout(() => {
+                  document.getElementById('article-chat')?.scrollIntoView({
+                    behavior: 'smooth',
+                    block: 'start',
+                  })
+                }, 100)
+              }}
             >
               <MessageCircle
                 className={cn(

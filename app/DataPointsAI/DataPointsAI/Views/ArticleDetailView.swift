@@ -159,6 +159,7 @@ struct ArticleDetailView: View {
                     isExpanded: $isChatExpanded,
                     hasChat: $hasChatHistory
                 )
+                .id("article-chat")
             }
 
             // Related links section - neural search results
@@ -382,7 +383,13 @@ struct ArticleDetailView: View {
             if article.summaryFull != nil {
                 Button {
                     withAnimation(.easeInOut(duration: 0.2)) {
-                        isChatExpanded.toggle()
+                        isChatExpanded = true
+                    }
+                    // Scroll to chat section
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
+                        withAnimation(.easeInOut(duration: 0.3)) {
+                            scrollState.scrollProxy?.scrollTo("article-chat", anchor: .top)
+                        }
                     }
                 } label: {
                     HStack(spacing: 6) {
