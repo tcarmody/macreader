@@ -20,10 +20,27 @@ import type { ChatMessage } from '@/api/client'
 
 interface ArticleChatProps {
   articleId: number
+  isExpanded?: boolean
+  onExpandedChange?: (expanded: boolean) => void
 }
 
-export function ArticleChat({ articleId }: ArticleChatProps) {
-  const [isExpanded, setIsExpanded] = useState(false)
+export function ArticleChat({
+  articleId,
+  isExpanded: externalIsExpanded,
+  onExpandedChange
+}: ArticleChatProps) {
+  const [internalIsExpanded, setInternalIsExpanded] = useState(false)
+
+  // Use external state if provided, otherwise use internal state
+  const isExpanded = externalIsExpanded !== undefined ? externalIsExpanded : internalIsExpanded
+  const setIsExpanded = (expanded: boolean | ((prev: boolean) => boolean)) => {
+    const newValue = typeof expanded === 'function' ? expanded(isExpanded) : expanded
+    if (onExpandedChange) {
+      onExpandedChange(newValue)
+    } else {
+      setInternalIsExpanded(newValue)
+    }
+  }
   const [message, setMessage] = useState('')
   const [showClearConfirm, setShowClearConfirm] = useState(false)
   const messagesEndRef = useRef<HTMLDivElement>(null)

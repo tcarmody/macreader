@@ -11,6 +11,7 @@ import {
   ChevronUp,
   Info,
   Link2,
+  MessageCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatFullDate, getDomain } from '@/lib/utils'
@@ -29,6 +30,7 @@ import {
   useFetchContent,
   useSummarizeArticle,
   useFindRelatedLinks,
+  useChatHistory,
 } from '@/hooks/use-queries'
 import { ArticleChat } from './ArticleChat'
 import { RelatedLinks } from './RelatedLinks'
@@ -41,10 +43,12 @@ export function ArticleDetail() {
   const fetchContent = useFetchContent()
   const summarize = useSummarizeArticle()
   const findRelated = useFindRelatedLinks()
+  const { data: chatHistory } = useChatHistory(selectedArticleId)
   const { showToast } = useToast()
 
   const [showSummary, setShowSummary] = useState(true)
   const [hasTriggeredRelated, setHasTriggeredRelated] = useState(false)
+  const [isChatExpanded, setIsChatExpanded] = useState(false)
 
   // Show first-time toast when summarization starts
   useEffect(() => {
@@ -64,9 +68,10 @@ export function ArticleDetail() {
     }
   }, [findRelated.isPending, hasShownToast, markToastShown, showToast, markFeatureUsed])
 
-  // Reset hasTriggeredRelated when article changes
+  // Reset hasTriggeredRelated and chat state when article changes
   useEffect(() => {
     setHasTriggeredRelated(false)
+    setIsChatExpanded(false)
   }, [selectedArticleId])
 
   if (!selectedArticleId) {
@@ -227,6 +232,27 @@ export function ArticleDetail() {
           </Button>
         </Tooltip>
 
+        {hasSummary && (
+          <Tooltip content="Ask questions and refine the summary" side="bottom">
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setIsChatExpanded(!isChatExpanded)}
+            >
+              <MessageCircle
+                className={cn(
+                  'h-4 w-4 mr-1',
+                  chatHistory?.has_chat && 'text-blue-500'
+                )}
+              />
+              {chatHistory?.has_chat ? 'Chatted' : 'Chat'}
+              {!chatHistory?.has_chat && (
+                <Info className="h-2.5 w-2.5 ml-1 opacity-50" />
+              )}
+            </Button>
+          </Tooltip>
+        )}
+
         <div className="ml-auto flex items-center gap-1">
           <Button variant="ghost" size="sm" onClick={handleShare}>
             <Share2 className="h-4 w-4" />
@@ -326,7 +352,13 @@ export function ArticleDetail() {
           />
 
           {/* Chat Section - for Q&A and summary refinement */}
-          {hasSummary && <ArticleChat articleId={article.id} />}
+          {hasSummary && (
+            <ArticleChat
+              articleId={article.id}
+              isExpanded={isChatExpanded}
+              onExpandedChange={setIsChatExpanded}
+            />
+          )}
 
           {/* Main Content */}
           {hasContent ? (
