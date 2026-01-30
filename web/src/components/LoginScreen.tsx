@@ -53,7 +53,7 @@ export function LoginScreen({ authStatus, isLoading, error, onOpenSettings }: Lo
     <div className="h-screen flex items-center justify-center bg-background">
       <div className="max-w-md mx-auto text-center p-8">
         <div className="mb-8">
-          <h1 className="text-3xl font-bold mb-2">DataPoints</h1>
+          <h1 className="text-3xl font-bold mb-2">Data Points</h1>
           <p className="text-muted-foreground">
             Sign in to access your feeds and articles
           </p>

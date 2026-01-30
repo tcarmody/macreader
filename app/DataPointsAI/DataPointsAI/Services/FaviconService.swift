@@ -21,7 +21,7 @@ actor FaviconService {
     private init() {
         // Create cache directory
         let appSupport = FileManager.default.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        cacheDirectory = appSupport.appendingPathComponent("DataPointsAI/FaviconCache", isDirectory: true)
+        cacheDirectory = appSupport.appendingPathComponent("Data Points AI/FaviconCache", isDirectory: true)
         try? FileManager.default.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)
 
         // Clean up old cache entries in the background

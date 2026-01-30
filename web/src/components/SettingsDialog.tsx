@@ -146,7 +146,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
                   placeholder="https://your-backend.railway.app"
                 />
                 <p className="text-xs text-muted-foreground mt-1">
-                  The URL of your DataPoints backend server
+                  The URL of your Data Points backend server
                 </p>
               </div>
 

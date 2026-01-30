@@ -178,7 +178,7 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
     <div className="w-64 border-r border-border flex flex-col bg-card">
       {/* Header */}
       <div className="p-4 flex items-center justify-between">
-        <h1 className="font-semibold text-lg">DataPoints</h1>
+        <h1 className="font-semibold text-lg">Data Points</h1>
         <div className="flex gap-1">
           <Button
             variant="ghost"

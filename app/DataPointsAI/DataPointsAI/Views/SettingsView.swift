@@ -828,7 +828,7 @@ struct NewsletterSettingsView: View {
                         }
                     }
 
-                    Text("Default: ~/Documents/DataPointsAI Newsletters/")
+                    Text("Default: ~/Documents/Data Points AI Newsletters/")
                         .font(.caption)
                         .foregroundStyle(.secondary)
                 }
@@ -1008,14 +1008,14 @@ struct NewsletterSettingsView: View {
            (e.g., "From contains newsletter" or specific sender addresses)
         3. Set the action to "Run AppleScript"
         4. Create an AppleScript that exports the email to:
-           \(watchFolderPath.isEmpty ? "~/Documents/DataPointsAI Newsletters/" : watchFolderPath)
+           \(watchFolderPath.isEmpty ? "~/Documents/Data Points AI Newsletters/" : watchFolderPath)
 
         Sample AppleScript:
         ---
         on perform mail action with messages theMessages
             repeat with theMessage in theMessages
                 set theSubject to subject of theMessage
-                set thePath to "\(watchFolderPath.isEmpty ? "~/Documents/DataPointsAI Newsletters/" : watchFolderPath)" & theSubject & ".eml"
+                set thePath to "\(watchFolderPath.isEmpty ? "~/Documents/Data Points AI Newsletters/" : watchFolderPath)" & theSubject & ".eml"
                 set theSource to source of theMessage
                 do shell script "echo " & quoted form of theSource & " > " & quoted form of thePath
             end repeat
@@ -1034,7 +1034,7 @@ struct NewsletterSettingsView: View {
                     set theSubject to subject of theMessage
                     -- Sanitize filename
                     set cleanSubject to do shell script "echo " & quoted form of theSubject & " | tr -d '/:*?\"<>|' | head -c 100"
-                    set thePath to "\(watchFolderPath.isEmpty ? "~/Documents/DataPointsAI Newsletters/" : watchFolderPath)" & cleanSubject & ".eml"
+                    set thePath to "\(watchFolderPath.isEmpty ? "~/Documents/Data Points AI Newsletters/" : watchFolderPath)" & cleanSubject & ".eml"
                     set theSource to source of theMessage
                     do shell script "echo " & quoted form of theSource & " > " & quoted form of thePath
                 end repeat

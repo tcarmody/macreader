@@ -104,7 +104,7 @@ function AppContent() {
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
               <Server className="h-8 w-8 text-primary" />
             </div>
-            <h1 className="text-3xl font-bold mb-2">Welcome to DataPoints</h1>
+            <h1 className="text-3xl font-bold mb-2">Welcome to Data Points</h1>
             <p className="text-lg text-muted-foreground">
               Your AI-powered RSS reader with intelligent summarization
             </p>

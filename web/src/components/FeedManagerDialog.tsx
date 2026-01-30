@@ -236,7 +236,7 @@ export function FeedManagerDialog({ isOpen, onClose, onAddFeed }: FeedManagerDia
     const url = URL.createObjectURL(blob)
     const a = document.createElement('a')
     a.href = url
-    a.download = 'DataPoints Feeds.opml'
+    a.download = 'Data Points Feeds.opml'
     a.click()
     URL.revokeObjectURL(url)
   }

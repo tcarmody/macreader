@@ -367,7 +367,7 @@ actor NewsletterWatcherService {
     /// Creates it if it doesn't exist
     static func suggestedWatchFolder() -> URL {
         let documentsURL = FileManager.default.urls(for: .documentDirectory, in: .userDomainMask).first!
-        let newsletterFolder = documentsURL.appendingPathComponent("DataPointsAI Newsletters", isDirectory: true)
+        let newsletterFolder = documentsURL.appendingPathComponent("Data Points AI Newsletters", isDirectory: true)
 
         // Create if doesn't exist
         try? FileManager.default.createDirectory(at: newsletterFolder, withIntermediateDirectories: true)

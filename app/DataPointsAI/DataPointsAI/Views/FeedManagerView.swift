@@ -403,7 +403,7 @@ struct FeedManagerView: View {
                 await MainActor.run {
                     let savePanel = NSSavePanel()
                     savePanel.allowedContentTypes = [UTType(filenameExtension: "opml") ?? .xml]
-                    savePanel.nameFieldStringValue = "DataPoints Feeds.opml"
+                    savePanel.nameFieldStringValue = "Data Points Feeds.opml"
                     savePanel.title = "Export Feeds"
                     savePanel.message = "Choose where to save your feeds"
 

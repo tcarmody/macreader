@@ -20,7 +20,7 @@ final class ImageCacheService {
     private init() {
         // Create cache directory in Application Support
         let appSupport = fileManager.urls(for: .applicationSupportDirectory, in: .userDomainMask).first!
-        cacheDirectory = appSupport.appendingPathComponent("DataPointsAI/ImageCache", isDirectory: true)
+        cacheDirectory = appSupport.appendingPathComponent("Data Points AI/ImageCache", isDirectory: true)
 
         // Create directory if it doesn't exist
         try? fileManager.createDirectory(at: cacheDirectory, withIntermediateDirectories: true)

@@ -152,7 +152,7 @@ struct NewsletterSetupWizardView: View {
                 .font(.title2)
                 .fontWeight(.semibold)
 
-            Text("Select a folder where newsletter emails will be exported. DataPointsAI will monitor this folder and automatically import new .eml files.")
+            Text("Select a folder where newsletter emails will be exported. Data Points AI will monitor this folder and automatically import new .eml files.")
                 .multilineTextAlignment(.center)
                 .foregroundStyle(.secondary)
                 .font(.callout)
@@ -170,7 +170,7 @@ struct NewsletterSetupWizardView: View {
                 }
                 .frame(width: 400)
 
-                Text("Default: ~/Documents/DataPointsAI Newsletters/")
+                Text("Default: ~/Documents/Data Points AI Newsletters/")
                     .font(.caption)
                     .foregroundStyle(.secondary)
             }
@@ -389,7 +389,7 @@ struct NewsletterSetupWizardView: View {
                         .font(.callout)
                     Text("3. Check if the .eml file appears in the watch folder")
                         .font(.callout)
-                    Text("4. DataPointsAI should import it automatically")
+                    Text("4. Data Points AI should import it automatically")
                         .font(.callout)
                 }
 
@@ -655,13 +655,13 @@ struct NewsletterSetupWizardView: View {
     private func generateAppleScript() -> String {
         """
         (*
-            Export Newsletter to DataPointsAI
+            Export Newsletter to Data Points AI
 
-            This AppleScript exports newsletter emails to the DataPointsAI watch folder.
+            This AppleScript exports newsletter emails to the Data Points AI watch folder.
             Save this script to: ~/Library/Application Scripts/com.apple.mail/
         *)
 
-        -- Configuration: Set this to your DataPointsAI newsletter folder
+        -- Configuration: Set this to your Data Points AI newsletter folder
         property destinationFolder : "\(watchFolderPath)/"
 
         -- Main handler for Mail.app rules
