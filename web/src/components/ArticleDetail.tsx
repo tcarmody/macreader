@@ -254,7 +254,7 @@ export function ArticleDetail() {
                   chatHistory?.has_chat && 'text-blue-500'
                 )}
               />
-              {chatHistory?.has_chat ? 'Chatted' : 'Chat'}
+              Chat
               {!chatHistory?.has_chat && (
                 <Info className="h-2.5 w-2.5 ml-1 opacity-50" />
               )}

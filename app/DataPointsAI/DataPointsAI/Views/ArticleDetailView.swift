@@ -396,7 +396,7 @@ struct ArticleDetailView: View {
                         Image(systemName: hasChatHistory ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right")
                             .font(.system(size: 14))
                             .foregroundColor(hasChatHistory ? .blue : .secondary)
-                        Text(hasChatHistory ? "Chatted" : "Chat")
+                        Text("Chat")
                             .font(.system(size: 13))
                         if !hasChatHistory {
                             Image(systemName: "info.circle")
