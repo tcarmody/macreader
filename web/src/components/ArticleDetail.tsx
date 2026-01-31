@@ -13,8 +13,7 @@ import {
   Link2,
   MessageCircle,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { formatFullDate, getDomain } from '@/lib/utils'
+import { cn, formatFullDate, getDomain, smartQuotes } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -332,7 +331,7 @@ export function ArticleDetail() {
                 <div className="mt-4 space-y-4">
                   {article.summary_full && (
                     <p className="text-sm leading-relaxed">
-                      {article.summary_full}
+                      {smartQuotes(article.summary_full)}
                     </p>
                   )}
 
@@ -341,7 +340,7 @@ export function ArticleDetail() {
                       <h4 className="text-sm font-semibold mb-2">Key Points</h4>
                       <ul className="list-disc list-inside space-y-1 text-sm">
                         {article.key_points.map((point, i) => (
-                          <li key={i}>{point}</li>
+                          <li key={i}>{smartQuotes(point)}</li>
                         ))}
                       </ul>
                     </div>

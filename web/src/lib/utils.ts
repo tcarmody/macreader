@@ -71,3 +71,32 @@ export function getDomain(url: string): string {
     return url
   }
 }
+
+/**
+ * Convert straight quotes to typographically correct smart quotes.
+ * Handles double quotes, single quotes, and apostrophes.
+ *
+ * Unicode characters used:
+ * - \u201C = " (left double quote)
+ * - \u201D = " (right double quote)
+ * - \u2018 = ' (left single quote)
+ * - \u2019 = ' (right single quote / apostrophe)
+ */
+export function smartQuotes(text: string): string {
+  return text
+    // Double quotes: opening after whitespace/start, closing before whitespace/end/punctuation
+    .replace(/"(\S)/g, '\u201C$1')       // Opening double quote
+    .replace(/(\S)"/g, '$1\u201D')       // Closing double quote
+    .replace(/"\s/g, '\u201D ')          // Closing double quote before space
+    .replace(/\s"/g, ' \u201C')          // Opening double quote after space
+    .replace(/^"/g, '\u201C')            // Opening double quote at start
+    .replace(/"$/g, '\u201D')            // Closing double quote at end
+    // Single quotes / apostrophes
+    .replace(/(\w)'(\w)/g, '$1\u2019$2') // Apostrophe within words (don't, it's)
+    .replace(/'(\S)/g, '\u2018$1')       // Opening single quote
+    .replace(/(\S)'/g, '$1\u2019')       // Closing single quote
+    .replace(/'\s/g, '\u2019 ')          // Closing single quote before space
+    .replace(/\s'/g, ' \u2018')          // Opening single quote after space
+    .replace(/^'/g, '\u2018')            // Opening single quote at start
+    .replace(/'$/g, '\u2019')            // Closing single quote at end
+}

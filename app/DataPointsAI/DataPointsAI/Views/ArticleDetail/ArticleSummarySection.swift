@@ -41,7 +41,7 @@ struct ArticleSummarySection: View {
                 .help("Copy summary, source, and URL")
             }
 
-            Text(summary)
+            Text(summary.smartQuotes)
                 .font(appTypeface.font(size: fontSize.bodyFontSize))
                 .lineSpacing(fontSize.bodyFontSize * (lineSpacing.multiplier - 1))
                 .textSelection(.enabled)
@@ -94,7 +94,7 @@ struct ArticleSummarySection: View {
                 .buttonStyle(.bordered)
             } else {
                 if let shortSummary = article.summaryShort {
-                    Text(shortSummary)
+                    Text(shortSummary.smartQuotes)
                         .font(appTypeface.font(size: fontSize.bodyFontSize))
                         .lineSpacing(fontSize.bodyFontSize * (lineSpacing.multiplier - 1))
                         .foregroundStyle(.secondary)
@@ -146,7 +146,7 @@ struct ArticleKeyPointsSection: View {
                         Text("•")
                             .font(appTypeface.font(size: fontSize.bodyFontSize))
                             .foregroundStyle(.blue)
-                        Text(point)
+                        Text(point.smartQuotes)
                             .font(appTypeface.font(size: fontSize.bodyFontSize))
                             .lineSpacing(fontSize.bodyFontSize * (lineSpacing.multiplier - 1))
                             .textSelection(.enabled)

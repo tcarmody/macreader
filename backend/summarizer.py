@@ -53,96 +53,84 @@ class Summarizer:
     MAX_CONTENT_LENGTH = 15000
 
     # System prompt establishing the AI persona and quality standards
-    SYSTEM_PROMPT = """You are an expert journalist. Your summaries are written for a general educated audience and should be quickly readable by anyone.
+    SYSTEM_PROMPT = """You are an expert technology journalist writing for software engineers and AI practitioners. Your summaries are clear, direct, and technically informed while remaining accessible.
 
 Core principles:
-- Use clear, simple, jargon-free language in straightforward syntax
-- Present information directly and factually in active voice
-- Avoid meta-language like 'This article explains...', 'This is important because...', or 'The author discusses...'
-- Avoid stilted language, complex sentence constructions, and obscure vocabulary
-- Include technical details sparingly and only when they help the reader understand the story
-- Include relevant details like pricing and availability when mentioned
-- Focus on what happened, why it matters, and what comes next
-
-Style conventions:
-- Use active voice and non-compound verbs (e.g., 'banned' not 'has banned')
-- Spell out numbers and 'percent' (e.g., '8 billion', not '8B' or '%')
-- Use smart quotes, not straight quotes
-- Use 'U.S.' and 'U.K.' with periods; use 'AI' without periods
-- Avoid the words 'content' and 'creator' when possible"""
+- Present information directly and factually—no meta-language like "This article explains..." or "The author discusses..."
+- Use active voice and simple syntax
+- Include technical details when they matter; omit jargon that doesn't add meaning
+- Always connect stories to their practical implications for builders and practitioners
+- Be skeptical of marketing language and press release hype—focus on substance"""
 
     # Static instruction prompt (cacheable) - separated from dynamic content
-    INSTRUCTION_PROMPT = """Summarize the article below following these guidelines:
+    INSTRUCTION_PROMPT = """Summarize the article below. Respond with valid JSON only—no other text.
 
-IMPORTANT - Multi-story detection:
-First, determine whether this article contains multiple distinct stories (common in newsletters, news roundups, or digest-style articles). Signs of multi-story content include:
-- Clear section breaks or headers separating different topics
-- Multiple unrelated subjects (e.g., different companies, different events)
-- "In other news..." or similar transitional phrases
-- Newsletter format with several items
+CONTENT TYPE DETECTION:
+First, classify the article as one of: news, analysis, tutorial, review, research, newsletter
+- news: Announcements, product launches, funding, acquisitions, breaking developments
+- analysis: Opinion pieces, commentary, predictions, industry analysis
+- tutorial: How-to guides, technical walkthroughs, implementation guides
+- review: Product reviews, comparisons, evaluations
+- research: Academic papers, technical reports, benchmark studies
+- newsletter: Multi-story digests, roundups, curated links
 
-Structure for SINGLE-STORY articles:
-1. HEADLINE: Create a headline in sentence case that:
-   - Captures the core news or development
-   - Uses strong, specific verbs
-   - Avoids repeating exact phrases from the summary
+HEADLINE GUIDELINES (8-12 words):
+- Lead with the most searchable noun (company name, product, technology)
+- Use a strong, active verb
+- Include one concrete detail (number, name, or outcome)
+- Do NOT repeat the article's original headline verbatim
+- Avoid vague words: "new," "big," "major," "revolutionary," "game-changing"
+- Avoid clickbait: "You won't believe," "Here's why," "Everything you need to know"
 
-2. SUMMARY: A focused summary of five sentences in paragraph form (no bullet points):
-   - First sentence: State the core announcement, finding, or development
-   - Following sentences: Include 2-3 of these elements as relevant:
-     Technical specifications, pricing/availability, key limitations, industry context, or concrete use cases
-   - Prioritize information that answers: What changed? What can it do? What does it cost? When is it available?
-   - Write as flowing prose, NOT as a list of bullet points
+Good: "Anthropic releases Claude 4 with 1M token context window"
+Good: "Google open-sources Gemma 3 weights for commercial use"
+Bad: "Anthropic announces major new AI model update"
+Bad: "New Claude model is a game-changer for developers"
 
-3. KEY POINTS: 3-5 bullet points that highlight distinct, scannable takeaways.
+SUMMARY GUIDELINES:
+Write 4-6 sentences as flowing prose (no bullet points).
 
-Structure for MULTI-STORY articles:
-1. HEADLINE: Create a headline that references the source or format (e.g., "AI Newsletter: Three developments in robotics, language models, and chip design")
+For SINGLE-STORY articles:
+- Sentence 1: State the core development—what happened, who did it, when
+- Sentences 2-4: Include the most relevant of: technical specs, pricing, availability, limitations, methodology, key findings, competitive context
+- Final sentence: Connect to broader implications for software development, AI capabilities, or the industry—but write it as a natural continuation, NOT as "This matters because..." or "This is significant for..."
 
-2. SUMMARY: Write ONE PARAGRAPH PER STORY, with a blank line between paragraphs:
-   - Each paragraph should be 4-5 sentences covering one distinct story
-   - Start each paragraph with the key news item for that story
-   - Include relevant details like technical specs, pricing, availability, or implications
-   - Order stories by importance or prominence in the original
-   - Aim for 3-6 paragraphs total depending on how many stories are present
+Good final sentence: "The pricing undercuts GPT-4 by 60%, likely shifting which models developers default to for production workloads."
+Bad final sentence: "This is important for developers because it offers a cheaper alternative."
 
-3. KEY POINTS: 3-5 bullet points covering the most important takeaways ACROSS ALL stories.
-   - Include the most significant facts, numbers, or implications from any of the stories
-   - Don't try to have one bullet per story - prioritize by importance
+For MULTI-STORY articles (newsletters, roundups):
+- Write one paragraph per major story (3-4 sentences each)
+- Separate paragraphs with blank lines
+- Order by importance, not by original appearance
+- Still end with an implications sentence for the most significant story
 
-Style guidelines:
-- Use active voice (e.g., 'Company released product' not 'Product was released by company')
-- Use non-compound verbs (e.g., 'banned' instead of 'has banned')
-- Avoid self-explanatory phrases like 'This article explains...', 'This is important because...', or 'The author discusses...'
-- Present information directly without meta-commentary
-- Avoid the words 'content' and 'creator'
-- Spell out numbers (e.g., '8 billion' not '8B', '100 million' not '100M')
-- Spell out 'percent' instead of using the '%' symbol
-- Use 'U.S.' and 'U.K.' with periods; use 'AI' without periods
-- Use smart quotes, not straight quotes
+SPECIAL HANDLING BY CONTENT TYPE:
+- analysis/opinion: Note the author's position neutrally (e.g., "argues that," "contends") without editorializing
+- tutorial: Preserve the key actionable steps or techniques covered
+- review: Include the verdict and primary pros/cons
+- research: Note methodology, sample sizes, and any stated limitations
+- news (press releases): Be skeptical—distinguish concrete announcements from aspirational claims
 
-Additional guidelines:
-- For product launches: Always include pricing and availability if mentioned
-- For research papers: Include key metrics, dataset sizes, or performance improvements
-- For company news: Focus on concrete actions, not just announcements or intentions
-- Omit background information readers likely already know (e.g., 'OpenAI is an AI company')
+ADDITIONAL GUIDELINES:
+- If the article contains a notable quote from a primary source that captures the story's essence, include it
+- If information conflicts or is disputed, present both sides neutrally
+- If content appears truncated or paywalled, summarize only what's available and note the limitation
+- Spell out numbers ("8 billion" not "8B") and "percent" (not "%")
+- Use active voice and simple verbs ("released" not "has released")
+- Omit background readers likely know ("OpenAI is an AI company")
 
-Provide your response in exactly this format:
+KEY POINTS GUIDELINES:
+- 3-5 bullet points with distinct, scannable takeaways
+- Include specific facts, numbers, dates, or names
+- For multi-story articles, prioritize across all stories by importance
 
-HEADLINE:
-[Your headline here]
-
-SUMMARY:
-[Your summary here - either five sentences for single-story, or multiple paragraphs for multi-story]
-
-URL: [article URL will be provided]
-
-KEY POINTS:
-- [First key point]
-- [Second key point]
-- [Third key point]
-- [Optional fourth point]
-- [Optional fifth point]"""
+Respond with this exact JSON structure:
+{
+  "headline": "Your headline here",
+  "summary": "Your summary paragraphs here. Use \\n\\n for paragraph breaks in multi-story summaries.",
+  "key_points": ["First point", "Second point", "Third point"],
+  "content_type": "news|analysis|tutorial|review|research|newsletter"
+}"""
 
     def __init__(
         self,
@@ -316,50 +304,100 @@ Article:
 {truncated_content}"""
 
     def _parse_response(self, text: str, model: Model, title: str = "", url: str = "") -> Summary:
-        """Parse LLM response into structured Summary."""
-        # Default values
+        """Parse LLM response (JSON) into structured Summary."""
+        import json
+
         headline = ""
         summary_text = ""
         key_points: list[str] = []
 
-        def strip_markdown(s: str) -> str:
-            """Remove markdown formatting like **bold** and #headers."""
-            s = s.strip()
-            # Remove leading # for headers
-            while s.startswith("#"):
-                s = s[1:].strip()
-            # Remove ** bold markers
-            s = s.replace("**", "")
-            return s.strip()
+        # Try to parse as JSON first
+        try:
+            # Handle potential markdown code blocks around JSON
+            json_text = text.strip()
+            if json_text.startswith("```"):
+                # Remove markdown code fence
+                lines = json_text.split("\n")
+                # Skip first line (```json) and last line (```)
+                json_text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+
+            data = json.loads(json_text)
+            headline = data.get("headline", "")
+            summary_text = data.get("summary", "")
+            key_points = data.get("key_points", [])
+
+            # Ensure key_points is a list of strings
+            if isinstance(key_points, list):
+                key_points = [str(p) for p in key_points if p]
+            else:
+                key_points = []
+
+        except (json.JSONDecodeError, KeyError, TypeError):
+            # Fallback to legacy text parsing for backwards compatibility
+            headline, summary_text, key_points = self._parse_legacy_response(text, title)
+
+        # Enforce length limits
+        headline = headline[:200] if headline else ""
+        key_points = key_points[:5]
+
+        # Fallback if parsing produced empty results
+        if not summary_text:
+            summary_text = self._strip_markdown(text)
+
+        if not headline:
+            sentences = text.split(".")
+            if sentences:
+                headline = self._strip_markdown(sentences[0]) + "."
+            else:
+                headline = self._strip_markdown(text[:150])
+
+        return Summary(
+            title=title,
+            one_liner=headline,
+            full_summary=summary_text,
+            key_points=key_points,
+            model_used=model,
+            cached=False
+        )
+
+    def _strip_markdown(self, s: str) -> str:
+        """Remove markdown formatting like **bold** and #headers."""
+        s = s.strip()
+        while s.startswith("#"):
+            s = s[1:].strip()
+        s = s.replace("**", "")
+        return s.strip()
+
+    def _parse_legacy_response(self, text: str, title: str = "") -> tuple[str, str, list[str]]:
+        """
+        Fallback parser for non-JSON responses (backwards compatibility).
+        Returns (headline, summary_text, key_points).
+        """
+        headline = ""
+        summary_text = ""
+        key_points: list[str] = []
 
         def is_section_header(line: str, section: str) -> bool:
-            """Check if line is a section header (with or without markdown)."""
-            cleaned = strip_markdown(line).lower()
+            cleaned = self._strip_markdown(line).lower()
             return cleaned == f"{section}:" or cleaned.startswith(f"{section}:")
 
         def extract_after_colon(line: str) -> str:
-            """Extract content after the colon in a header line."""
             if ":" in line:
-                return strip_markdown(line.split(":", 1)[1])
+                return self._strip_markdown(line.split(":", 1)[1])
             return ""
 
-        # Split response into sections
         lines = text.strip().split("\n")
         current_section: str | None = None
         current_content: list[str] = []
 
         for line in lines:
             line_stripped = line.strip()
-
-            # Skip empty lines
             if not line_stripped:
                 continue
 
-            # Skip lines that are just the article title repeated
-            if line_stripped.startswith("#") and title and strip_markdown(line_stripped) == title:
+            if line_stripped.startswith("#") and title and self._strip_markdown(line_stripped) == title:
                 continue
 
-            # Detect section headers
             if is_section_header(line_stripped, "headline"):
                 if current_section == "summary":
                     summary_text = "\n".join(current_content).strip()
@@ -377,12 +415,11 @@ Article:
                 if rest:
                     current_content.append(rest)
             elif is_section_header(line_stripped, "url"):
-                # Skip URL line - we don't need it
                 if current_section == "summary":
                     summary_text = "\n".join(current_content).strip()
                     current_content = []
                 current_section = "url"
-            elif is_section_header(line_stripped, "key points") or "key point" in strip_markdown(line_stripped).lower():
+            elif is_section_header(line_stripped, "key points") or "key point" in self._strip_markdown(line_stripped).lower():
                 if current_section == "summary":
                     summary_text = "\n".join(current_content).strip()
                 elif current_section == "headline":
@@ -390,8 +427,7 @@ Article:
                 current_section = "points"
                 current_content = []
             elif current_section == "points":
-                # Extract bullet point
-                cleaned = strip_markdown(line_stripped)
+                cleaned = self._strip_markdown(line_stripped)
                 if cleaned.startswith(("•", "-", "·")):
                     point = cleaned.lstrip("•-·").strip()
                     if point:
@@ -401,45 +437,16 @@ Article:
                     if point:
                         key_points.append(point)
             elif current_section == "url":
-                # Skip URL content
                 pass
             elif current_section and line_stripped:
-                # Add content to current section (strip markdown from content too)
-                current_content.append(strip_markdown(line_stripped))
+                current_content.append(self._strip_markdown(line_stripped))
 
-        # Handle final section
         if current_section == "headline" and not headline:
             headline = " ".join(current_content).strip()
         elif current_section == "summary" and not summary_text:
             summary_text = "\n".join(current_content).strip()
 
-        # Fallback: if parsing failed, use entire response
-        if not summary_text:
-            summary_text = strip_markdown(text)
-
-        if not headline:
-            # Take first sentence as headline
-            sentences = text.split(".")
-            if sentences:
-                headline = strip_markdown(sentences[0]) + "."
-            else:
-                headline = strip_markdown(text[:150])
-
-        # Enforce length limits
-        headline = headline[:200]
-        key_points = key_points[:5]
-
-        # Build clean full summary (just the summary text - headline and key points displayed separately by UI)
-        full_summary = summary_text
-
-        return Summary(
-            title=title,
-            one_liner=headline,  # Use headline as the one-liner
-            full_summary=full_summary,
-            key_points=key_points,
-            model_used=model,
-            cached=False
-        )
+        return headline, summary_text, key_points
 
     async def summarize_async(
         self,

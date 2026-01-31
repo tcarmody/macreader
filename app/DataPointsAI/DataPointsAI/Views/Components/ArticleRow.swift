@@ -69,7 +69,7 @@ struct ArticleRow: View {
 
                     // Summary preview (hidden in compact mode)
                     if listDensity.showSummaryPreview, let preview = article.summaryPreview {
-                        Text(preview)
+                        Text(preview.smartQuotes)
                             .font(.subheadline)
                             .foregroundStyle(.tertiary)
                             .lineLimit(listDensity == .spacious ? 3 : 2)

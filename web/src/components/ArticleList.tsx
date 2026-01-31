@@ -18,8 +18,7 @@ import {
   Plus,
   Info,
 } from 'lucide-react'
-import { cn } from '@/lib/utils'
-import { formatDate, stripHtml } from '@/lib/utils'
+import { cn, formatDate, stripHtml, smartQuotes } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
@@ -450,7 +449,7 @@ function ArticleListItem({ article, isSelected, onSelect }: ArticleListItemProps
 
           {summary && (
             <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
-              {summary}
+              {smartQuotes(summary)}
             </p>
           )}
 
