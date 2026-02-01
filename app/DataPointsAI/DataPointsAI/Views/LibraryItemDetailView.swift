@@ -119,6 +119,9 @@ struct LibraryItemDetailView: View {
             // Actions
             actionsSection(item: item)
 
+            // Related links
+            relatedLinksSection(item: item, fontSize: fontSize, lineSpacing: lineSpacing, appTypeface: appTypeface)
+
             // Original content
             contentSection(item: item, fontSize: fontSize, lineSpacing: lineSpacing, contentTypeface: contentTypeface)
         }
@@ -339,6 +342,29 @@ struct LibraryItemDetailView: View {
             }
             .buttonStyle(.bordered)
 
+            // Context/Related Links button
+            Button {
+                if item.relatedLinks == nil || (item.relatedLinks?.isEmpty ?? true) {
+                    Task {
+                        await appState.loadRelatedLinksForLibraryItem(itemId: item.id)
+                    }
+                }
+            } label: {
+                HStack(spacing: 4) {
+                    if appState.isLoadingRelated {
+                        ProgressView()
+                            .scaleEffect(0.6)
+                    } else {
+                        Image(systemName: "link")
+                            .foregroundColor((item.relatedLinks?.isEmpty == false) ? .blue : nil)
+                    }
+                    Text((item.relatedLinks?.isEmpty == false) ? "Contextualized" : "Context")
+                }
+            }
+            .buttonStyle(.bordered)
+            .disabled(appState.isLoadingRelated || (item.relatedLinks?.isEmpty == false))
+            .help((item.relatedLinks?.isEmpty == false) ? "Related articles found" : "Find semantically related articles using neural search")
+
             Spacer()
 
             if item.type == .url {
@@ -356,6 +382,43 @@ struct LibraryItemDetailView: View {
                 Label("Delete", systemImage: "trash")
             }
             .buttonStyle(.bordered)
+        }
+    }
+
+    // MARK: - Related Links Section
+
+    @ViewBuilder
+    private func relatedLinksSection(item: LibraryItemDetail, fontSize: ArticleFontSize, lineSpacing: ArticleLineSpacing, appTypeface: AppTypeface) -> some View {
+        // Only show section when there are links, loading, or error (matching article behavior)
+        if let relatedLinks = item.relatedLinks, !relatedLinks.isEmpty {
+            ArticleRelatedLinksSection(
+                relatedLinks: relatedLinks,
+                fontSize: fontSize,
+                lineSpacing: lineSpacing,
+                appTypeface: appTypeface,
+                isLoadingRelated: appState.isLoadingRelated,
+                relatedLinksError: item.relatedLinksError,
+                onFindRelated: {
+                    Task {
+                        await appState.loadRelatedLinksForLibraryItem(itemId: item.id)
+                    }
+                }
+            )
+        } else if appState.isLoadingRelated || item.relatedLinksError != nil {
+            // Show loading/error state even if no links yet
+            ArticleRelatedLinksSection(
+                relatedLinks: [],
+                fontSize: fontSize,
+                lineSpacing: lineSpacing,
+                appTypeface: appTypeface,
+                isLoadingRelated: appState.isLoadingRelated,
+                relatedLinksError: item.relatedLinksError,
+                onFindRelated: {
+                    Task {
+                        await appState.loadRelatedLinksForLibraryItem(itemId: item.id)
+                    }
+                }
+            )
         }
     }
 

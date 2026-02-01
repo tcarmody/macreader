@@ -351,6 +351,29 @@ async def summarize_standalone_item(
     return {"success": True, "message": "Summarization started"}
 
 
+@router.post("/{item_id}/related")
+async def find_related_links(
+    item_id: int,
+    db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)],
+    background_tasks: BackgroundTasks
+) -> dict:
+    """Find related links for a library item using Exa neural search."""
+    if not state.exa_service:
+        raise HTTPException(status_code=503, detail="Related links feature not configured")
+
+    require_item(db.get_library_item(user_id, item_id))
+
+    from ..tasks import fetch_related_links_task
+
+    background_tasks.add_task(
+        fetch_related_links_task,
+        item_id
+    )
+
+    return {"success": True, "message": "Finding related links..."}
+
+
 # ─────────────────────────────────────────────────────────────
 # Newsletter Import
 # ─────────────────────────────────────────────────────────────

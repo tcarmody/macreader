@@ -363,8 +363,23 @@ class StandaloneItemDetailResponse(BaseModel):
     file_name: str | None
     created_at: str
 
+    # Related links from Exa neural search
+    related_links: list[RelatedLink] | None = None
+    related_links_error: str | None = None
+
     @classmethod
     def from_db(cls, article: DBArticle) -> "StandaloneItemDetailResponse":
+        # Parse related links from JSON
+        related_links = None
+        if article.related_links:
+            try:
+                import json
+                data = json.loads(article.related_links)
+                if isinstance(data, dict) and "links" in data:
+                    related_links = [RelatedLink(**link) for link in data["links"]]
+            except (json.JSONDecodeError, TypeError, KeyError):
+                pass  # Invalid JSON, skip
+
         return cls(
             id=article.id,
             url=article.url,
@@ -377,7 +392,9 @@ class StandaloneItemDetailResponse(BaseModel):
             is_bookmarked=article.is_bookmarked,
             content_type=article.content_type,
             file_name=article.file_name,
-            created_at=serialize_datetime(article.created_at)
+            created_at=serialize_datetime(article.created_at),
+            related_links=related_links,
+            related_links_error=article.related_links_error,
         )
 
 

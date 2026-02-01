@@ -118,6 +118,40 @@ extension AppState {
         }
     }
 
+    func loadRelatedLinksForLibraryItem(itemId: Int) async {
+        isLoadingRelated = true
+
+        do {
+            // Trigger related links fetch
+            try await apiClient.findRelatedLinksForLibraryItem(id: itemId)
+
+            // Poll for completion (wait for background task to finish - success or error)
+            for _ in 0..<30 {  // Poll for up to 30 seconds
+                try await Task.sleep(nanoseconds: 1_000_000_000)  // 1 second
+
+                let detail = try await apiClient.getLibraryItem(id: itemId)
+                // Stop polling when we get either results OR an error
+                if detail.relatedLinks != nil || detail.relatedLinksError != nil {
+                    if selectedLibraryItemDetail?.id == itemId {
+                        selectedLibraryItemDetail = detail
+                    }
+                    isLoadingRelated = false
+                    return
+                }
+            }
+
+            // Timeout - fetch one more time to get current state
+            let detail = try await apiClient.getLibraryItem(id: itemId)
+            if selectedLibraryItemDetail?.id == itemId {
+                selectedLibraryItemDetail = detail
+            }
+        } catch {
+            self.error = error.localizedDescription
+        }
+
+        isLoadingRelated = false
+    }
+
     func selectLibrary() {
         showLibrary = true
         // Don't change selectedFilter - it triggers onChange handler which interferes

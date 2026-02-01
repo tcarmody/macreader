@@ -4,6 +4,7 @@ import {
   BookMarked,
   FileText,
   Link,
+  Link2,
   Upload,
   Plus,
   Sparkles,
@@ -28,7 +29,9 @@ import {
   useUploadLibraryFile,
   useDeleteLibraryItem,
   useSummarizeLibraryItem,
+  useFindRelatedLinksForLibraryItem,
 } from '@/hooks/use-queries'
+import { RelatedLinks } from './RelatedLinks'
 // StandaloneItem type imported for documentation but used via inference
 import type {} from '@/types'
 
@@ -258,6 +261,13 @@ export function LibraryItemDetail() {
   const { data: item, isLoading } = useLibraryItem(selectedLibraryItemId)
   const deleteItem = useDeleteLibraryItem()
   const summarize = useSummarizeLibraryItem()
+  const findRelated = useFindRelatedLinksForLibraryItem()
+  const [hasTriggeredRelated, setHasTriggeredRelated] = useState(false)
+
+  // Reset triggered state when item changes
+  useEffect(() => {
+    setHasTriggeredRelated(false)
+  }, [selectedLibraryItemId])
 
   if (!selectedLibraryItemId) {
     return (
@@ -291,6 +301,11 @@ export function LibraryItemDetail() {
     summarize.mutate(item.id)
   }
 
+  const handleFindRelated = () => {
+    setHasTriggeredRelated(true)
+    findRelated.mutate(item.id)
+  }
+
   return (
     <div className="flex-1 flex flex-col bg-background">
       {/* Toolbar */}
@@ -307,6 +322,23 @@ export function LibraryItemDetail() {
             <Sparkles className={cn("h-4 w-4 mr-1", item.summary_full && "text-purple-500")} />
           )}
           {item.summary_full ? 'Summarized' : 'Summarize'}
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleFindRelated}
+          disabled={findRelated.isPending || (!!item.related_links && item.related_links.length > 0)}
+        >
+          {findRelated.isPending ? (
+            <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+          ) : (
+            <Link2 className={cn(
+              "h-4 w-4 mr-1",
+              item.related_links && item.related_links.length > 0 && "text-blue-500"
+            )} />
+          )}
+          {item.related_links && item.related_links.length > 0 ? 'Contextualized' : 'Context'}
         </Button>
 
         <Separator orientation="vertical" className="h-6" />
@@ -376,6 +408,15 @@ export function LibraryItemDetail() {
               )}
             </section>
           )}
+
+          {/* Related Links */}
+          <RelatedLinks
+            relatedLinks={item.related_links}
+            isLoading={findRelated.isPending}
+            error={item.related_links_error || findRelated.error?.message || null}
+            onFindRelated={handleFindRelated}
+            hasTriggered={hasTriggeredRelated}
+          />
 
           {/* Content */}
           {item.content ? (

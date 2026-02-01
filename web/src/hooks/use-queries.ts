@@ -421,6 +421,24 @@ export function useSummarizeLibraryItem() {
   })
 }
 
+export function useFindRelatedLinksForLibraryItem() {
+  const { startPolling } = useSummarizationPolling()
+  return useMutation({
+    mutationFn: api.findRelatedLinksForLibraryItem,
+    onSuccess: (_, itemId) => {
+      startPolling({
+        fetchFn: () => api.getLibraryItem(itemId),
+        // Stop polling when we get results OR an error
+        isComplete: (item) =>
+          (!!item.related_links && item.related_links.length > 0) ||
+          !!item.related_links_error,
+        queryKey: queryKeys.libraryItem(itemId),
+        invalidateKeys: [['library']],
+      })
+    },
+  })
+}
+
 // Chat hooks
 export function useChatHistory(articleId: number | null) {
   return useQuery({

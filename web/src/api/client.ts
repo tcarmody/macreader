@@ -338,6 +338,12 @@ export async function summarizeLibraryItem(
   return fetchApi(`/standalone/${itemId}/summarize`, { method: 'POST' })
 }
 
+export async function findRelatedLinksForLibraryItem(
+  itemId: number
+): Promise<{ success: boolean; message: string }> {
+  return fetchApi(`/standalone/${itemId}/related`, { method: 'POST' })
+}
+
 // Batch Summarization
 export async function batchSummarize(
   urls: string[]

@@ -373,6 +373,10 @@ final class APIClient {
         let _: EmptyResponse = try await post(path: "/standalone/\(id)/summarize")
     }
 
+    func findRelatedLinksForLibraryItem(id: Int) async throws {
+        let _: EmptyResponse = try await post(path: "/standalone/\(id)/related")
+    }
+
     // MARK: - Newsletter Import / Gmail IMAP
 
     /// Get Gmail OAuth authorization URL

@@ -71,6 +71,8 @@ export interface StandaloneItemDetail extends StandaloneItem {
   summary_full: string | null
   key_points: string[] | null
   model_used: string | null
+  related_links: RelatedLink[] | null
+  related_links_error: string | null
 }
 
 export interface AppSettings {
