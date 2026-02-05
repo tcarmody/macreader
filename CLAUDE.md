@@ -293,6 +293,13 @@ Tests use pytest with pytest-asyncio. Test files mirror route structure:
 - `test_article_routes.py`, `test_feed_routes.py`, `test_auth.py`, etc.
 - Fixtures in `conftest.py` provide test database and client
 
+### Bug Fix Workflow
+
+When a bug is reported:
+1. **Write a reproducing test first** - Create a test that fails due to the bug
+2. **Fix the bug** - Implement the fix
+3. **Prove via passing test** - Run the test to verify the fix works
+
 ## Environment Variables
 
 Key variables (see `.env.example`):
