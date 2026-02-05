@@ -426,6 +426,18 @@ export function ArticleDetail() {
                       </ul>
                     </div>
                   )}
+
+                  <div className="pt-2 border-t border-purple-500/20">
+                    <a
+                      href={article.url}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-xs text-muted-foreground hover:text-purple-600 dark:hover:text-purple-400 inline-flex items-center gap-1"
+                    >
+                      Source: {getDomain(article.url)}
+                      <ExternalLink className="h-3 w-3" />
+                    </a>
+                  </div>
                 </div>
               )}
             </section>
