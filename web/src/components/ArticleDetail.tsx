@@ -454,6 +454,15 @@ export function ArticleDetail() {
             <div
               className="article-content prose prose-slate dark:prose-invert max-w-none"
               dangerouslySetInnerHTML={{ __html: article.content || '' }}
+              onClick={(e) => {
+                // Open external links in new tab
+                const target = e.target as HTMLElement
+                const anchor = target.closest('a')
+                if (anchor && anchor.href) {
+                  e.preventDefault()
+                  window.open(anchor.href, '_blank', 'noopener,noreferrer')
+                }
+              }}
             />
           ) : (
             <div className="text-center py-12 text-muted-foreground">
