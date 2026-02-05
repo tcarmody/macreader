@@ -32,6 +32,7 @@ interface AppState {
     hasUsedSummarize: boolean
     hasUsedLibrary: boolean
     hasUsedFeedManager: boolean
+    hasUsedRelated: boolean
   }
 
   // First-Time Toast Tracking
@@ -91,6 +92,7 @@ export const useAppStore = create<AppState>()(
         hasUsedSummarize: false,
         hasUsedLibrary: false,
         hasUsedFeedManager: false,
+        hasUsedRelated: false,
       },
 
       // Initial Toast Tracking

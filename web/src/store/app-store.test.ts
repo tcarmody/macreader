@@ -1,4 +1,4 @@
-import { describe, it, expect, beforeEach, vi } from 'vitest'
+import { describe, it, expect, beforeEach } from 'vitest'
 import { useAppStore } from './app-store'
 
 describe('useAppStore', () => {
@@ -23,6 +23,7 @@ describe('useAppStore', () => {
         hasUsedSummarize: false,
         hasUsedLibrary: false,
         hasUsedFeedManager: false,
+        hasUsedRelated: false,
       },
       shownToasts: new Set<string>(),
       apiConfig: {

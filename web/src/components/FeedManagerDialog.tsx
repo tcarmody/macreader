@@ -9,7 +9,6 @@ import {
   Pencil,
   Copy,
   Check,
-  X,
   AlertCircle,
   Clock,
   CheckCircle2,

@@ -1,6 +1,7 @@
 import * as React from "react"
 import { Loader2 } from "lucide-react"
-import { Button, ButtonProps } from "./button"
+import { Button } from "./button"
+import type { ButtonProps } from "./button"
 
 export interface LoadingButtonProps extends ButtonProps {
   /** Whether the button is in a loading state */
