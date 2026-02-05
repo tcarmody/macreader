@@ -164,8 +164,20 @@ export const useAppStore = create<AppState>()(
         sortBy: state.sortBy,
         hideRead: state.hideRead,
         featureUsage: state.featureUsage,
-        shownToasts: state.shownToasts,
+        // Convert Set to Array for JSON serialization
+        shownToasts: [...state.shownToasts],
         apiConfig: state.apiConfig,
+      }),
+      // Convert Array back to Set on rehydration
+      merge: (persistedState, currentState) => ({
+        ...currentState,
+        ...(persistedState as object),
+        // Ensure shownToasts is always a Set
+        shownToasts: new Set(
+          Array.isArray((persistedState as { shownToasts?: string[] })?.shownToasts)
+            ? (persistedState as { shownToasts: string[] }).shownToasts
+            : []
+        ),
       }),
     }
   )
