@@ -492,7 +492,7 @@ export function ArticleDetail() {
               <div>
                 <h2 className="text-lg font-semibold">Paste from Browser</h2>
                 <p className="text-sm text-muted-foreground mt-1">
-                  Open the article in your browser, copy the page HTML (Ctrl/Cmd+U, then Ctrl/Cmd+A, Ctrl/Cmd+C), and paste it below.
+                  Select the article content in your browser, copy it (Ctrl/Cmd+C), then click below and paste (Ctrl/Cmd+V).
                 </p>
               </div>
               <Button
@@ -507,12 +507,52 @@ export function ArticleDetail() {
               </Button>
             </div>
             <div className="flex-1 p-4 overflow-hidden">
-              <textarea
-                value={pastedHtml}
-                onChange={(e) => setPastedHtml(e.target.value)}
-                placeholder="Paste HTML content here..."
-                className="w-full h-64 p-3 text-sm font-mono border border-input rounded-md bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring"
-              />
+              <div
+                className={cn(
+                  "w-full h-64 p-3 text-sm border border-input rounded-md bg-background overflow-auto focus:outline-none focus:ring-2 focus:ring-ring cursor-text",
+                  !pastedHtml && "flex items-center justify-center"
+                )}
+                tabIndex={0}
+                onPaste={(e) => {
+                  e.preventDefault()
+                  // Try to get HTML content first, fall back to plain text
+                  const html = e.clipboardData.getData('text/html')
+                  const text = e.clipboardData.getData('text/plain')
+                  if (html) {
+                    setPastedHtml(html)
+                  } else if (text) {
+                    // Wrap plain text in basic HTML structure
+                    setPastedHtml(`<div>${text.split('\n').map(line => `<p>${line}</p>`).join('')}</div>`)
+                  }
+                }}
+              >
+                {pastedHtml ? (
+                  <div className="space-y-2">
+                    <div className="flex items-center gap-2 text-xs text-muted-foreground pb-2 border-b border-border">
+                      <Check className="h-3 w-3 text-green-500" />
+                      <span>Content captured ({Math.round(pastedHtml.length / 1024)}KB)</span>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 ml-auto text-xs"
+                        onClick={() => setPastedHtml('')}
+                      >
+                        Clear
+                      </Button>
+                    </div>
+                    <div
+                      className="prose prose-sm dark:prose-invert max-w-none max-h-48 overflow-auto"
+                      dangerouslySetInnerHTML={{ __html: pastedHtml }}
+                    />
+                  </div>
+                ) : (
+                  <div className="text-muted-foreground text-center">
+                    <ClipboardPaste className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                    <p>Click here and paste (Ctrl/Cmd+V)</p>
+                    <p className="text-xs mt-1 opacity-70">The HTML formatting will be preserved</p>
+                  </div>
+                )}
+              </div>
             </div>
             <div className="flex items-center justify-end gap-2 p-4 border-t border-border">
               <Button
