@@ -316,6 +316,17 @@ export function useFetchContent() {
   })
 }
 
+export function useExtractFromHtml() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ articleId, html, url }: { articleId: number; html: string; url?: string }) =>
+      api.extractFromHtml(articleId, html, url),
+    onSuccess: (data) => {
+      queryClient.setQueryData(queryKeys.article(data.id), data)
+    },
+  })
+}
+
 export function useSummarizeArticle() {
   const { startPolling } = useSummarizationPolling()
   return useMutation({

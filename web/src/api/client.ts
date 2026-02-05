@@ -247,6 +247,17 @@ export async function fetchArticleContent(
   return fetchApi(`/articles/${articleId}/fetch-content`, { method: 'POST' })
 }
 
+export async function extractFromHtml(
+  articleId: number,
+  html: string,
+  url?: string
+): Promise<ArticleDetail> {
+  return fetchApi(`/articles/${articleId}/extract-from-html`, {
+    method: 'POST',
+    body: JSON.stringify({ html, url }),
+  })
+}
+
 export async function summarizeArticle(
   articleId: number
 ): Promise<{ success: boolean; message: string }> {

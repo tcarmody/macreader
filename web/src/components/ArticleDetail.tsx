@@ -12,6 +12,9 @@ import {
   Info,
   Link2,
   MessageCircle,
+  Download,
+  ClipboardPaste,
+  X,
 } from 'lucide-react'
 import { cn, formatFullDate, getDomain, smartQuotes } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -21,12 +24,19 @@ import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
 import { Tooltip } from '@/components/ui/tooltip'
 import { useToast } from '@/components/ui/toast'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useAppStore } from '@/store/app-store'
 import {
   useArticle,
   useMarkArticleRead,
   useToggleBookmark,
   useFetchContent,
+  useExtractFromHtml,
   useSummarizeArticle,
   useFindRelatedLinks,
   useChatHistory,
@@ -40,6 +50,7 @@ export function ArticleDetail() {
   const markRead = useMarkArticleRead()
   const toggleBookmark = useToggleBookmark()
   const fetchContent = useFetchContent()
+  const extractFromHtml = useExtractFromHtml()
   const summarize = useSummarizeArticle()
   const findRelated = useFindRelatedLinks()
   const { data: chatHistory } = useChatHistory(selectedArticleId)
@@ -48,6 +59,8 @@ export function ArticleDetail() {
   const [showSummary, setShowSummary] = useState(true)
   const [hasTriggeredRelated, setHasTriggeredRelated] = useState(false)
   const [isChatExpanded, setIsChatExpanded] = useState(false)
+  const [showPasteDialog, setShowPasteDialog] = useState(false)
+  const [pastedHtml, setPastedHtml] = useState('')
 
   // Show first-time toast when summarization starts
   useEffect(() => {
@@ -111,6 +124,23 @@ export function ArticleDetail() {
     fetchContent.mutate(article.id)
   }
 
+  const handleExtractFromHtml = () => {
+    if (!pastedHtml.trim()) return
+    extractFromHtml.mutate(
+      { articleId: article.id, html: pastedHtml, url: article.url },
+      {
+        onSuccess: () => {
+          setShowPasteDialog(false)
+          setPastedHtml('')
+          showToast('Content extracted successfully', 'success')
+        },
+        onError: (error) => {
+          showToast(`Failed to extract content: ${error.message}`, 'warning')
+        },
+      }
+    )
+  }
+
   const handleSummarize = () => {
     summarize.mutate(article.id)
   }
@@ -170,21 +200,33 @@ export function ArticleDetail() {
 
         <Separator orientation="vertical" className="h-6" />
 
-        {!hasContent && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleFetchContent}
-            disabled={fetchContent.isPending}
-          >
-            {fetchContent.isPending ? (
-              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-            ) : (
-              <ExternalLink className="h-4 w-4 mr-1" />
-            )}
-            Fetch Content
-          </Button>
-        )}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
+            <Button
+              variant="ghost"
+              size="sm"
+              disabled={fetchContent.isPending || extractFromHtml.isPending}
+            >
+              {fetchContent.isPending || extractFromHtml.isPending ? (
+                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
+              ) : (
+                <Download className="h-4 w-4 mr-1" />
+              )}
+              {hasContent ? 'Refetch' : 'Fetch'}
+              <ChevronDown className="h-3 w-3 ml-1" />
+            </Button>
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start">
+            <DropdownMenuItem onClick={handleFetchContent}>
+              <Download className="h-4 w-4 mr-2" />
+              Standard Fetch
+            </DropdownMenuItem>
+            <DropdownMenuItem onClick={() => setShowPasteDialog(true)}>
+              <ClipboardPaste className="h-4 w-4 mr-2" />
+              Paste from Browser
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <Tooltip
           content="AI generates a concise summary using your configured provider (Anthropic, OpenAI, or Google)"
@@ -377,24 +419,33 @@ export function ArticleDetail() {
           ) : (
             <div className="text-center py-12 text-muted-foreground">
               <p>Content not available</p>
-              <Button
-                variant="outline"
-                className="mt-4"
-                onClick={handleFetchContent}
-                disabled={fetchContent.isPending}
-              >
-                {fetchContent.isPending ? (
-                  <>
-                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                    Fetching...
-                  </>
-                ) : (
-                  <>
-                    <ExternalLink className="h-4 w-4 mr-2" />
-                    Fetch Full Content
-                  </>
-                )}
-              </Button>
+              <div className="mt-4 flex flex-col items-center gap-2">
+                <Button
+                  variant="outline"
+                  onClick={handleFetchContent}
+                  disabled={fetchContent.isPending}
+                >
+                  {fetchContent.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Fetching...
+                    </>
+                  ) : (
+                    <>
+                      <Download className="h-4 w-4 mr-2" />
+                      Fetch Full Article
+                    </>
+                  )}
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowPasteDialog(true)}
+                >
+                  <ClipboardPaste className="h-4 w-4 mr-2" />
+                  Paste from Browser
+                </Button>
+              </div>
               <p className="mt-4 text-sm">
                 Or{' '}
                 <a
@@ -425,6 +476,71 @@ export function ArticleDetail() {
           </footer>
         </article>
       </ScrollArea>
+
+      {/* Paste HTML Dialog */}
+      {showPasteDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => {
+              setShowPasteDialog(false)
+              setPastedHtml('')
+            }}
+          />
+          <div className="relative bg-background border border-border rounded-lg shadow-lg w-full max-w-2xl mx-4 max-h-[80vh] flex flex-col">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <div>
+                <h2 className="text-lg font-semibold">Paste from Browser</h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Open the article in your browser, copy the page HTML (Ctrl/Cmd+U, then Ctrl/Cmd+A, Ctrl/Cmd+C), and paste it below.
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => {
+                  setShowPasteDialog(false)
+                  setPastedHtml('')
+                }}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="flex-1 p-4 overflow-hidden">
+              <textarea
+                value={pastedHtml}
+                onChange={(e) => setPastedHtml(e.target.value)}
+                placeholder="Paste HTML content here..."
+                className="w-full h-64 p-3 text-sm font-mono border border-input rounded-md bg-background resize-none focus:outline-none focus:ring-2 focus:ring-ring"
+              />
+            </div>
+            <div className="flex items-center justify-end gap-2 p-4 border-t border-border">
+              <Button
+                variant="outline"
+                onClick={() => {
+                  setShowPasteDialog(false)
+                  setPastedHtml('')
+                }}
+              >
+                Cancel
+              </Button>
+              <Button
+                onClick={handleExtractFromHtml}
+                disabled={!pastedHtml.trim() || extractFromHtml.isPending}
+              >
+                {extractFromHtml.isPending ? (
+                  <>
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                    Extracting...
+                  </>
+                ) : (
+                  'Extract Content'
+                )}
+              </Button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }
