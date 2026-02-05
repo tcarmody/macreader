@@ -140,7 +140,7 @@ export function LibraryList() {
             Add URL
           </Button>
           <Button variant="outline" size="sm" className="flex-1" asChild>
-            <label>
+            <label className="inline-flex items-center cursor-pointer">
               <Upload className="h-3 w-3 mr-1" />
               Upload
               <input
@@ -196,7 +196,7 @@ export function LibraryList() {
                 Add URL
               </Button>
               <Button variant="outline" size="sm" asChild>
-                <label className="cursor-pointer">
+                <label className="inline-flex items-center cursor-pointer">
                   <Upload className="h-3 w-3 mr-1" />
                   Upload File
                   <input
