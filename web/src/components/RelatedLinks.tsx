@@ -1,14 +1,12 @@
 import { useState } from 'react'
 import { Link2, ExternalLink, ChevronDown, ChevronUp, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Button } from '@/components/ui/button'
 import type { RelatedLink } from '@/types'
 
 interface RelatedLinksProps {
   relatedLinks: RelatedLink[] | null
   isLoading: boolean
   error: string | null
-  onFindRelated: () => void
   hasTriggered: boolean
 }
 
@@ -16,7 +14,6 @@ export function RelatedLinks({
   relatedLinks,
   isLoading,
   error,
-  onFindRelated,
   hasTriggered,
 }: RelatedLinksProps) {
   const [showLinks, setShowLinks] = useState(true)
@@ -24,23 +21,6 @@ export function RelatedLinks({
   // Show section if we have links OR if we're loading OR if there was an error
   const hasLinks = relatedLinks && relatedLinks.length > 0
   const shouldShow = hasLinks || isLoading || (hasTriggered && error)
-
-  if (!shouldShow && !hasTriggered) {
-    // Show "Find Related" button only if not triggered yet
-    return (
-      <section className="mb-8">
-        <Button
-          variant="outline"
-          size="sm"
-          onClick={onFindRelated}
-          className="gap-2"
-        >
-          <Link2 className="h-4 w-4" />
-          Find Related Articles
-        </Button>
-      </section>
-    )
-  }
 
   if (!shouldShow) {
     return null

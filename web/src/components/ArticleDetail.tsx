@@ -436,7 +436,6 @@ export function ArticleDetail() {
             relatedLinks={article.related_links}
             isLoading={findRelated.isPending}
             error={article.related_links_error || findRelated.error?.message || null}
-            onFindRelated={handleFindRelated}
             hasTriggered={hasTriggeredRelated}
           />
 

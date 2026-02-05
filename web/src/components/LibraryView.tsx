@@ -414,7 +414,6 @@ export function LibraryItemDetail() {
             relatedLinks={item.related_links}
             isLoading={findRelated.isPending}
             error={item.related_links_error || findRelated.error?.message || null}
-            onFindRelated={handleFindRelated}
             hasTriggered={hasTriggeredRelated}
           />
 
