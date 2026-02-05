@@ -219,7 +219,7 @@ export function ArticleDetail() {
           <DropdownMenuContent align="start">
             <DropdownMenuItem onClick={handleFetchContent}>
               <Download className="h-4 w-4 mr-2" />
-              Standard Fetch
+              Fetch Content
             </DropdownMenuItem>
             <DropdownMenuItem onClick={() => setShowPasteDialog(true)}>
               <ClipboardPaste className="h-4 w-4 mr-2" />
@@ -342,6 +342,45 @@ export function ArticleDetail() {
                 </a>
               </div>
             )}
+
+            {/* Quick Actions */}
+            <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-border">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleFetchContent}
+                disabled={fetchContent.isPending}
+              >
+                {fetchContent.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4 mr-2" />
+                )}
+                {hasContent ? 'Refetch Content' : 'Fetch Full Content'}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowPasteDialog(true)}
+                disabled={extractFromHtml.isPending}
+              >
+                <ClipboardPaste className="h-4 w-4 mr-2" />
+                Paste from Browser
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={handleFindRelated}
+                disabled={findRelated.isPending || (!!article.related_links && article.related_links.length > 0)}
+              >
+                {findRelated.isPending ? (
+                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                ) : (
+                  <Link2 className="h-4 w-4 mr-2" />
+                )}
+                {article.related_links && article.related_links.length > 0 ? 'Related Found' : 'Find Related Articles'}
+              </Button>
+            </div>
           </header>
 
           {/* Summary Section */}
