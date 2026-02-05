@@ -285,8 +285,9 @@ export async function getLibraryItem(itemId: number): Promise<StandaloneItemDeta
 }
 
 export async function addLibraryUrl(url: string): Promise<StandaloneItem> {
-  return fetchApi(`/standalone/url?url=${encodeURIComponent(url)}`, {
+  return fetchApi('/standalone/url', {
     method: 'POST',
+    body: JSON.stringify({ url }),
   })
 }
 
@@ -296,6 +297,12 @@ export async function uploadLibraryFile(file: File): Promise<StandaloneItem> {
 
   const config = getApiConfig()
   const headers: HeadersInit = {}
+
+  // OAuth token from localStorage (workaround for third-party cookie blocking)
+  const authToken = localStorage.getItem('authToken')
+  if (authToken) {
+    headers['Authorization'] = `Bearer ${authToken}`
+  }
 
   // Include auth API key for file uploads
   if (config.apiKey) {
@@ -310,7 +317,8 @@ export async function uploadLibraryFile(file: File): Promise<StandaloneItem> {
   })
 
   if (!response.ok) {
-    throw new Error('Failed to upload file')
+    const error = await response.json().catch(() => ({ detail: 'Upload failed' }))
+    throw new Error(error.detail || 'Failed to upload file')
   }
 
   return response.json()
