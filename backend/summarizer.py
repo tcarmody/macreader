@@ -132,11 +132,56 @@ Respond with this exact JSON structure:
   "content_type": "news|analysis|tutorial|review|research|newsletter"
 }"""
 
+    # Critic prompt for the review step (used for long articles and newsletters)
+    CRITIC_PROMPT = """Evaluate the following summary against quality standards, make corrections if needed, and write an improved headline.
+
+You will receive the original article title and a JSON summary produced by a first-pass summarizer.
+
+EVALUATION CRITERIA:
+
+1. STRUCTURE:
+   - For newsletters/digests: Each story gets its own paragraph, separated by blank lines
+   - For single-story articles: 4-6 flowing sentences, no fragmentation
+   - Summary length appropriate for content complexity
+
+2. READABILITY:
+   - No meta-language ("This article discusses...", "The author explains...")
+   - Active voice throughout ("released" not "has been released")
+   - Numbers spelled out ("8 billion" not "8B", "percent" not "%")
+   - No unnecessary background readers likely know ("OpenAI is an AI company")
+
+3. KEY POINTS:
+   - 3-5 distinct takeaways with no overlap
+   - Each includes specific facts, numbers, dates, or names
+   - For analysis: author's position noted neutrally
+   - For tutorials: key actionable steps preserved
+   - For reviews: verdict and pros/cons included
+
+4. HEADLINE (write a new one):
+   - 8-12 words
+   - Lead with most searchable noun (company, product, technology)
+   - Strong active verb
+   - One concrete detail (number, name, outcome)
+   - Must NOT repeat the original article title
+   - No vague words: "new," "big," "major," "game-changing"
+   - No clickbait patterns
+
+If the summary is already good, keep it unchanged but still write the headline fresh.
+
+Respond with valid JSON only:
+{
+  "headline": "Your improved headline here",
+  "summary": "The revised summary (or original text if no changes needed)",
+  "key_points": ["Revised points (or original if no changes needed)"],
+  "revisions_made": ["List of specific changes, or empty array if none"]
+}"""
+
     def __init__(
         self,
         provider: LLMProvider,
         cache: "TieredCache | None" = None,
-        default_model: Model = Model.HAIKU
+        default_model: Model = Model.HAIKU,
+        critic_enabled: bool = True,
     ):
         """
         Initialize summarizer with an LLM provider.
@@ -145,10 +190,12 @@ Respond with this exact JSON structure:
             provider: LLM provider instance (Anthropic, OpenAI, or Google)
             cache: Optional cache for storing summaries
             default_model: Default model tier for simple content
+            critic_enabled: Enable critic step for long articles and newsletters
         """
         self.provider = provider
         self.cache = cache
         self.default_model = default_model
+        self.critic_enabled = critic_enabled
 
     def summarize(
         self,
@@ -215,7 +262,16 @@ Respond with this exact JSON structure:
                 max_tokens=1024,
             )
 
-        summary = self._parse_response(response.text, model, title, url)
+        # Check if critic step should run
+        content_type = self._extract_content_type(response.text)
+        if self.critic_enabled and self._should_use_critic(content, content_type):
+            critic_result = self._run_critic(response.text, title, url)
+            if critic_result:
+                summary = self._parse_response(critic_result, model, title, url)
+            else:
+                summary = self._parse_response(response.text, model, title, url)
+        else:
+            summary = self._parse_response(response.text, model, title, url)
 
         # Cache the result
         if self.cache:
@@ -302,6 +358,77 @@ Respond with this exact JSON structure:
         return f"""{title_line}{url_line}
 Article:
 {truncated_content}"""
+
+    def _extract_content_type(self, text: str) -> str | None:
+        """Extract content_type from LLM response JSON."""
+        import json
+        try:
+            json_text = text.strip()
+            if json_text.startswith("```"):
+                lines = json_text.split("\n")
+                json_text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+            data = json.loads(json_text)
+            return data.get("content_type")
+        except (json.JSONDecodeError, KeyError, TypeError):
+            return None
+
+    def _should_use_critic(self, content: str, content_type: str | None) -> bool:
+        """Check if critic step should run based on content characteristics."""
+        word_count = len(content.split())
+        if word_count > 2000:
+            return True
+        if content_type == "newsletter":
+            return True
+        return False
+
+    def _run_critic(self, step1_response: str, title: str, url: str) -> str | None:
+        """
+        Run critic evaluation on step 1 output.
+
+        Returns revised response text, or None on failure.
+        """
+        import json
+
+        dynamic_content = f"Original article title: {title}\nURL: {url}\n\nFirst-pass summary:\n{step1_response}"
+
+        try:
+            if isinstance(self.provider, AnthropicProvider):
+                response = self.provider.complete_with_cacheable_prefix(
+                    system_prompt=self.SYSTEM_PROMPT,
+                    instruction_prompt=self.CRITIC_PROMPT,
+                    dynamic_content=dynamic_content,
+                    model=self.provider.get_model_for_tier(ModelTier.FAST),
+                    max_tokens=1024,
+                )
+            else:
+                user_prompt = f"{self.CRITIC_PROMPT}\n\n{dynamic_content}"
+                response = self.provider.complete(
+                    user_prompt=user_prompt,
+                    system_prompt=self.SYSTEM_PROMPT,
+                    model=self.provider.get_model_for_tier(ModelTier.FAST),
+                    max_tokens=1024,
+                )
+
+            # Validate the critic produced parseable JSON
+            json_text = response.text.strip()
+            if json_text.startswith("```"):
+                lines = json_text.split("\n")
+                json_text = "\n".join(lines[1:-1] if lines[-1].strip() == "```" else lines[1:])
+
+            data = json.loads(json_text)
+
+            # Log revisions for observability
+            revisions = data.get("revisions_made", [])
+            if revisions:
+                print(f"Critic made {len(revisions)} revision(s): {revisions}")
+            else:
+                print("Critic: no revisions to summary, headline updated")
+
+            return response.text
+
+        except Exception as e:
+            print(f"Critic step failed, using original summary: {e}")
+            return None
 
     def _parse_response(self, text: str, model: Model, title: str = "", url: str = "") -> Summary:
         """Parse LLM response (JSON) into structured Summary."""
@@ -470,10 +597,11 @@ Article:
 
 def create_summarizer(
     provider: LLMProvider,
-    cache: "TieredCache | None" = None
+    cache: "TieredCache | None" = None,
+    critic_enabled: bool = True,
 ) -> Summarizer:
     """Factory function to create a Summarizer instance."""
-    return Summarizer(provider=provider, cache=cache)
+    return Summarizer(provider=provider, cache=cache, critic_enabled=critic_enabled)
 
 
 # Backwards compatibility: create summarizer from API key (uses Anthropic)
