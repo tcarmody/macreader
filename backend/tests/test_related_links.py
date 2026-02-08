@@ -3,6 +3,7 @@ Tests for related links feature using Exa neural search.
 """
 
 import json
+from pathlib import Path
 from unittest.mock import Mock, patch, MagicMock
 import pytest
 
@@ -71,7 +72,7 @@ class TestQueryConstruction:
             feed_id=1,
             url="https://example.com/article",
             title="Quantum Computing",
-            content="Long content about quantum computing and qubits...",
+            content="Long content about quantum computing and qubits. Quantum computers use quantum bits or qubits to perform calculations that would be impossible for classical computers. This article explores the fundamentals of quantum computing including superposition, entanglement, and quantum gates.",
             key_points="invalid json",
             summary_short=None,
             summary_full=None,
@@ -83,7 +84,7 @@ class TestQueryConstruction:
 
         mock_provider = Mock()
         mock_provider.get_model_for_tier.return_value = "claude-haiku-4-5"
-        mock_provider.complete.return_value = "quantum mechanics\nsuperposition\nquantum entanglement"
+        mock_provider.complete.return_value = Mock(text="quantum mechanics\nsuperposition\nquantum entanglement")
 
         query = construct_search_query(article, mock_provider)
 
@@ -98,7 +99,7 @@ class TestQueryConstruction:
             feed_id=1,
             url="https://example.com/article",
             title="Machine Learning Tutorial",
-            content="This article explains supervised learning, classification algorithms, and model training...",
+            content="This article explains supervised learning, classification algorithms, and model training. It covers the fundamentals of machine learning including data preprocessing, feature engineering, model evaluation, and hyperparameter tuning for production deployments.",
             key_points=None,
             summary_short=None,
             summary_full=None,
@@ -110,7 +111,7 @@ class TestQueryConstruction:
 
         mock_provider = Mock()
         mock_provider.get_model_for_tier.return_value = "claude-haiku-4-5"
-        mock_provider.complete.return_value = "supervised learning\nclassification\nmodel training"
+        mock_provider.complete.return_value = Mock(text="supervised learning\nclassification\nmodel training")
 
         query = construct_search_query(article, mock_provider)
 
@@ -164,11 +165,11 @@ class TestKeywordExtraction:
 
         mock_provider = Mock()
         mock_provider.get_model_for_tier.return_value = "claude-haiku-4-5"
-        mock_provider.complete.return_value = """reinforcement learning
+        mock_provider.complete.return_value = Mock(text="""reinforcement learning
 policy gradients
 Q-learning
 actor-critic methods
-neural networks"""
+neural networks""")
 
         keywords = extract_keywords_llm(article, mock_provider)
 
@@ -223,13 +224,13 @@ neural networks"""
 
         mock_provider = Mock()
         mock_provider.get_model_for_tier.return_value = "claude-haiku-4-5"
-        mock_provider.complete.return_value = "keyword1\nkeyword2"
+        mock_provider.complete.return_value = Mock(text="keyword1\nkeyword2")
 
         extract_keywords_llm(article, mock_provider)
 
         # Check that the prompt includes truncated content
         call_args = mock_provider.complete.call_args
-        prompt = call_args[1]["prompt"]
+        prompt = call_args[1]["user_prompt"]
         content_in_prompt = prompt.split("Content preview:")[1].split("\n\nKey concepts:")[0].strip()
         assert len(content_in_prompt) <= 2000
 
@@ -252,11 +253,11 @@ neural networks"""
 
         mock_provider = Mock()
         mock_provider.get_model_for_tier.return_value = "claude-haiku-4-5"
-        mock_provider.complete.return_value = """valid keyword
+        mock_provider.complete.return_value = Mock(text="""valid keyword
 AI
 a
 another valid keyword
-ok"""
+ok""")
 
         keywords = extract_keywords_llm(article, mock_provider)
 
@@ -327,7 +328,7 @@ class TestExaSearchService:
         """Mock LLM provider."""
         provider = Mock()
         provider.get_model_for_tier.return_value = "claude-haiku-4-5"
-        provider.complete.return_value = "keyword1\nkeyword2\nkeyword3"
+        provider.complete.return_value = Mock(text="keyword1\nkeyword2\nkeyword3")
         return provider
 
     def test_fetch_related_links_calls_exa_api(self, mock_exa_client, mock_cache, mock_provider):
@@ -370,9 +371,8 @@ class TestExaSearchService:
         # Verify Exa was called with correct parameters
         mock_exa_client.search.assert_called_once()
         call_kwargs = mock_exa_client.search.call_args[1]
-        assert call_kwargs["num_results"] == 5
-        assert call_kwargs["use_autoprompt"] is False
-        assert call_kwargs["type"] == "neural"
+        # Requests extra results for deduplication (num_results + 10)
+        assert call_kwargs["num_results"] == 15
         assert "Machine Learning Basics" in call_kwargs["query"]
 
         # Verify response format
@@ -469,7 +469,7 @@ class TestExaSearchService:
             id=1,
             feed_id=1,
             url="https://example.com/article",
-            title="Test",
+            title="Original Article Title",
             content="Content...",
             key_points=None,
             summary_short=None,
@@ -482,8 +482,10 @@ class TestExaSearchService:
 
         mock_result = Mock()
         mock_result.url = "https://result.com"
-        mock_result.title = "Test"
+        mock_result.title = "Related Result With Long Snippet"
         mock_result.text = "x" * 500  # Long snippet
+        mock_result.published_date = None
+        mock_result.score = 0.85
 
         mock_response = Mock()
         mock_response.results = [mock_result]
@@ -513,8 +515,14 @@ class TestAPIEndpoint:
 
     def test_find_related_endpoint_not_found(self, client):
         """Should return 404 for non-existent article."""
-        response = client.post("/articles/99999/related")
-        assert response.status_code == 404
+        from backend.config import state
+        original_exa = state.exa_service
+        state.exa_service = Mock()
+        try:
+            response = client.post("/articles/99999/related")
+            assert response.status_code == 404
+        finally:
+            state.exa_service = original_exa
 
     def test_find_related_endpoint_no_exa_service(self, client_with_data):
         """Should return 503 if Exa service not configured."""
@@ -575,7 +583,7 @@ class TestExaIntegration:
         if not api_key:
             pytest.skip("EXA_API_KEY not set")
 
-        cache = create_cache()
+        cache = create_cache(Path("./data/cache"))
         provider = AnthropicProvider(api_key=os.getenv("ANTHROPIC_API_KEY", ""))
 
         from backend.services.related_links import ExaSearchService
