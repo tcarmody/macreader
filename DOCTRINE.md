@@ -408,6 +408,31 @@ This prevents "5 copies of the same arXiv paper" results common with naive seman
 
 **Platform Support**: Currently macOS-only with independent "Find Related" button. The feature enhances article discovery without requiring it—users can opt in when they want deeper exploration of a topic.
 
+### Summarization: Two-Pass Critic Pipeline
+
+**Decision**: Add an optional second LLM pass that evaluates and revises summaries for complex content.
+
+**Alternatives Considered**:
+- **Agentic loop** (iterate until convergence): Unbounded cost, convergence is hard to guarantee
+- **Always two-pass**: Doubles cost for simple articles where single-pass quality is sufficient
+- **Higher-tier model for everything**: 10x cost increase, diminishing returns on short content
+
+**Rationale**: Single-pass summarization asks the LLM to simultaneously comprehend content, extract facts, write prose, format JSON, and follow ~20 style rules. This works well for short, single-story articles but degrades for newsletters (stories get merged) and long articles (headline quality drops). A targeted second pass addresses these specific weaknesses without the cost or complexity of a full agentic loop.
+
+**Design**: Generate → Critic (2-step, not a loop). Step 1 always produces a complete, usable summary. Step 2 conditionally evaluates structure, readability, style adherence, and writes an improved headline.
+
+**Trigger Conditions** (checked after step 1):
+- Word count > 2,000 (complex content benefits from review)
+- `content_type == "newsletter"` (multi-story content needs structural review)
+
+**Model Selection**: Critic uses FAST tier (Haiku) since it's pattern-matching against style rules, not deep comprehension. This keeps the marginal cost at ~$0.001 per critic call.
+
+**Fallback Safety**: If the critic call fails or returns unparseable JSON, step 1 output is used as-is. The pipeline never degrades below single-pass quality.
+
+**Kill Switch**: `critic_enabled` flag (default `True`) on the `Summarizer` class allows disabling the critic for cost control or testing without code changes.
+
+**Future Direction**: Plan documented in LOOP.md to extend critic to all articles once revision rate data validates the cost/quality tradeoff.
+
 ---
 
 ## Lessons Learned
@@ -527,6 +552,16 @@ This setup requires no DevOps expertise and costs ~$0-5/month for personal use.
 - macOS-only "Find Related" button in article detail view
 - Comprehensive test coverage (25+ tests)
 
+### Phase 11: Two-Pass Summarization
+- Critic step evaluates structure, readability, and style adherence
+- Rewrites headline with full context of generated summary
+- Triggers for long articles (>2,000 words) and newsletters
+- FAST tier (Haiku) for critic — pattern matching, not comprehension
+- Graceful fallback to step 1 output on any failure
+- `critic_enabled` kill switch for cost control
+- 20 unit tests with MockProvider (no API keys required)
+- Rollout plan documented in LOOP.md
+
 ### Current: Stable Platform
 - Native macOS app + Web PWA
 - Railway backend + Vercel frontend
@@ -534,8 +569,9 @@ This setup requires no DevOps expertise and costs ~$0-5/month for personal use.
 - Multi-user support with OAuth (Google, GitHub)
 - Gmail newsletter integration via IMAP
 - Neural search for related articles (Exa)
+- Two-pass summarization for complex content
 - Reading statistics and topic trends
 - Polished reading experience with themes and typography
 - Accessibility-first design system with 9 visual variants
 - Performance-optimized SQLite with scaling documentation
-- ~2,700 lines of Python backend
+- ~2,800 lines of Python backend

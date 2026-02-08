@@ -43,6 +43,7 @@ Examples:
 - **Async throughout**: All I/O operations use async/await
 - **Tiered caching**: Memory LRU + disk cache in `backend/cache.py`
 - **Site extractors**: Custom content extraction in `backend/site_extractors/` (Bloomberg, GitHub, Medium, Substack, Twitter, Wikipedia, YouTube)
+- **Summarizer**: Two-pass critic pipeline in `backend/summarizer.py` (generate → critic for long/newsletter content)
 - **Advanced features**: JS rendering and archive fallbacks in `backend/advanced/`
 
 ### Web Frontend
@@ -291,6 +292,8 @@ If `related_links` JSON is too large:
 
 Tests use pytest with pytest-asyncio. Test files mirror route structure:
 - `test_article_routes.py`, `test_feed_routes.py`, `test_auth.py`, etc.
+- `test_summarizer.py` — critic pipeline tests with MockProvider (no API keys needed)
+- `test_related_links.py` — Exa search service unit tests
 - Fixtures in `conftest.py` provide test database and client
 
 ### Bug Fix Workflow
