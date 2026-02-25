@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from ..auth import verify_api_key, get_current_user
+from ..auth import verify_api_key, get_current_user, require_admin
 from ..config import state, get_db, config
 from ..database import Database
 from ..schemas import ArticleResponse, SettingsResponse, SettingsUpdateRequest
@@ -74,7 +74,8 @@ async def get_settings(
 @router.put("/settings")
 async def update_settings(
     request: SettingsUpdateRequest,
-    db: Annotated[Database, Depends(get_db)]
+    db: Annotated[Database, Depends(get_db)],
+    _admin: Annotated[int, Depends(require_admin)] = 0
 ) -> SettingsResponse:
     """Update application settings."""
     if request.refresh_interval_minutes is not None:

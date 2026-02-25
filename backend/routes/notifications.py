@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException
 
-from ..auth import verify_api_key
+from ..auth import verify_api_key, require_admin
 from ..config import get_db, state
 from ..database import Database
 from ..exceptions import require_feed, require_rule
@@ -53,7 +53,8 @@ async def list_rules(
 @router.post("/rules")
 async def create_rule(
     request: CreateNotificationRuleRequest,
-    db: Annotated[Database, Depends(get_db)]
+    db: Annotated[Database, Depends(get_db)],
+    _admin: Annotated[int, Depends(require_admin)] = 0
 ) -> NotificationRuleResponse:
     """Create a new notification rule."""
     # Validate feed_id if provided
@@ -111,7 +112,8 @@ async def get_rule(
 async def update_rule(
     rule_id: int,
     request: UpdateNotificationRuleRequest,
-    db: Annotated[Database, Depends(get_db)]
+    db: Annotated[Database, Depends(get_db)],
+    _admin: Annotated[int, Depends(require_admin)] = 0
 ) -> NotificationRuleResponse:
     """Update a notification rule."""
     require_rule(db.get_notification_rule(rule_id))
@@ -155,7 +157,8 @@ async def update_rule(
 @router.delete("/rules/{rule_id}")
 async def delete_rule(
     rule_id: int,
-    db: Annotated[Database, Depends(get_db)]
+    db: Annotated[Database, Depends(get_db)],
+    _admin: Annotated[int, Depends(require_admin)] = 0
 ) -> dict:
     """Delete a notification rule."""
     require_rule(db.get_notification_rule(rule_id))

@@ -107,6 +107,17 @@ class Config:
     # Comma-separated list of allowed email addresses (empty = allow all)
     OAUTH_ALLOWED_EMAILS: str = os.getenv("OAUTH_ALLOWED_EMAILS", "")
 
+    # Admin emails - comma-separated list of users with admin privileges
+    # Admins can add/edit/delete feeds, change settings, manage notification rules
+    # API key users always have admin access for backwards compatibility
+    ADMIN_EMAILS: set[str] = {
+        e.strip().lower() for e in os.getenv(
+            "ADMIN_EMAILS",
+            "timcarmody@deeplearning.ai,analytics@deeplearning.ai,datapoints@deeplearning.ai"
+        ).split(",")
+        if e.strip()
+    }
+
     # Frontend URL to redirect to after OAuth callback
     OAUTH_FRONTEND_URL: str = os.getenv("OAUTH_FRONTEND_URL", "/")
 

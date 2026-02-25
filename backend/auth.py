@@ -218,3 +218,54 @@ def get_current_user(
         status_code=status.HTTP_401_UNAUTHORIZED,
         detail="Authentication required. Provide valid API key or login.",
     )
+
+
+def require_admin(
+    request: Request,
+    db: "Database" = Depends(get_db),
+    user_id: int = Depends(get_current_user)
+) -> int:
+    """
+    Require the current user to have admin privileges.
+
+    Admin access is granted to:
+    1. API key users (backwards compatibility - trusted clients like macOS app)
+    2. OAuth users whose email is in ADMIN_EMAILS
+    3. All users when ADMIN_EMAILS is empty (no restriction configured)
+
+    Returns:
+        User ID if admin, raises 403 otherwise
+    """
+    if not config.ADMIN_EMAILS:
+        return user_id
+
+    user = db.users.get_by_id(user_id)
+    if not user:
+        raise HTTPException(
+            status_code=status.HTTP_403_FORBIDDEN,
+            detail="Admin access required",
+        )
+
+    # API key users always have admin access
+    if user.provider == "api_key":
+        return user_id
+
+    if user.email.lower() in config.ADMIN_EMAILS:
+        return user_id
+
+    raise HTTPException(
+        status_code=status.HTTP_403_FORBIDDEN,
+        detail="Admin access required. Contact an administrator for access.",
+    )
+
+
+def is_admin_user(db: "Database", user_id: int) -> bool:
+    """Check if a user has admin privileges (non-dependency helper)."""
+    if not config.ADMIN_EMAILS:
+        return True
+    user = db.users.get_by_id(user_id)
+    if not user:
+        return False
+    if user.provider == "api_key":
+        return True
+    return user.email.lower() in config.ADMIN_EMAILS

@@ -104,6 +104,7 @@ export interface OAuthStatus {
   google_enabled: boolean
   github_enabled: boolean
   user: OAuthUser | null
+  is_admin: boolean
 }
 
 export interface StatsResponse {

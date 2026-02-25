@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
-from ..auth import verify_api_key, get_current_user
+from ..auth import verify_api_key, get_current_user, require_admin
 from ..config import state, get_db
 from ..database import Database
 from ..exceptions import require_feed
@@ -47,7 +47,8 @@ async def list_feeds(
 async def add_feed(
     request: AddFeedRequest,
     db: Annotated[Database, Depends(get_db)],
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
+    _admin: Annotated[int, Depends(require_admin)] = 0
 ) -> FeedResponse:
     """Subscribe to a new feed."""
     if not state.feed_parser:
@@ -79,7 +80,8 @@ async def add_feed(
 @router.delete("/{feed_id}")
 async def remove_feed(
     feed_id: int,
-    db: Annotated[Database, Depends(get_db)]
+    db: Annotated[Database, Depends(get_db)],
+    _admin: Annotated[int, Depends(require_admin)] = 0
 ) -> dict:
     """Unsubscribe from a feed."""
     require_feed(db.get_feed(feed_id))
@@ -91,7 +93,8 @@ async def remove_feed(
 async def update_feed(
     feed_id: int,
     request: UpdateFeedRequest,
-    db: Annotated[Database, Depends(get_db)]
+    db: Annotated[Database, Depends(get_db)],
+    _admin: Annotated[int, Depends(require_admin)] = 0
 ) -> FeedResponse:
     """Update a feed's name or category. Set category to empty string to remove it."""
     require_feed(db.get_feed(feed_id))
@@ -112,7 +115,8 @@ async def update_feed(
 @router.post("/bulk/delete")
 async def bulk_delete_feeds(
     request: BulkDeleteFeedsRequest,
-    db: Annotated[Database, Depends(get_db)]
+    db: Annotated[Database, Depends(get_db)],
+    _admin: Annotated[int, Depends(require_admin)] = 0
 ) -> dict:
     """Delete multiple feeds at once."""
     if not request.feed_ids:
@@ -206,7 +210,8 @@ async def import_single_feed(
 async def import_opml(
     request: OPMLImportRequest,
     db: Annotated[Database, Depends(get_db)],
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
+    _admin: Annotated[int, Depends(require_admin)] = 0
 ) -> OPMLImportResponse:
     """
     Import feeds from OPML content.

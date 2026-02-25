@@ -27,7 +27,7 @@ import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip } from '@/components/ui/tooltip'
 import { useAppStore } from '@/store/app-store'
-import { useFeeds, useRefreshFeeds, useStats } from '@/hooks/use-queries'
+import { useFeeds, useRefreshFeeds, useStats, useAuthStatus } from '@/hooks/use-queries'
 import type { Feed, FilterType } from '@/types'
 
 interface SidebarProps {
@@ -52,7 +52,9 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
 
   const { data: feeds = [], isLoading: feedsLoading } = useFeeds()
   const { data: stats } = useStats()
+  const { data: authStatus } = useAuthStatus()
   const refreshFeeds = useRefreshFeeds()
+  const isAdmin = authStatus?.is_admin ?? true // default true for backwards compat
 
   // Separate newsletter feeds from RSS feeds
   const { rssFeeds, newsletterFeeds } = useMemo(() => {
@@ -354,9 +356,11 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
                       Manage
                     </Button>
                   )}
-                  <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onAddFeed} title="Add feed">
-                    <Plus className="h-3 w-3" />
-                  </Button>
+                  {isAdmin && (
+                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onAddFeed} title="Add feed">
+                      <Plus className="h-3 w-3" />
+                    </Button>
+                  )}
                 </div>
               </div>
 
@@ -366,10 +370,12 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
                 <div className="px-2 py-8 text-center">
                   <Inbox className="h-8 w-8 mx-auto mb-2 opacity-20 text-muted-foreground" />
                   <p className="text-xs text-muted-foreground mb-3">No feeds yet</p>
-                  <Button size="sm" variant="outline" onClick={onAddFeed} className="w-full">
-                    <Plus className="h-3 w-3 mr-1" />
-                    Add Your First Feed
-                  </Button>
+                  {isAdmin && (
+                    <Button size="sm" variant="outline" onClick={onAddFeed} className="w-full">
+                      <Plus className="h-3 w-3 mr-1" />
+                      Add Your First Feed
+                    </Button>
+                  )}
                 </div>
               ) : (
                 categories.map((category) => (

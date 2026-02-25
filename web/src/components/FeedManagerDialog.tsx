@@ -34,6 +34,7 @@ import {
   useRefreshSingleFeed,
   useImportOpml,
   useExportOpml,
+  useAuthStatus,
 } from '@/hooks/use-queries'
 import type { Feed } from '@/types'
 
@@ -83,11 +84,13 @@ function FeedHealthBadge({ status }: { status: FeedHealthStatus }) {
 
 export function FeedManagerDialog({ isOpen, onClose, onAddFeed }: FeedManagerDialogProps) {
   const { data: feeds = [] } = useFeeds()
+  const { data: authStatus } = useAuthStatus()
   const updateFeed = useUpdateFeed()
   const bulkDeleteFeeds = useBulkDeleteFeeds()
   const refreshSingleFeed = useRefreshSingleFeed()
   const importOpml = useImportOpml()
   const exportOpml = useExportOpml()
+  const isAdmin = authStatus?.is_admin ?? true
 
   const [searchText, setSearchText] = useState('')
   const [selectedFeedIds, setSelectedFeedIds] = useState<Set<number>>(new Set())
@@ -268,19 +271,23 @@ export function FeedManagerDialog({ isOpen, onClose, onAddFeed }: FeedManagerDia
       >
         {/* Toolbar */}
         <div className="flex items-center gap-2 p-4 border-b border-border flex-wrap">
-          <Button variant="outline" size="sm" onClick={onAddFeed}>
-            <Rss className="h-4 w-4 mr-1" />
-            Add
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setShowDeleteConfirm(true)}
-            disabled={selectedFeedIds.size === 0}
-          >
-            <Trash2 className="h-4 w-4 mr-1" />
-            Delete
-          </Button>
+          {isAdmin && (
+            <>
+              <Button variant="outline" size="sm" onClick={onAddFeed}>
+                <Rss className="h-4 w-4 mr-1" />
+                Add
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setShowDeleteConfirm(true)}
+                disabled={selectedFeedIds.size === 0}
+              >
+                <Trash2 className="h-4 w-4 mr-1" />
+                Delete
+              </Button>
+            </>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -293,10 +300,12 @@ export function FeedManagerDialog({ isOpen, onClose, onAddFeed }: FeedManagerDia
 
           <div className="w-px h-6 bg-border mx-1" />
 
-          <Button variant="outline" size="sm" onClick={handleImportClick}>
-            <Upload className="h-4 w-4 mr-1" />
-            Import
-          </Button>
+          {isAdmin && (
+            <Button variant="outline" size="sm" onClick={handleImportClick}>
+              <Upload className="h-4 w-4 mr-1" />
+              Import
+            </Button>
+          )}
           <Button
             variant="outline"
             size="sm"
@@ -341,9 +350,11 @@ export function FeedManagerDialog({ isOpen, onClose, onAddFeed }: FeedManagerDia
               ) : (
                 <>
                   <p className="mb-2">No feeds yet</p>
-                  <Button variant="outline" size="sm" onClick={onAddFeed}>
-                    Add Feed
-                  </Button>
+                  {isAdmin && (
+                    <Button variant="outline" size="sm" onClick={onAddFeed}>
+                      Add Feed
+                    </Button>
+                  )}
                 </>
               )}
             </div>
@@ -351,12 +362,14 @@ export function FeedManagerDialog({ isOpen, onClose, onAddFeed }: FeedManagerDia
             <div className="divide-y divide-border">
               {/* Header Row */}
               <div className="flex items-center gap-3 px-4 py-2 bg-muted/50 text-xs font-medium text-muted-foreground sticky top-0">
-                <input
-                  type="checkbox"
-                  checked={selectedFeedIds.size === filteredFeeds.length && filteredFeeds.length > 0}
-                  onChange={toggleSelectAll}
-                  className="h-4 w-4 rounded border-input"
-                />
+                {isAdmin && (
+                  <input
+                    type="checkbox"
+                    checked={selectedFeedIds.size === filteredFeeds.length && filteredFeeds.length > 0}
+                    onChange={toggleSelectAll}
+                    className="h-4 w-4 rounded border-input"
+                  />
+                )}
                 <div className="flex-1 min-w-0">Name</div>
                 <div className="w-28">Category</div>
                 <div className="w-20">Status</div>
@@ -373,12 +386,14 @@ export function FeedManagerDialog({ isOpen, onClose, onAddFeed }: FeedManagerDia
                     selectedFeedIds.has(feed.id) && "bg-primary/5"
                   )}
                 >
-                  <input
-                    type="checkbox"
-                    checked={selectedFeedIds.has(feed.id)}
-                    onChange={() => toggleFeedSelection(feed.id)}
-                    className="h-4 w-4 rounded border-input"
-                  />
+                  {isAdmin && (
+                    <input
+                      type="checkbox"
+                      checked={selectedFeedIds.has(feed.id)}
+                      onChange={() => toggleFeedSelection(feed.id)}
+                      className="h-4 w-4 rounded border-input"
+                    />
+                  )}
 
                   <div className="flex-1 min-w-0">
                     <div className="flex items-center gap-2">
@@ -396,24 +411,28 @@ export function FeedManagerDialog({ isOpen, onClose, onAddFeed }: FeedManagerDia
                   </div>
 
                   <div className="w-28">
-                    <DropdownMenu>
-                      <DropdownMenuTrigger asChild>
-                        <button className="text-sm text-left hover:text-foreground transition-colors">
-                          {feed.category || <span className="text-muted-foreground">None</span>}
-                        </button>
-                      </DropdownMenuTrigger>
-                      <DropdownMenuContent align="start">
-                        <DropdownMenuItem onClick={() => handleCategoryChange(feed, null)}>
-                          None
-                        </DropdownMenuItem>
-                        <DropdownMenuSeparator />
-                        {categories.map((cat) => (
-                          <DropdownMenuItem key={cat} onClick={() => handleCategoryChange(feed, cat)}>
-                            {cat}
+                    {isAdmin ? (
+                      <DropdownMenu>
+                        <DropdownMenuTrigger asChild>
+                          <button className="text-sm text-left hover:text-foreground transition-colors">
+                            {feed.category || <span className="text-muted-foreground">None</span>}
+                          </button>
+                        </DropdownMenuTrigger>
+                        <DropdownMenuContent align="start">
+                          <DropdownMenuItem onClick={() => handleCategoryChange(feed, null)}>
+                            None
                           </DropdownMenuItem>
-                        ))}
-                      </DropdownMenuContent>
-                    </DropdownMenu>
+                          <DropdownMenuSeparator />
+                          {categories.map((cat) => (
+                            <DropdownMenuItem key={cat} onClick={() => handleCategoryChange(feed, cat)}>
+                              {cat}
+                            </DropdownMenuItem>
+                          ))}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
+                    ) : (
+                      <span className="text-sm">{feed.category || <span className="text-muted-foreground">None</span>}</span>
+                    )}
                   </div>
 
                   <div className="w-20">
@@ -425,15 +444,17 @@ export function FeedManagerDialog({ isOpen, onClose, onAddFeed }: FeedManagerDia
                   </div>
 
                   <div className="w-20 flex items-center gap-1">
-                    <Button
-                      variant="ghost"
-                      size="icon"
-                      className="h-7 w-7"
-                      onClick={() => handleEditFeed(feed)}
-                      title="Edit feed"
-                    >
-                      <Pencil className="h-3.5 w-3.5" />
-                    </Button>
+                    {isAdmin && (
+                      <Button
+                        variant="ghost"
+                        size="icon"
+                        className="h-7 w-7"
+                        onClick={() => handleEditFeed(feed)}
+                        title="Edit feed"
+                      >
+                        <Pencil className="h-3.5 w-3.5" />
+                      </Button>
+                    )}
                     <Button
                       variant="ghost"
                       size="icon"

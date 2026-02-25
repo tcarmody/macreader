@@ -16,7 +16,7 @@ from fastapi.responses import RedirectResponse
 from itsdangerous import URLSafeTimedSerializer, BadSignature, SignatureExpired
 from pydantic import BaseModel
 
-from .config import config
+from .config import config, get_db
 
 logger = logging.getLogger(__name__)
 
@@ -79,6 +79,7 @@ class OAuthStatus(BaseModel):
     google_enabled: bool
     github_enabled: bool
     user: Optional[UserSession] = None
+    is_admin: bool = False
 
 
 def create_session_cookie(user: UserSession, response: Response) -> None:
@@ -187,11 +188,23 @@ async def auth_status(request: Request) -> OAuthStatus:
     """Get authentication status and available providers."""
     user = get_session_from_cookie(request)
 
+    # Determine admin status
+    is_admin = False
+    if user:
+        if not config.ADMIN_EMAILS:
+            is_admin = True
+        else:
+            is_admin = user.email.lower() in config.ADMIN_EMAILS
+    elif not config.OAUTH_ENABLED:
+        # Dev mode or API key only - treat as admin
+        is_admin = True
+
     return OAuthStatus(
         enabled=config.OAUTH_ENABLED,
         google_enabled=bool(config.GOOGLE_CLIENT_ID and config.GOOGLE_CLIENT_SECRET),
         github_enabled=bool(config.GITHUB_CLIENT_ID and config.GITHUB_CLIENT_SECRET),
         user=user,
+        is_admin=is_admin,
     )
 
 
