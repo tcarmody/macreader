@@ -386,15 +386,15 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
                 <label className="block text-sm font-medium mb-3">Design Style</label>
                 <div className="grid grid-cols-2 gap-2">
                   {([
-                    { id: 'default', name: 'Default', desc: 'Clean blue-gray' },
-                    { id: 'warm', name: 'Warm', desc: 'Stone tones' },
-                    { id: 'soft', name: 'Soft', desc: 'Subtle shadows' },
-                    { id: 'sharp', name: 'Sharp', desc: 'Square corners' },
-                    { id: 'compact', name: 'Compact', desc: 'Tighter spacing' },
-                    { id: 'teal', name: 'Teal AI', desc: 'Teal accents' },
+                    { id: 'default', name: 'Default', desc: 'Cool slate blue' },
+                    { id: 'warm', name: 'Warm', desc: 'Amber & copper' },
+                    { id: 'soft', name: 'Soft', desc: 'Lavender, soft shadows' },
+                    { id: 'sharp', name: 'Sharp', desc: 'Crimson, square edges' },
+                    { id: 'compact', name: 'Compact', desc: 'Forest green, tight' },
+                    { id: 'teal', name: 'Teal', desc: 'Ocean depths' },
                     { id: 'high-contrast', name: 'High Contrast', desc: 'Bold, accessible' },
-                    { id: 'sepia', name: 'Sepia', desc: 'Warm reading' },
-                    { id: 'mono', name: 'Mono', desc: 'No color accents' },
+                    { id: 'sepia', name: 'Sepia', desc: 'Golden parchment' },
+                    { id: 'mono', name: 'Mono', desc: 'Pure grayscale' },
                   ] as const).map((style) => (
                     <button
                       key={style.id}
