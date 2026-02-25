@@ -85,6 +85,35 @@ Every feature must justify its existence. The redesign reduced backend code from
 
 **Library Items**: Library items (saved URLs, uploaded documents) are per-user via a `user_id` column, as these represent personal collections rather than shared content.
 
+### Role-Based Access Control
+
+**Decision**: Two-tier user system (admin/regular) with config-based email allowlist and a `require_admin` FastAPI dependency.
+
+**Alternatives Considered**:
+- Database-stored roles: Adds migration complexity, requires admin UI to manage roles
+- Per-route permission checks: Scatters authorization logic across route handlers
+- Full RBAC framework (e.g., Casbin): Over-engineered for two tiers
+
+**Rationale**: DataPoints has a small, known set of administrators. A config-based email allowlist (`ADMIN_EMAILS` environment variable) is simpler than database-stored roles and can be changed without code deploys. The `require_admin` dependency chains on `get_current_user`, so it reuses existing authentication logic and adds authorization as a single `Depends()` annotation on protected routes.
+
+**Admin Privileges**:
+- Add, edit, delete feeds
+- Import OPML
+- Bulk delete feeds
+- Modify application settings
+- Create, edit, delete notification rules
+
+**Regular User Access**:
+- Read articles, mark read/unread, bookmark
+- Refresh feeds
+- Export OPML
+- View notification rules and history
+- Use library features
+
+**API Key Backwards Compatibility**: API key users (e.g., the macOS app) always receive admin access. This preserves existing behavior for trusted clients that authenticate with the shared API key rather than OAuth.
+
+**Frontend Enforcement**: The `is_admin` flag is exposed via the `/auth/status` endpoint. The web frontend uses this to hide admin-only UI elements (add/delete feed buttons, import, settings mutations) rather than showing them disabled. This reduces confusion for regular users who don't need to see controls they can't use.
+
 ### Database Performance Optimizations
 
 **Decision**: Enable SQLite WAL mode with aggressive PRAGMA optimizations for better concurrency.
@@ -240,18 +269,27 @@ Every feature must justify its existence. The redesign reduced backend code from
 
 ### Web PWA Design Styles
 
-**Decision**: Provide 9 design style variants for the web PWA UI: Default, Warm, Soft, Sharp, Compact, Teal AI, High Contrast, Sepia, and Mono.
+**Decision**: Provide 9 design style variants for the web PWA UI, each with a distinct color identity: Default (cool slate blue), Warm (amber & copper), Soft (lavender with soft shadows), Sharp (crimson & steel with square edges), Compact (forest green with tight spacing), Teal AI (ocean depths), High Contrast (pure black/white), Sepia (golden parchment), and Mono (pure grayscale).
 
 **Alternatives Considered**:
 - Single fixed design: Too limiting for diverse user preferences
 - Full CSS customization: Too complex for most users
 - Separate accessibility mode: Better to integrate accessibility as design choices
+- Structural-only variants: Early versions shared the same blue-gray palette, making themes hard to distinguish
 
-**Rationale**: Different users have different visual preferences and needs. Some want minimal visual noise (Mono), others prioritize accessibility (High Contrast), and some prefer warmer tones for extended reading (Sepia, Warm). The Sharp style provides square corners for users who prefer a more traditional interface. Design styles are implemented as CSS custom property overrides, making them lightweight and composable with the existing theme system.
+**Rationale**: Different users have different visual preferences and needs. Each theme has a unique color family (distinct HSL hue range) so themes are immediately distinguishable from each other. Structural differences (border radius, spacing, shadows) complement but don't replace color identity. Design styles are implemented as CSS custom property overrides with full light and dark mode palettes, making them lightweight and composable with the existing theme system.
+
+**Color Identities**:
+- **Default**: Cool slate blue (hsl 220-222) — the baseline palette
+- **Warm**: Amber & copper (hsl 25-35) — high-saturation warm tones
+- **Soft**: Lavender (hsl 262-270) — purple-tinted shadows and rounded corners
+- **Sharp**: Crimson & steel (hsl 350 primary, hsl 220 neutral) — square corners, bold accents
+- **Compact**: Forest green (hsl 150-155) — nature-inspired, tight spacing
+- **Teal AI**: Ocean teal (hsl 178-190) — full teal palette, not just an accent swap
 
 **Accessibility Focus**: Three styles specifically address accessibility needs:
 - **High Contrast**: Pure black/white, 2px borders, bold focus rings (WCAG AAA compliant)
-- **Sepia**: Warm paper tones with serif typography to reduce eye strain
+- **Sepia**: Rich golden parchment tones (hsl 35-42) with serif typography to reduce eye strain
 - **Mono**: Grayscale only, removes all color accents for reduced visual noise
 
 Global `prefers-reduced-motion` support disables animations for users who prefer minimal motion.
@@ -562,16 +600,24 @@ This setup requires no DevOps expertise and costs ~$0-5/month for personal use.
 - 20 unit tests with MockProvider (no API keys required)
 - Rollout plan documented in LOOP.md
 
+### Phase 12: Access Control & Visual Identity
+- Two-tier user system (admin/regular) with `ADMIN_EMAILS` config
+- `require_admin` FastAPI dependency for protected mutations (feeds, settings, notification rules)
+- API key users retain admin access for macOS app backwards compatibility
+- Frontend admin gating via `is_admin` flag from `/auth/status`
+- Distinct color identities for all 9 design styles (each theme has a unique HSL hue family)
+- Themes distinguishable by color, not just structural differences
+
 ### Current: Stable Platform
 - Native macOS app + Web PWA
 - Railway backend + Vercel frontend
 - Multi-provider LLM support (Claude, GPT, Gemini)
-- Multi-user support with OAuth (Google, GitHub)
+- Multi-user support with OAuth (Google, GitHub) and role-based access control
 - Gmail newsletter integration via IMAP
 - Neural search for related articles (Exa)
 - Two-pass summarization for complex content
 - Reading statistics and topic trends
 - Polished reading experience with themes and typography
-- Accessibility-first design system with 9 visual variants
+- Accessibility-first design system with 9 color-distinct visual variants
 - Performance-optimized SQLite with scaling documentation
 - ~2,800 lines of Python backend
