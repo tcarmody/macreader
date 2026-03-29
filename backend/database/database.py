@@ -11,6 +11,7 @@ from pathlib import Path
 from .connection import DatabaseConnection
 from .article_repository import ArticleRepository
 from .brief_repository import BriefRepository
+from .digest_repository import DigestRepository
 from .story_group_repository import StoryGroupRepository
 from .chat_repository import ChatRepository
 from .feed_repository import FeedRepository
@@ -65,6 +66,9 @@ class Database:
 
         # Story group repository (same-event deduplication)
         self.story_groups = StoryGroupRepository(self._connection)
+
+        # Digest repository (assembled auto-digests)
+        self.digests = DigestRepository(self._connection)
 
     # ─────────────────────────────────────────────────────────────
     # Feed operations (delegated to FeedRepository)

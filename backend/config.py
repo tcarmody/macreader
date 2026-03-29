@@ -18,6 +18,7 @@ if TYPE_CHECKING:
     from .clustering import Clusterer
     from .providers import LLMProvider
     from .services.chat_service import ChatService
+    from .services.auto_digest import AutoDigestService
     from .services.brief_generator import BriefGenerator
     from .services.story_groups import StoryGroupService
 
@@ -153,6 +154,7 @@ class AppState:
     exa_service: "object | None" = None  # ExaSearchService for related links
     brief_generator: "BriefGenerator | None" = None
     story_group_service: "StoryGroupService | None" = None
+    auto_digest_service: "AutoDigestService | None" = None
     feed_parser: "FeedParser | None" = None
     fetcher: "Fetcher | None" = None
     enhanced_fetcher: "object | None" = None  # EnhancedFetcher from advanced module

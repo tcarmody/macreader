@@ -254,6 +254,28 @@ class DatabaseConnection:
                 CREATE INDEX IF NOT EXISTS idx_story_group_members_article ON story_group_members(article_id);
             """)
 
+            # Auto-digest (assembled daily/weekly briefings)
+            connection.executescript("""
+                CREATE TABLE IF NOT EXISTS digests (
+                    id           INTEGER PRIMARY KEY AUTOINCREMENT,
+                    period       TEXT    NOT NULL CHECK(period IN ('today','week','custom')),
+                    period_start TIMESTAMP NOT NULL,
+                    period_end   TIMESTAMP NOT NULL,
+                    article_ids  TEXT    NOT NULL,
+                    title        TEXT    NOT NULL,
+                    intro        TEXT,
+                    content      TEXT    NOT NULL,
+                    format       TEXT    NOT NULL DEFAULT 'markdown',
+                    tone         TEXT    NOT NULL DEFAULT 'neutral',
+                    brief_length TEXT    NOT NULL DEFAULT 'short',
+                    story_count  INTEGER NOT NULL DEFAULT 0,
+                    word_count   INTEGER NOT NULL DEFAULT 0,
+                    created_at   TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_digests_period ON digests(period, created_at DESC);
+            """)
+
             # Newsletter briefs (length × tone variants for newsletter assembly)
             connection.executescript("""
                 CREATE TABLE IF NOT EXISTS article_briefs (

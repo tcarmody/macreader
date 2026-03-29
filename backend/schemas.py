@@ -791,3 +791,36 @@ class StoryGroupResponse(BaseModel):
     member_count: int
     period_start: str
     period_end: str
+
+
+# ─────────────────────────────────────────────────────────────
+# Auto-Digest Schemas
+# ─────────────────────────────────────────────────────────────
+
+class DigestArticleResponse(BaseModel):
+    id: int
+    title: str
+    url: str
+    source: str | None = None
+    published_at: str | None = None
+    brief: str
+    story_group_size: int = 1   # >1 means duplicate coverage was collapsed
+
+
+class DigestSectionResponse(BaseModel):
+    label: str
+    articles: list[DigestArticleResponse]
+
+
+class AutoDigestResponse(BaseModel):
+    period: str
+    period_start: str
+    period_end: str
+    title: str
+    intro: str
+    sections: list[DigestSectionResponse]
+    story_count: int
+    word_count: int
+    format: str
+    raw: str
+    cached: bool

@@ -23,6 +23,7 @@ from .cache import create_cache
 from .feed_parser import FeedParser
 from .fetcher import Fetcher
 from .summarizer import Summarizer
+from .services.auto_digest import AutoDigestService
 from .services.brief_generator import BriefGenerator
 from .services.story_groups import StoryGroupService
 from .clustering import Clusterer
@@ -93,6 +94,14 @@ async def lifespan(app: FastAPI):
             state.chat_service = ChatService(db=state.db, provider=state.provider)
             state.brief_generator = BriefGenerator(provider=state.provider, cache=state.cache)
             state.story_group_service = StoryGroupService(db=state.db, provider=state.provider, cache=state.cache)
+            state.auto_digest_service = AutoDigestService(
+                db=state.db,
+                provider=state.provider,
+                clusterer=state.clusterer,
+                brief_generator=state.brief_generator,
+                story_group_service=state.story_group_service,
+                cache=state.cache,
+            )
 
             # Initialize Exa search service for related links
             if config.EXA_API_KEY and config.ENABLE_RELATED_LINKS:
@@ -242,6 +251,14 @@ async def inject_api_keys_from_headers(request: Request, call_next):
             state.chat_service = ChatService(db=state.db, provider=state.provider)
             state.brief_generator = BriefGenerator(provider=state.provider, cache=state.cache)
             state.story_group_service = StoryGroupService(db=state.db, provider=state.provider, cache=state.cache)
+            state.auto_digest_service = AutoDigestService(
+                db=state.db,
+                provider=state.provider,
+                clusterer=state.clusterer,
+                brief_generator=state.brief_generator,
+                story_group_service=state.story_group_service,
+                cache=state.cache,
+            )
             logger.info(f"LLM provider initialized from headers: {state.provider.name}")
 
     try:

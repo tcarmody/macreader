@@ -142,6 +142,25 @@ class DBBrief:
 
 
 @dataclass
+class DBDigest:
+    """An assembled daily or weekly digest."""
+    id: int
+    period: str           # 'today' | 'week' | 'custom'
+    period_start: datetime
+    period_end: datetime
+    article_ids: list[int]  # selected article IDs (parsed from JSON)
+    title: str
+    intro: str | None
+    content: str          # rendered output
+    format: str
+    tone: str
+    brief_length: str
+    story_count: int
+    word_count: int
+    created_at: datetime
+
+
+@dataclass
 class DBArticleChat:
     """Chat session for an article (one per user per article)."""
     id: int

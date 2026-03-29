@@ -11,9 +11,12 @@ from ..auth import verify_api_key, get_current_user
 from ..config import state, get_db
 from ..database import Database
 from ..schemas import (
+    AutoDigestResponse,
     BatchBriefRequest,
     BatchBriefResponse,
     BatchBriefResult,
+    DigestArticleResponse,
+    DigestSectionResponse,
     StoryGroupResponse,
     StoryGroupMemberResponse,
 )
@@ -226,3 +229,93 @@ def _build_response(groups, db: Database) -> list[StoryGroupResponse]:
         ))
 
     return result
+
+
+# ─── Auto-Digest ─────────────────────────────────────────────────────────────
+
+@router.get("/auto")
+async def get_auto_digest(
+    db: Annotated[Database, Depends(get_db)],
+    period: str = Query(default="today", description="'today' (24 h) or 'week' (7 days)"),
+    feed_ids: str | None = Query(default=None, description="Comma-separated feed IDs to filter"),
+    max_stories: int = Query(default=10, ge=1, le=50),
+    tone: str = Query(default="neutral", description="neutral | opinionated | analytical"),
+    brief_length: str = Query(default="short", description="sentence | short | paragraph"),
+    format: str = Query(default="markdown", description="markdown | html"),
+    refresh: bool = Query(default=False),
+) -> AutoDigestResponse:
+    """Generate (or return cached) a scored, deduplicated daily or weekly digest.
+
+    Selects the most noteworthy stories from your feeds, collapses same-event
+    duplicate coverage, groups by topic, and renders a ready-to-read briefing.
+    Results are cached for 2 hours. Use ?refresh=true to force regeneration.
+    """
+    if not state.auto_digest_service:
+        raise HTTPException(status_code=503, detail="Auto-digest not configured")
+
+    # Validate period
+    if period not in ("today", "week"):
+        raise HTTPException(status_code=422, detail="period must be 'today' or 'week'")
+
+    # Validate tone and brief_length
+    from ..services.brief_generator import BriefLength, BriefTone
+    try:
+        BriefLength(brief_length)
+    except ValueError:
+        raise HTTPException(status_code=422, detail=f"Invalid brief_length: {brief_length}")
+    try:
+        BriefTone(tone)
+    except ValueError:
+        raise HTTPException(status_code=422, detail=f"Invalid tone: {tone}")
+
+    if format not in ("markdown", "html"):
+        raise HTTPException(status_code=422, detail="format must be 'markdown' or 'html'")
+
+    # Parse feed_ids
+    parsed_feed_ids: list[int] | None = None
+    if feed_ids:
+        try:
+            parsed_feed_ids = [int(fid.strip()) for fid in feed_ids.split(",") if fid.strip()]
+        except ValueError:
+            raise HTTPException(status_code=422, detail="Invalid feed_ids format")
+
+    digest = await state.auto_digest_service.generate(
+        period=period,
+        feed_ids=parsed_feed_ids,
+        max_stories=max_stories,
+        tone=tone,
+        brief_length=brief_length,
+        format=format,
+        force_refresh=refresh,
+    )
+
+    return AutoDigestResponse(
+        period=digest.period,
+        period_start=digest.period_start.isoformat() + "Z",
+        period_end=digest.period_end.isoformat() + "Z",
+        title=digest.title,
+        intro=digest.intro,
+        sections=[
+            DigestSectionResponse(
+                label=s.label,
+                articles=[
+                    DigestArticleResponse(
+                        id=a.id,
+                        title=a.title,
+                        url=a.url,
+                        source=a.source,
+                        published_at=serialize_datetime(a.published_at),
+                        brief=a.brief,
+                        story_group_size=a.story_group_size,
+                    )
+                    for a in s.articles
+                ],
+            )
+            for s in digest.sections
+        ],
+        story_count=digest.story_count,
+        word_count=digest.word_count,
+        format=digest.format,
+        raw=digest.raw,
+        cached=digest.cached,
+    )
