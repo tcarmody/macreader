@@ -668,5 +668,119 @@ See [Section 19](#19-reading-statistics--done) for full implementation details.
 
 ---
 
+---
+
+## Newsletter Assembly Features
+
+Features for using DataPoints as a newsletter production workbench.
+The first wave (duplicate detection, brief generator, draft assembler, coverage
+gap analysis, auto-digest) is planned in `NEWSLETTER_FEATURES_PLAN.md`.
+
+---
+
+### Issue Board ❌ NOT STARTED
+
+A Kanban-style workspace per newsletter issue. Articles move through columns:
+**Candidate → Shortlisted → In Draft → Published**. Multiple issues in flight
+simultaneously (weekly brief + monthly deep-dive). Deadline tracking per issue.
+
+**Why it matters:** Single view of what's being considered vs. committed. Stops
+"I'll definitely use that" from living only in your head.
+
+**Dependencies:** Prerequisite for Story Basket; Draft Assembler would consume it.
+
+---
+
+### Story Basket / Collections ❌ NOT STARTED
+
+Named, ordered collections of articles tied to a specific issue. Reorder by
+drag. See total reading time and estimated word count for the assembled issue.
+
+**Implementation hints:**
+- New tables: `collections (id, name, description, created_at)` and
+  `collection_articles (collection_id, article_id, position, added_at)`
+- Expose via `POST /collections`, `GET /collections/{id}/articles`,
+  `PUT /collections/{id}/articles` (reorder)
+- Draft Assembler accepts a `collection_id` as input
+
+---
+
+### Snippet Extraction & Annotation ❌ NOT STARTED
+
+Highlight a passage within an article, save it with a personal note ("use this
+stat", "great lede"). Snippets surface in the draft assembler sidebar.
+
+**Implementation hints:**
+- `article_snippets (id, article_id, user_id, char_start, char_end, quote_text, note, created_at)`
+- Render saved snippets in article detail view and draft assembler
+
+---
+
+### Triage Mode ❌ NOT STARTED
+
+Fast swipe/hotkey interface for rapid article processing: **Keep / Skip / Maybe
+/ Save**. Designed for inbox-zero speed across a morning's worth of feeds.
+
+**Implementation hints:**
+- Full-screen card UI: title + one-liner only, keyboard shortcuts j/k (nav),
+  s/x/m/b (act)
+- PWA: swipe gestures
+- Optional: hide read articles, auto-advance after action
+
+---
+
+### Source Intelligence Dashboard ❌ NOT STARTED
+
+Per-feed metrics over time: how often articles make it into issues, signal-to-
+noise ratio, topic distribution vs. overall mix, trend lines over 30/90 days.
+
+**Implementation hints:**
+- Requires Issue Board + Story Basket to track "promoted to issue" signal
+- Query `collection_articles` join `articles` join `feeds` for promotion rate
+- Display as a Settings tab or standalone "Sources" view
+
+---
+
+### Voice / Style Layer ❌ NOT STARTED
+
+Train a personal style profile from past issues. Brief generator and draft
+assembler produce output that sounds like the editor, not generic AI.
+
+**Implementation hints:**
+- `style_profiles (id, user_id, name, sample_text, created_at)` — store 2–3
+  representative excerpts
+- Inject sample text as few-shot examples into brief/draft prompts
+- UI: paste past issues → "Set as my style"
+
+---
+
+### Collaboration ❌ NOT STARTED
+
+Share an issue board with a co-editor. Add candidates, annotate, leave comments.
+Flag conflicts when two editors shortlist competing articles on the same story.
+
+**Implementation hints:**
+- Builds on existing multi-user model
+- New: `collection_members (collection_id, user_id, role: owner|editor)`
+- Real-time: SSE events or 10-second polling for co-editor changes
+- Conflict detection via story-group foreign key (see Newsletter Features Plan)
+
+---
+
+### Publishing Integrations ❌ NOT STARTED
+
+Direct push of assembled drafts to newsletter platforms:
+- **Substack** (unofficial draft API or clipboard-optimized HTML)
+- **Beehiiv** (Beehiiv REST API)
+- **Ghost** (Ghost Admin API)
+- **Mailchimp** (Mailchimp Campaigns API)
+
+**Implementation hints:**
+- OAuth credential storage per user
+- Format-specific HTML export (each platform has rendering quirks)
+- "Copy for Substack" with zero-auth as a starting point
+
+---
+
 *Document created: December 2024*
-*Last updated: January 2025*
+*Last updated: March 2026*

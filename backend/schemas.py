@@ -3,7 +3,8 @@ Pydantic models for API request/response validation.
 """
 
 from datetime import datetime
-from pydantic import BaseModel
+from enum import Enum
+from pydantic import BaseModel, field_validator
 
 from .database import DBArticle, DBFeed
 from .database.models import DBNotificationRule, DBNotificationHistory
@@ -709,3 +710,62 @@ class ChatHistoryResponse(BaseModel):
 
 # Import at module level to avoid circular imports
 from .database.models import DBChatMessage  # noqa: E402
+
+
+# ─── Brief Generator schemas ─────────────────────────────────────────────────
+
+class BriefLength(str, Enum):
+    SENTENCE = "sentence"
+    SHORT = "short"
+    PARAGRAPH = "paragraph"
+
+
+class BriefTone(str, Enum):
+    NEUTRAL = "neutral"
+    OPINIONATED = "opinionated"
+    ANALYTICAL = "analytical"
+
+
+class BriefRequest(BaseModel):
+    length: BriefLength = BriefLength.SHORT
+    tone: BriefTone = BriefTone.NEUTRAL
+
+
+class BriefResponse(BaseModel):
+    article_id: int
+    length: str
+    tone: str
+    content: str
+    model_used: str | None = None
+    cached: bool = False
+
+
+class BatchBriefRequest(BaseModel):
+    article_ids: list[int]
+    length: BriefLength = BriefLength.SHORT
+    tone: BriefTone = BriefTone.NEUTRAL
+
+    @field_validator("article_ids")
+    @classmethod
+    def limit_batch_size(cls, v: list[int]) -> list[int]:
+        if len(v) > 20:
+            raise ValueError("Maximum 20 articles per batch request")
+        if len(v) == 0:
+            raise ValueError("At least one article_id is required")
+        return v
+
+
+class BatchBriefResult(BaseModel):
+    article_id: int
+    success: bool
+    content: str | None = None
+    model_used: str | None = None
+    cached: bool = False
+    error: str | None = None
+
+
+class BatchBriefResponse(BaseModel):
+    total: int
+    successful: int
+    failed: int
+    results: list[BatchBriefResult]

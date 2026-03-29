@@ -10,6 +10,7 @@ from pathlib import Path
 
 from .connection import DatabaseConnection
 from .article_repository import ArticleRepository
+from .brief_repository import BriefRepository
 from .chat_repository import ChatRepository
 from .feed_repository import FeedRepository
 from .library_repository import LibraryRepository
@@ -57,6 +58,9 @@ class Database:
 
         # Chat repository for article discussions
         self.chat = ChatRepository(self._connection)
+
+        # Newsletter brief repository
+        self.briefs = BriefRepository(self._connection)
 
     # ─────────────────────────────────────────────────────────────
     # Feed operations (delegated to FeedRepository)

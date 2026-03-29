@@ -232,6 +232,22 @@ class DatabaseConnection:
                 CREATE INDEX IF NOT EXISTS idx_chat_messages_chat ON chat_messages(chat_id, created_at);
             """)
 
+            # Newsletter briefs (length × tone variants for newsletter assembly)
+            connection.executescript("""
+                CREATE TABLE IF NOT EXISTS article_briefs (
+                    id          INTEGER PRIMARY KEY AUTOINCREMENT,
+                    article_id  INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+                    length      TEXT    NOT NULL CHECK(length IN ('sentence','short','paragraph')),
+                    tone        TEXT    NOT NULL CHECK(tone IN ('neutral','opinionated','analytical')),
+                    content     TEXT    NOT NULL,
+                    model_used  TEXT,
+                    created_at  TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    UNIQUE(article_id, length, tone)
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_article_briefs_article_id ON article_briefs(article_id);
+            """)
+
             # Migrate existing read/bookmark state from articles table to user_article_state
             # This handles databases that were created before multi-user support was added
             self._migrate_article_state_to_user_state(connection)

@@ -20,6 +20,8 @@ from ..schemas import (
     BulkMarkReadRequest,
     ExtractSourceResponse,
     ExtractFromHTMLRequest,
+    BriefRequest,
+    BriefResponse,
 )
 from ..tasks import summarize_article
 from ..source_extractor import SourceExtractor
@@ -469,6 +471,68 @@ async def summarize_article_endpoint(
     )
 
     return {"success": True, "message": "Summarization started"}
+
+
+@router.post("/{article_id}/brief")
+async def generate_article_brief(
+    article_id: int,
+    request: BriefRequest,
+    db: Annotated[Database, Depends(get_db)],
+) -> BriefResponse:
+    """Generate a newsletter-ready brief for an article at a specific length and tone.
+
+    Returns a cached brief immediately if one already exists for this
+    article/length/tone combination. Otherwise generates a new brief via LLM.
+    """
+    if not state.brief_generator:
+        raise HTTPException(status_code=503, detail="Brief generator not configured")
+
+    article = require_article(db.get_article(article_id))
+
+    # Return cached DB result if available
+    cached_brief = db.briefs.get(article_id, request.length.value, request.tone.value)
+    if cached_brief:
+        return BriefResponse(
+            article_id=article_id,
+            length=cached_brief.length,
+            tone=cached_brief.tone,
+            content=cached_brief.content,
+            model_used=cached_brief.model_used,
+            cached=True,
+        )
+
+    # Use summary_full if available — saves tokens and improves quality
+    source_text = article.summary_full or article.content
+    content = require_sufficient_content(
+        source_text,
+        "Article has insufficient content. Try fetching the article first.",
+    )
+
+    from ..services.brief_generator import BriefLength, BriefTone
+    brief = await state.brief_generator.generate(
+        article_id=article_id,
+        title=article.title or "",
+        content=content,
+        length=BriefLength(request.length.value),
+        tone=BriefTone(request.tone.value),
+    )
+
+    db.briefs.upsert(
+        article_id=article_id,
+        length=brief.length.value,
+        tone=brief.tone.value,
+        content=brief.content,
+        model_used=brief.model_used,
+    )
+
+    return BriefResponse(
+        article_id=article_id,
+        length=brief.length.value,
+        tone=brief.tone.value,
+        content=brief.content,
+        model_used=brief.model_used,
+        cached=False,
+    )
 
 
 @router.post("/{article_id}/related")

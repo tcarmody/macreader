@@ -23,10 +23,12 @@ from .cache import create_cache
 from .feed_parser import FeedParser
 from .fetcher import Fetcher
 from .summarizer import Summarizer
+from .services.brief_generator import BriefGenerator
 from .clustering import Clusterer
 from .providers import get_provider_from_env
 from .routes import (
     articles_router,
+    digest_router,
     feeds_router,
     summarization_router,
     misc_router,
@@ -88,6 +90,7 @@ async def lifespan(app: FastAPI):
             state.summarizer = Summarizer(provider=state.provider, cache=state.cache)
             state.clusterer = Clusterer(provider=state.provider, cache=state.cache)
             state.chat_service = ChatService(db=state.db, provider=state.provider)
+            state.brief_generator = BriefGenerator(provider=state.provider, cache=state.cache)
 
             # Initialize Exa search service for related links
             if config.EXA_API_KEY and config.ENABLE_RELATED_LINKS:
@@ -235,6 +238,7 @@ async def inject_api_keys_from_headers(request: Request, call_next):
             state.summarizer = Summarizer(provider=state.provider, cache=state.cache)
             state.clusterer = Clusterer(provider=state.provider, cache=state.cache)
             state.chat_service = ChatService(db=state.db, provider=state.provider)
+            state.brief_generator = BriefGenerator(provider=state.provider, cache=state.cache)
             logger.info(f"LLM provider initialized from headers: {state.provider.name}")
 
     try:
@@ -262,3 +266,4 @@ app.include_router(gmail_router)
 app.include_router(notifications_router)
 app.include_router(statistics_router)
 app.include_router(chat_router)
+app.include_router(digest_router)

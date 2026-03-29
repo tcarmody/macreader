@@ -118,6 +118,18 @@ class DBTopicHistory:
 
 
 @dataclass
+class DBBrief:
+    """Newsletter-ready brief for an article at a specific length and tone."""
+    id: int
+    article_id: int
+    length: str   # 'sentence' | 'short' | 'paragraph'
+    tone: str     # 'neutral' | 'opinionated' | 'analytical'
+    content: str
+    model_used: str | None
+    created_at: datetime
+
+
+@dataclass
 class DBArticleChat:
     """Chat session for an article (one per user per article)."""
     id: int
