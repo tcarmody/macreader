@@ -673,8 +673,93 @@ See [Section 19](#19-reading-statistics--done) for full implementation details.
 ## Newsletter Assembly Features
 
 Features for using DataPoints as a newsletter production workbench.
-The first wave (duplicate detection, brief generator, draft assembler, coverage
-gap analysis, auto-digest) is planned in `NEWSLETTER_FEATURES_PLAN.md`.
+Brief Generator ✅ and Story Groups ✅ are implemented. The remaining pipeline
+(Draft Assembler, Coverage Gap Analysis, Auto-Digest) is stashed below.
+
+---
+
+### Draft Assembler ❌ NOT STARTED
+
+Takes a list of article IDs and produces a complete formatted newsletter draft:
+section headers, per-article briefs (via Brief Generator), intro, and outro —
+ready to paste into a publishing platform.
+
+**Formats:** `markdown` (default), `html` (inline styles), `substack`
+(heading levels matched to Substack's editor).
+
+**Assembly pipeline:**
+1. Fetch articles; run `StoryGroupService.detect_groups()` to collapse duplicates to representative.
+2. Run `Clusterer` on the deduplicated set → topic section headers.
+3. Call `BriefGenerator.generate_batch()` for all articles (cache-aware).
+4. One LLM call (`FAST` tier) to generate a 2-sentence intro from cluster labels.
+5. Render into requested format.
+
+**Route:** `POST /digest/draft`
+```json
+{
+  "article_ids": [4, 17, 23, 41],
+  "title": "The Weekly Brief #47",
+  "brief_length": "short",
+  "tone": "neutral",
+  "format": "markdown"
+}
+```
+Response includes structured `sections[]` + `raw` rendered string.
+
+**Caching:** SHA256(sorted article_ids + format + tone + brief_length), 2h TTL.
+Since brief cache is separate (7d TTL), re-generating with a different format only re-runs intro + render.
+
+**Open questions before implementing:**
+- Outro: skip by default (sign-offs are personal)?
+- Article ordering within sections: recency vs. word_count vs. source priority?
+- DB table for past drafts or TieredCache-only?
+- Substack HTML format: verify heading/div structure that survives a paste.
+
+**Dependencies:** Brief Generator ✅, Story Groups ✅, Clusterer ✅
+
+---
+
+### Coverage Gap Analysis ❌ NOT STARTED
+
+Given a draft's article set, identifies angles and stories the selected articles
+miss — based on what related articles exist in the world (via Exa) vs. what was
+chosen to cover.
+
+**Algorithm:**
+1. Cluster article set → `covered_topics`.
+2. Pull `related_links` (Exa) for each cluster representative; trigger fetch if missing.
+3. Collect Exa results not in `article_ids` → candidate uncovered angles.
+4. LLM call (`STANDARD` tier): given covered labels + candidate externals, list 3-5 gaps with description + suggested search query.
+
+**Route:** `POST /digest/gap-analysis`
+```json
+{ "article_ids": [4, 17, 23, 41] }
+```
+No new DB table — ephemeral results, 30min memory cache keyed on sorted article IDs.
+
+**Dependencies:** Clusterer ✅, Exa/Related Links ✅, Draft Assembler (soft)
+
+---
+
+### Auto-Digest ❌ NOT STARTED
+
+Given a time period, automatically selects the most noteworthy stories, deduplicates,
+groups by topic, and assembles a ready-to-read digest — without the editor picking articles.
+
+**Selection algorithm:**
+1. Fetch articles in window (today = 24h, week = 7d).
+2. Detect story groups → collapse duplicates, keep representative.
+3. Cluster remaining articles into topics.
+4. Score each story: +2 if summarized, +1 per additional source covering it, -1/day since published.
+5. Take top N per cluster (default 1), cap 10 total.
+6. Run Draft Assembler on selected IDs.
+
+**Route:** `GET /digest/auto?period=today&format=markdown&tone=neutral&refresh=false`
+Response: same shape as `/digest/draft`, plus `period`, `period_start`, `period_end`, `cached`, `story_count`.
+
+**DB:** `digests (id, user_id, period, period_start, period_end, article_ids JSON, content, word_count, created_at)`
+
+**Dependencies:** Brief Generator ✅, Story Groups ✅, Draft Assembler, Coverage Gap Analysis (soft)
 
 ---
 
