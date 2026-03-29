@@ -769,3 +769,25 @@ class BatchBriefResponse(BaseModel):
     successful: int
     failed: int
     results: list[BatchBriefResult]
+
+
+# ─── Story Group schemas ──────────────────────────────────────────────────────
+
+class StoryGroupMemberResponse(BaseModel):
+    id: int
+    title: str
+    url: str
+    source: str | None = None       # site_name or feed_name
+    published_at: str | None = None
+    summary_short: str | None = None
+    word_count: int | None = None
+
+
+class StoryGroupResponse(BaseModel):
+    id: int
+    label: str
+    representative: StoryGroupMemberResponse
+    members: list[StoryGroupMemberResponse]
+    member_count: int
+    period_start: str
+    period_end: str

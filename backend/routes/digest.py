@@ -2,9 +2,10 @@
 Digest routes: newsletter assembly endpoints.
 """
 
+from datetime import datetime, timedelta
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 
 from ..auth import verify_api_key, get_current_user
 from ..config import state, get_db
@@ -13,7 +14,10 @@ from ..schemas import (
     BatchBriefRequest,
     BatchBriefResponse,
     BatchBriefResult,
+    StoryGroupResponse,
+    StoryGroupMemberResponse,
 )
+from ..schemas import serialize_datetime
 
 router = APIRouter(
     prefix="/digest",
@@ -122,3 +126,103 @@ async def generate_briefs_batch(
         failed=len(all_results) - successful,
         results=all_results,
     )
+
+
+@router.get("/story-groups")
+async def get_story_groups(
+    db: Annotated[Database, Depends(get_db)],
+    since: str | None = Query(default=None, description="ISO8601 start time (default: 48h ago)"),
+    feed_ids: str | None = Query(default=None, description="Comma-separated feed IDs to filter"),
+    min_size: int = Query(default=2, ge=2, le=20),
+    refresh: bool = Query(default=False),
+) -> list[StoryGroupResponse]:
+    """Detect and return story groups for a time window.
+
+    Articles from different feeds that cover the same specific news event are
+    grouped together. Results are cached for 1 hour and persisted to the DB.
+    Use ?refresh=true to force re-detection.
+    """
+    if not state.story_group_service:
+        raise HTTPException(status_code=503, detail="Story group detection not configured")
+
+    # Parse since (default: 48h ago)
+    if since:
+        try:
+            period_start = datetime.fromisoformat(since.replace("Z", "+00:00"))
+            # Normalise to naive UTC for consistency with DB storage
+            if period_start.tzinfo is not None:
+                from datetime import timezone
+                period_start = period_start.astimezone(timezone.utc).replace(tzinfo=None)
+        except ValueError:
+            raise HTTPException(status_code=422, detail="Invalid 'since' datetime format")
+    else:
+        period_start = datetime.now() - timedelta(hours=48)
+
+    # Parse feed_ids
+    parsed_feed_ids: list[int] | None = None
+    if feed_ids:
+        try:
+            parsed_feed_ids = [int(fid.strip()) for fid in feed_ids.split(",") if fid.strip()]
+        except ValueError:
+            raise HTTPException(status_code=422, detail="Invalid feed_ids format")
+
+    groups = await state.story_group_service.get_or_detect_for_window(
+        since=period_start,
+        feed_ids=parsed_feed_ids,
+        min_size=min_size,
+        force_refresh=refresh,
+    )
+
+    # Enrich with article details
+    return _build_response(groups, db)
+
+
+def _build_response(groups, db: Database) -> list[StoryGroupResponse]:
+    """Fetch article details and build StoryGroupResponse list."""
+    # Collect all article IDs we need
+    all_ids: set[int] = set()
+    for g in groups:
+        all_ids.update(g.member_ids)
+        if g.representative_id:
+            all_ids.add(g.representative_id)
+
+    # Fetch articles in bulk
+    article_map = {}
+    for aid in all_ids:
+        article = db.get_article(aid)
+        if article:
+            article_map[aid] = article
+
+    def to_member(article_id: int) -> StoryGroupMemberResponse | None:
+        a = article_map.get(article_id)
+        if a is None:
+            return None
+        return StoryGroupMemberResponse(
+            id=a.id,
+            title=a.title,
+            url=a.url,
+            source=a.site_name or a.feed_name,
+            published_at=serialize_datetime(a.published_at),
+            summary_short=a.summary_short,
+            word_count=a.word_count,
+        )
+
+    result: list[StoryGroupResponse] = []
+    for g in groups:
+        representative = to_member(g.representative_id)
+        if representative is None:
+            continue
+
+        members = [m for mid in g.member_ids if (m := to_member(mid)) is not None]
+
+        result.append(StoryGroupResponse(
+            id=g.id or 0,
+            label=g.label,
+            representative=representative,
+            members=members,
+            member_count=len(members),
+            period_start=g.period_start.isoformat() + "Z",
+            period_end=g.period_end.isoformat() + "Z",
+        ))
+
+    return result

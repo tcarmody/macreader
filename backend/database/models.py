@@ -2,7 +2,7 @@
 Database models - dataclasses for database entities.
 """
 
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from datetime import datetime
 
 
@@ -115,6 +115,18 @@ class DBTopicHistory:
     clustered_at: datetime
     period_start: datetime
     period_end: datetime
+
+
+@dataclass
+class DBStoryGroup:
+    """A group of articles covering the exact same news event."""
+    id: int
+    label: str
+    representative_id: int | None
+    period_start: datetime
+    period_end: datetime
+    created_at: datetime
+    member_ids: list[int] = field(default_factory=list)
 
 
 @dataclass

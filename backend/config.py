@@ -19,6 +19,7 @@ if TYPE_CHECKING:
     from .providers import LLMProvider
     from .services.chat_service import ChatService
     from .services.brief_generator import BriefGenerator
+    from .services.story_groups import StoryGroupService
 
 # Load environment variables from project root
 # Use the backend directory's parent to find .env
@@ -151,6 +152,7 @@ class AppState:
     chat_service: "ChatService | None" = None  # Chat service for article Q&A
     exa_service: "object | None" = None  # ExaSearchService for related links
     brief_generator: "BriefGenerator | None" = None
+    story_group_service: "StoryGroupService | None" = None
     feed_parser: "FeedParser | None" = None
     fetcher: "Fetcher | None" = None
     enhanced_fetcher: "object | None" = None  # EnhancedFetcher from advanced module

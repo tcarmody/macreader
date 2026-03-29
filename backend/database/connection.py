@@ -232,6 +232,28 @@ class DatabaseConnection:
                 CREATE INDEX IF NOT EXISTS idx_chat_messages_chat ON chat_messages(chat_id, created_at);
             """)
 
+            # Story groups (same-event deduplication for newsletter assembly)
+            connection.executescript("""
+                CREATE TABLE IF NOT EXISTS story_groups (
+                    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+                    label             TEXT    NOT NULL,
+                    representative_id INTEGER REFERENCES articles(id) ON DELETE SET NULL,
+                    period_start      TIMESTAMP NOT NULL,
+                    period_end        TIMESTAMP NOT NULL,
+                    created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+
+                CREATE TABLE IF NOT EXISTS story_group_members (
+                    story_group_id INTEGER NOT NULL REFERENCES story_groups(id) ON DELETE CASCADE,
+                    article_id     INTEGER NOT NULL REFERENCES articles(id) ON DELETE CASCADE,
+                    PRIMARY KEY (story_group_id, article_id)
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_story_groups_period ON story_groups(period_start, period_end);
+                CREATE INDEX IF NOT EXISTS idx_story_groups_created ON story_groups(created_at DESC);
+                CREATE INDEX IF NOT EXISTS idx_story_group_members_article ON story_group_members(article_id);
+            """)
+
             # Newsletter briefs (length × tone variants for newsletter assembly)
             connection.executescript("""
                 CREATE TABLE IF NOT EXISTS article_briefs (

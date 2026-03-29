@@ -24,6 +24,7 @@ from .feed_parser import FeedParser
 from .fetcher import Fetcher
 from .summarizer import Summarizer
 from .services.brief_generator import BriefGenerator
+from .services.story_groups import StoryGroupService
 from .clustering import Clusterer
 from .providers import get_provider_from_env
 from .routes import (
@@ -91,6 +92,7 @@ async def lifespan(app: FastAPI):
             state.clusterer = Clusterer(provider=state.provider, cache=state.cache)
             state.chat_service = ChatService(db=state.db, provider=state.provider)
             state.brief_generator = BriefGenerator(provider=state.provider, cache=state.cache)
+            state.story_group_service = StoryGroupService(db=state.db, provider=state.provider, cache=state.cache)
 
             # Initialize Exa search service for related links
             if config.EXA_API_KEY and config.ENABLE_RELATED_LINKS:
@@ -239,6 +241,7 @@ async def inject_api_keys_from_headers(request: Request, call_next):
             state.clusterer = Clusterer(provider=state.provider, cache=state.cache)
             state.chat_service = ChatService(db=state.db, provider=state.provider)
             state.brief_generator = BriefGenerator(provider=state.provider, cache=state.cache)
+            state.story_group_service = StoryGroupService(db=state.db, provider=state.provider, cache=state.cache)
             logger.info(f"LLM provider initialized from headers: {state.provider.name}")
 
     try:

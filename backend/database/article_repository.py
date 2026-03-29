@@ -166,6 +166,42 @@ class ArticleRepository:
             rows = conn.execute(query, params).fetchall()
             return [row_to_article(row) for row in rows]
 
+    def get_shared_since(
+        self,
+        since: datetime,
+        feed_ids: list[int] | None = None,
+        limit: int = 300,
+    ) -> list[DBArticle]:
+        """Fetch recent shared RSS articles (no per-user state needed).
+
+        Returns articles where user_id IS NULL (shared RSS, not library items),
+        published or created on or after `since`. Used by story group detection.
+        """
+        query = f"""
+            SELECT {self.ARTICLE_COLUMNS},
+                   0 AS is_read, 0 AS is_bookmarked,
+                   NULL AS read_at, NULL AS bookmarked_at
+            FROM articles a
+            WHERE a.user_id IS NULL
+              AND (
+                  (a.published_at IS NOT NULL AND a.published_at >= ?)
+                  OR (a.published_at IS NULL AND a.created_at >= ?)
+              )
+        """
+        params: list = [since.isoformat(), since.isoformat()]
+
+        if feed_ids:
+            placeholders = ",".join("?" * len(feed_ids))
+            query += f" AND a.feed_id IN ({placeholders})"
+            params.extend(feed_ids)
+
+        query += " ORDER BY COALESCE(a.published_at, a.created_at) DESC LIMIT ?"
+        params.append(limit)
+
+        with self._db.conn() as conn:
+            rows = conn.execute(query, params).fetchall()
+            return [row_to_article(row) for row in rows]
+
     def update_content(self, article_id: int, content: str):
         """Update article content."""
         with self._db.conn() as conn:

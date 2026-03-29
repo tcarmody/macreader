@@ -11,6 +11,7 @@ from pathlib import Path
 from .connection import DatabaseConnection
 from .article_repository import ArticleRepository
 from .brief_repository import BriefRepository
+from .story_group_repository import StoryGroupRepository
 from .chat_repository import ChatRepository
 from .feed_repository import FeedRepository
 from .library_repository import LibraryRepository
@@ -61,6 +62,9 @@ class Database:
 
         # Newsletter brief repository
         self.briefs = BriefRepository(self._connection)
+
+        # Story group repository (same-event deduplication)
+        self.story_groups = StoryGroupRepository(self._connection)
 
     # ─────────────────────────────────────────────────────────────
     # Feed operations (delegated to FeedRepository)
@@ -219,6 +223,15 @@ class Database:
 
     def get_article_by_url(self, url: str) -> DBArticle | None:
         return self.articles.get_by_url(url)
+
+    def get_articles_since(
+        self,
+        since: datetime,
+        feed_ids: list[int] | None = None,
+        limit: int = 300,
+    ) -> list[DBArticle]:
+        """Fetch recent shared RSS articles for story-group detection (no user state)."""
+        return self.articles.get_shared_since(since, feed_ids, limit)
 
     def update_article_content(self, article_id: int, content: str):
         return self.articles.update_content(article_id, content)
