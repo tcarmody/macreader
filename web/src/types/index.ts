@@ -127,6 +127,36 @@ export type FilterType =
 
 export type GroupBy = 'none' | 'date' | 'feed' | 'topic'
 
+// Auto-digest response types
+export interface DigestArticle {
+  id: number
+  title: string
+  url: string
+  source: string | null
+  published_at: string | null
+  brief: string
+  story_group_size: number
+}
+
+export interface DigestSection {
+  label: string
+  articles: DigestArticle[]
+}
+
+export interface AutoDigestResponse {
+  period: string
+  period_start: string
+  period_end: string
+  title: string
+  intro: string
+  sections: DigestSection[]
+  story_count: number
+  word_count: number
+  format: string
+  raw: string
+  cached: boolean
+}
+
 export type SortBy = 'newest' | 'oldest' | 'unread_first' | 'title_asc' | 'title_desc'
 
 // API key configuration stored in localStorage

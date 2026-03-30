@@ -18,6 +18,7 @@ import {
   Mail,
   ListFilter,
   Info,
+  LayoutList,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -241,6 +242,20 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
               <Library className="h-4 w-4 mr-1" />
               Library
               <Info className="h-2.5 w-2.5 ml-1 opacity-50" />
+            </Button>
+          </Tooltip>
+          <Tooltip
+            content="AI-assembled daily or weekly digest of top stories"
+            side="bottom"
+          >
+            <Button
+              variant={currentView === 'digest' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="flex-1"
+              onClick={() => setCurrentView('digest')}
+            >
+              <LayoutList className="h-4 w-4 mr-1" />
+              Digest
             </Button>
           </Tooltip>
         </div>

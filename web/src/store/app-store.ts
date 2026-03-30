@@ -19,7 +19,7 @@ interface AppState {
   selectedLibraryItemId: number | null
 
   // View State
-  currentView: 'feeds' | 'library'
+  currentView: 'feeds' | 'library' | 'digest'
   groupBy: GroupBy
   sortBy: SortBy
   hideRead: boolean
@@ -47,7 +47,7 @@ interface AppState {
   setSelectedFilter: (filter: FilterType) => void
   setSelectedArticleId: (id: number | null) => void
   setSelectedLibraryItemId: (id: number | null) => void
-  setCurrentView: (view: 'feeds' | 'library') => void
+  setCurrentView: (view: 'feeds' | 'library' | 'digest') => void
   setGroupBy: (groupBy: GroupBy) => void
   setSortBy: (sortBy: SortBy) => void
   setHideRead: (hideRead: boolean) => void

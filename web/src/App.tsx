@@ -7,6 +7,7 @@ import { Sidebar } from '@/components/Sidebar'
 import { ArticleList } from '@/components/ArticleList'
 import { ArticleDetail } from '@/components/ArticleDetail'
 import { LibraryList, LibraryItemDetail } from '@/components/LibraryView'
+import { DigestView } from '@/components/DigestView'
 import { SettingsDialog } from '@/components/SettingsDialog'
 import { AddFeedDialog } from '@/components/AddFeedDialog'
 import { FeedManagerDialog } from '@/components/FeedManagerDialog'
@@ -221,7 +222,9 @@ function AppContent() {
       />
 
       {/* Main Content */}
-      {currentView === 'feeds' ? (
+      {currentView === 'digest' ? (
+        <DigestView />
+      ) : currentView === 'feeds' ? (
         <>
           <ArticleList onAddFeed={() => setAddFeedOpen(true)} />
           <ArticleDetail />

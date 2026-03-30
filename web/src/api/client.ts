@@ -2,6 +2,7 @@ import type {
   Feed,
   Article,
   ArticleDetail,
+  AutoDigestResponse,
   GroupedArticlesResponse,
   StandaloneItem,
   StandaloneItemDetail,
@@ -406,6 +407,26 @@ export async function clearChatHistory(
   articleId: number
 ): Promise<{ success: boolean; deleted: boolean; message: string }> {
   return fetchApi(`/articles/${articleId}/chat`, { method: 'DELETE' })
+}
+
+// Auto-Digest
+export interface AutoDigestParams {
+  period?: 'today' | 'week'
+  tone?: 'neutral' | 'opinionated' | 'analytical'
+  brief_length?: 'sentence' | 'short' | 'paragraph'
+  max_stories?: number
+  refresh?: boolean
+}
+
+export async function getAutoDigest(params: AutoDigestParams = {}): Promise<AutoDigestResponse> {
+  const searchParams = new URLSearchParams()
+  if (params.period) searchParams.append('period', params.period)
+  if (params.tone) searchParams.append('tone', params.tone)
+  if (params.brief_length) searchParams.append('brief_length', params.brief_length)
+  if (params.max_stories) searchParams.append('max_stories', params.max_stories.toString())
+  if (params.refresh) searchParams.append('refresh', 'true')
+  const query = searchParams.toString()
+  return fetchApi(`/digest/auto${query ? `?${query}` : ''}`)
 }
 
 // OAuth Authentication
