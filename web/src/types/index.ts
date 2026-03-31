@@ -17,6 +17,7 @@ export interface Article {
   url: string
   title: string
   summary_short: string | null
+  brief: string | null
   is_read: boolean
   is_bookmarked: boolean
   published_at: string
@@ -127,6 +128,55 @@ export type FilterType =
 
 export type GroupBy = 'none' | 'date' | 'feed' | 'topic'
 
+// Reading statistics types
+export interface ReadingActivityStats {
+  articles_read: number
+  total_reading_time_minutes: number
+  avg_reading_time_minutes: number
+  bookmarks_added: number
+  read_by_day: Record<string, number>
+  read_by_feed: Record<string, number>
+}
+
+export interface SummarizationStats {
+  total_articles: number
+  summarized_articles: number
+  summarization_rate: number
+  model_breakdown: Record<string, number>
+  avg_per_day: number
+  avg_per_week: number
+  period_start: string | null
+  period_end: string
+}
+
+export interface TopicInfo {
+  label: string
+  count: number
+  article_ids?: number[] | null
+}
+
+export interface TopicTrend {
+  topic_hash: string
+  label: string
+  total_count: number
+  cluster_count: number
+}
+
+export interface TopicStats {
+  current_topics: TopicInfo[]
+  topic_trends: TopicTrend[]
+  most_common: TopicInfo[]
+}
+
+export interface ReadingStatsResponse {
+  period: { type: string; value: string }
+  period_start: string
+  period_end: string
+  summarization: SummarizationStats
+  topics: TopicStats
+  reading: ReadingActivityStats
+}
+
 // Auto-digest response types
 export interface DigestArticle {
   id: number
@@ -158,6 +208,27 @@ export interface AutoDigestResponse {
 }
 
 export type SortBy = 'newest' | 'oldest' | 'unread_first' | 'title_asc' | 'title_desc'
+
+// Story groups (duplicate coverage detection)
+export interface StoryGroupMember {
+  id: number
+  title: string
+  url: string
+  source: string | null
+  published_at: string | null
+  summary_short: string | null
+  word_count: number | null
+}
+
+export interface StoryGroup {
+  id: number
+  label: string
+  representative: StoryGroupMember
+  members: StoryGroupMember[]
+  member_count: number
+  period_start: string
+  period_end: string
+}
 
 // API key configuration stored in localStorage
 export interface ApiKeyConfig {

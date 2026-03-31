@@ -48,6 +48,9 @@ class DBArticle:
     # Related links error message if fetch failed
     related_links_error: str | None = None
 
+    # Sentence-length brief from article_briefs (populated by list queries with JOIN)
+    brief: str | None = None
+
 
 @dataclass
 class DBUser:

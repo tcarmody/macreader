@@ -12,6 +12,8 @@ import type {
   GroupBy,
   ApiKeyConfig,
   OAuthStatus,
+  ReadingStatsResponse,
+  StoryGroup,
 } from '@/types'
 
 // Get API configuration from localStorage
@@ -193,6 +195,7 @@ export async function getArticles(params: {
   unread_only?: boolean
   bookmarked_only?: boolean
   summarized_only?: boolean
+  hide_duplicates?: boolean
   sort_by?: string
   limit?: number
   offset?: number
@@ -202,6 +205,7 @@ export async function getArticles(params: {
   if (params.unread_only) searchParams.append('unread_only', 'true')
   if (params.bookmarked_only) searchParams.append('bookmarked_only', 'true')
   if (params.summarized_only) searchParams.append('summarized_only', 'true')
+  if (params.hide_duplicates) searchParams.append('hide_duplicates', 'true')
   if (params.sort_by) searchParams.append('sort_by', params.sort_by)
   if (params.limit) searchParams.append('limit', params.limit.toString())
   if (params.offset) searchParams.append('offset', params.offset.toString())
@@ -234,6 +238,12 @@ export async function toggleArticleBookmark(
 
 export async function markAllRead(): Promise<{ success: boolean; count: number }> {
   return fetchApi('/articles/all/read', { method: 'POST' })
+}
+
+export async function archiveOldArticles(
+  days: number
+): Promise<{ success: boolean; archived_count: number; days: number }> {
+  return fetchApi(`/articles/archive?days=${days}`, { method: 'POST' })
 }
 
 export async function markFeedRead(
@@ -407,6 +417,32 @@ export async function clearChatHistory(
   articleId: number
 ): Promise<{ success: boolean; deleted: boolean; message: string }> {
   return fetchApi(`/articles/${articleId}/chat`, { method: 'DELETE' })
+}
+
+// Story Groups
+export async function getStoryGroups(params: {
+  since?: string
+  min_size?: number
+  refresh?: boolean
+} = {}): Promise<StoryGroup[]> {
+  const searchParams = new URLSearchParams()
+  if (params.since) searchParams.append('since', params.since)
+  if (params.min_size) searchParams.append('min_size', params.min_size.toString())
+  if (params.refresh) searchParams.append('refresh', 'true')
+  const query = searchParams.toString()
+  return fetchApi(`/digest/story-groups${query ? `?${query}` : ''}`)
+}
+
+// Reading Statistics
+export async function getReadingStats(params: {
+  period_type?: string
+  period_value?: string
+} = {}): Promise<ReadingStatsResponse> {
+  const searchParams = new URLSearchParams()
+  if (params.period_type) searchParams.append('period_type', params.period_type)
+  if (params.period_value) searchParams.append('period_value', params.period_value)
+  const query = searchParams.toString()
+  return fetchApi(`/statistics/reading-stats${query ? `?${query}` : ''}`)
 }
 
 // Auto-Digest

@@ -19,10 +19,11 @@ interface AppState {
   selectedLibraryItemId: number | null
 
   // View State
-  currentView: 'feeds' | 'library' | 'digest'
+  currentView: 'feeds' | 'library' | 'digest' | 'stats'
   groupBy: GroupBy
   sortBy: SortBy
   hideRead: boolean
+  hideDuplicates: boolean
   searchQuery: string
   isSearching: boolean
 
@@ -47,11 +48,12 @@ interface AppState {
   setSelectedFilter: (filter: FilterType) => void
   setSelectedArticleId: (id: number | null) => void
   setSelectedLibraryItemId: (id: number | null) => void
-  setCurrentView: (view: 'feeds' | 'library' | 'digest') => void
+  setCurrentView: (view: 'feeds' | 'library' | 'digest' | 'stats') => void
   setGroupBy: (groupBy: GroupBy) => void
   setSortBy: (sortBy: SortBy) => void
   setHideRead: (hideRead: boolean) => void
   toggleHideRead: () => void
+  toggleHideDuplicates: () => void
   setSearchQuery: (query: string) => void
   setIsSearching: (isSearching: boolean) => void
   setApiConfig: (config: ApiKeyConfig) => void
@@ -83,6 +85,7 @@ export const useAppStore = create<AppState>()(
       groupBy: 'none',
       sortBy: 'newest',
       hideRead: false,
+      hideDuplicates: false,
       searchQuery: '',
       isSearching: false,
 
@@ -109,7 +112,7 @@ export const useAppStore = create<AppState>()(
       setSelectedFilter: (filter) => set({ selectedFilter: filter, selectedArticleId: null }),
       setSelectedArticleId: (id) => set({ selectedArticleId: id }),
       setSelectedLibraryItemId: (id) => set({ selectedLibraryItemId: id }),
-      setCurrentView: (view) => set((state) => ({
+      setCurrentView: (view: 'feeds' | 'library' | 'digest' | 'stats') => set((state) => ({
         currentView: view,
         selectedArticleId: null,
         selectedLibraryItemId: null,
@@ -128,6 +131,7 @@ export const useAppStore = create<AppState>()(
       setSortBy: (sortBy) => set({ sortBy }),
       setHideRead: (hideRead) => set({ hideRead }),
       toggleHideRead: () => set((state) => ({ hideRead: !state.hideRead })),
+      toggleHideDuplicates: () => set((state) => ({ hideDuplicates: !state.hideDuplicates })),
       setSearchQuery: (query) => set({ searchQuery: query }),
       setIsSearching: (isSearching) => set({ isSearching }),
       setApiConfig: (config) => {
@@ -165,6 +169,7 @@ export const useAppStore = create<AppState>()(
         groupBy: state.groupBy,
         sortBy: state.sortBy,
         hideRead: state.hideRead,
+        hideDuplicates: state.hideDuplicates,
         featureUsage: state.featureUsage,
         // Convert Set to Array for JSON serialization
         shownToasts: [...state.shownToasts],

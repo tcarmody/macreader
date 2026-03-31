@@ -183,14 +183,15 @@ export function useRefreshSingleFeed() {
 // Articles - paginated with infinite scroll
 const ARTICLES_PAGE_SIZE = 50
 
-export function useArticles(filter: FilterType, sortBy: SortBy = 'newest') {
+export function useArticles(filter: FilterType, sortBy: SortBy = 'newest', hideDuplicates = false) {
   return useInfiniteQuery({
-    queryKey: queryKeys.articles(filter, sortBy),
+    queryKey: [...queryKeys.articles(filter, sortBy), hideDuplicates] as const,
     queryFn: ({ pageParam = 0 }) => {
       const params: Parameters<typeof api.getArticles>[0] = {
         sort_by: sortBy,
         limit: ARTICLES_PAGE_SIZE,
         offset: pageParam,
+        hide_duplicates: hideDuplicates || undefined,
       }
 
       if (filter === 'unread') {
@@ -300,6 +301,16 @@ export function useMarkAllRead() {
   const queryClient = useQueryClient()
   return useMutation({
     mutationFn: api.markAllRead,
+    onSuccess: () => {
+      invalidateArticleRelated(queryClient)
+    },
+  })
+}
+
+export function useArchiveArticles() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (days: number) => api.archiveOldArticles(days),
     onSuccess: () => {
       invalidateArticleRelated(queryClient)
     },
@@ -447,6 +458,25 @@ export function useFindRelatedLinksForLibraryItem() {
         invalidateKeys: [['library']],
       })
     },
+  })
+}
+
+// Story Groups
+export function useStoryGroups() {
+  return useQuery({
+    queryKey: ['storyGroups'],
+    queryFn: () => api.getStoryGroups(),
+    staleTime: 60 * 60 * 1000, // 1 hour — matches server-side cache TTL
+    retry: false, // 503 if not configured — don't retry
+  })
+}
+
+// Reading Statistics
+export function useReadingStats(periodType: string, periodValue: string) {
+  return useQuery({
+    queryKey: ['readingStats', periodType, periodValue],
+    queryFn: () => api.getReadingStats({ period_type: periodType, period_value: periodValue }),
+    staleTime: 2 * 60 * 1000,
   })
 }
 

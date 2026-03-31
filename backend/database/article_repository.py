@@ -129,6 +129,7 @@ class ArticleRepository:
             offset: Number of articles to skip
         """
         # Join with user_article_state for per-user read/bookmark status
+        # Also LEFT JOIN article_briefs for the sentence-length neutral brief used in list preview
         # Use COALESCE to default to 0 (unread) when no state record exists
         # Note: We use explicit column list (ARTICLE_COLUMNS) instead of a.* to avoid
         # column name conflicts with the old is_read/is_bookmarked columns in articles table
@@ -137,10 +138,13 @@ class ArticleRepository:
                    COALESCE(uas.is_read, 0) as is_read,
                    COALESCE(uas.is_bookmarked, 0) as is_bookmarked,
                    uas.read_at,
-                   uas.bookmarked_at
+                   uas.bookmarked_at,
+                   ab.content AS brief
             FROM articles a
             LEFT JOIN user_article_state uas
                 ON uas.article_id = a.id AND uas.user_id = ?
+            LEFT JOIN article_briefs ab
+                ON ab.article_id = a.id AND ab.length = 'sentence' AND ab.tone = 'neutral'
             WHERE a.user_id IS NULL
         """
         params: list = [user_id]

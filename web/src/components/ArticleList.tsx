@@ -17,6 +17,7 @@ import {
   Inbox,
   Plus,
   Info,
+  Copy,
 } from 'lucide-react'
 import { cn, formatDate, stripHtml, smartQuotes } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -28,7 +29,7 @@ import { BadgePulse } from '@/components/ui/badge-pulse'
 import { Tooltip } from '@/components/ui/tooltip'
 import { useToast } from '@/components/ui/toast'
 import { useAppStore } from '@/store/app-store'
-import { useArticles, useArticlesGrouped, useSearch, useMarkArticleRead, useMarkAllRead } from '@/hooks/use-queries'
+import { useArticles, useArticlesGrouped, useSearch, useMarkArticleRead, useMarkAllRead, useStoryGroups } from '@/hooks/use-queries'
 import type { Article, SortBy, GroupBy } from '@/types'
 
 const SORT_OPTIONS: { value: SortBy; label: string }[] = [
@@ -63,6 +64,8 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
     setSortBy,
     hideRead,
     toggleHideRead,
+    hideDuplicates,
+    toggleHideDuplicates,
     featureUsage,
     hasShownToast,
     markToastShown,
@@ -76,7 +79,7 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
     fetchNextPage,
     hasNextPage,
     isFetchingNextPage,
-  } = useArticles(selectedFilter, sortBy)
+  } = useArticles(selectedFilter, sortBy, hideDuplicates)
   const { data: groupedData, isLoading: groupedLoading } = useArticlesGrouped(groupBy)
 
   // Show first-time toast when Group By Topic is used
@@ -91,6 +94,18 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
   )
   const markRead = useMarkArticleRead()
   const markAllRead = useMarkAllRead()
+  const { data: storyGroups = [] } = useStoryGroups()
+
+  // Build article-id → story group label+count map
+  const storyGroupByArticleId = useMemo(() => {
+    const map: Record<number, { label: string; count: number }> = {}
+    for (const group of storyGroups) {
+      for (const member of group.members) {
+        map[member.id] = { label: group.label, count: group.member_count }
+      }
+    }
+    return map
+  }, [storyGroups])
 
   // Flatten paginated articles
   const articles = articlesData?.pages.flat() ?? []
@@ -259,6 +274,15 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
                 <Eye className="h-4 w-4" />
               )}
             </Button>
+            <Button
+              variant={hideDuplicates ? 'secondary' : 'ghost'}
+              size="icon"
+              className="h-7 w-7"
+              onClick={toggleHideDuplicates}
+              title={hideDuplicates ? 'Showing unique articles only' : 'Show unique articles only'}
+            >
+              <Copy className="h-4 w-4" />
+            </Button>
             <Badge variant="secondary">{totalCount}</Badge>
           </div>
         </div>
@@ -366,6 +390,7 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
                       article={article}
                       isSelected={selectedArticleId === article.id}
                       onSelect={() => handleSelectArticle(article)}
+                      storyGroup={storyGroupByArticleId[article.id]}
                     />
                   ))}
                 </div>
@@ -387,6 +412,7 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
                       article={article}
                       isSelected={selectedArticleId === article.id}
                       onSelect={() => handleSelectArticle(article)}
+                      storyGroup={storyGroupByArticleId[article.id]}
                     />
                   ))}
                 </div>
@@ -417,12 +443,16 @@ interface ArticleListItemProps {
   article: Article
   isSelected: boolean
   onSelect: () => void
+  storyGroup?: { label: string; count: number }
 }
 
-function ArticleListItem({ article, isSelected, onSelect }: ArticleListItemProps) {
-  const summary = article.summary_short
-    ? stripHtml(article.summary_short)
-    : null
+function ArticleListItem({ article, isSelected, onSelect, storyGroup }: ArticleListItemProps) {
+  // Prefer sentence-length brief (polished, AI-written) over raw summary_short
+  const summary = article.brief
+    ? article.brief
+    : article.summary_short
+      ? stripHtml(article.summary_short)
+      : null
 
   return (
     <button
@@ -448,7 +478,10 @@ function ArticleListItem({ article, isSelected, onSelect }: ArticleListItemProps
           </h3>
 
           {summary && (
-            <p className="text-xs text-muted-foreground mt-1 line-clamp-2">
+            <p className={cn(
+              "text-xs text-muted-foreground mt-1",
+              article.brief ? "line-clamp-1" : "line-clamp-2"
+            )}>
               {smartQuotes(summary)}
             </p>
           )}
@@ -459,6 +492,15 @@ function ArticleListItem({ article, isSelected, onSelect }: ArticleListItemProps
             <span>{formatDate(article.published_at)}</span>
 
             <div className="flex items-center gap-1 ml-auto">
+              {storyGroup && (
+                <Badge
+                  variant="outline"
+                  className="text-[10px] h-4 px-1 py-0 text-blue-600 border-blue-300 dark:text-blue-400 dark:border-blue-700"
+                  title={storyGroup.label}
+                >
+                  {storyGroup.count} sources
+                </Badge>
+              )}
               {article.is_bookmarked && (
                 <BookMarked className="h-3 w-3 text-amber-500" />
               )}

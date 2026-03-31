@@ -19,6 +19,7 @@ import {
   ListFilter,
   Info,
   LayoutList,
+  BarChart2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -256,6 +257,20 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
             >
               <LayoutList className="h-4 w-4 mr-1" />
               Digest
+            </Button>
+          </Tooltip>
+          <Tooltip
+            content="Reading statistics and topic trends"
+            side="bottom"
+          >
+            <Button
+              variant={currentView === 'stats' ? 'secondary' : 'ghost'}
+              size="sm"
+              className="flex-1"
+              onClick={() => setCurrentView('stats')}
+            >
+              <BarChart2 className="h-4 w-4 mr-1" />
+              Stats
             </Button>
           </Tooltip>
         </div>

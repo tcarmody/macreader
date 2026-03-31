@@ -67,6 +67,9 @@ class ArticleResponse(BaseModel):
     # Original feed name for archived articles (when feed was deleted but article preserved)
     feed_name: str | None = None
 
+    # Sentence-length brief from article_briefs (shown in list preview when available)
+    brief: str | None = None
+
     @classmethod
     def from_db(cls, article: DBArticle) -> "ArticleResponse":
         return cls(
@@ -83,6 +86,7 @@ class ArticleResponse(BaseModel):
             reading_time_minutes=article.reading_time_minutes,
             author=article.author,
             feed_name=article.feed_name,
+            brief=article.brief,
         )
 
 

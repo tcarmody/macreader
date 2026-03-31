@@ -11,6 +11,8 @@ import {
   Loader2,
   LogOut,
   User,
+  Database,
+  Trash2,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -19,7 +21,7 @@ import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
 import { useAppStore, applyTheme, applyDesignStyle } from '@/store/app-store'
 import type { DesignStyle } from '@/store/app-store'
-import { useStatus, useAuthStatus, useLogout } from '@/hooks/use-queries'
+import { useStatus, useAuthStatus, useLogout, useArchiveArticles } from '@/hooks/use-queries'
 import { getLoginUrl } from '@/api/client'
 import type { ApiKeyConfig } from '@/types'
 
@@ -37,7 +39,10 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
   const [localConfig, setLocalConfig] = useState<ApiKeyConfig>(apiConfig)
   const [testingConnection, setTestingConnection] = useState(false)
   const [_connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle')
-  const [activeTab, setActiveTab] = useState<'api' | 'appearance'>('api')
+  const [activeTab, setActiveTab] = useState<'api' | 'appearance' | 'data'>('api')
+  const [archiveDays, setArchiveDays] = useState(30)
+  const [archiveResult, setArchiveResult] = useState<string | null>(null)
+  const archiveMutation = useArchiveArticles()
 
   useEffect(() => {
     setLocalConfig(apiConfig)
@@ -127,6 +132,18 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
           >
             <Monitor className="h-4 w-4 inline mr-2" />
             Appearance
+          </button>
+          <button
+            onClick={() => setActiveTab('data')}
+            className={cn(
+              "flex-1 px-4 py-2 text-sm font-medium transition-colors",
+              activeTab === 'data'
+                ? "border-b-2 border-primary text-primary"
+                : "text-muted-foreground hover:text-foreground"
+            )}
+          >
+            <Database className="h-4 w-4 inline mr-2" />
+            Data
           </button>
         </div>
 
@@ -460,6 +477,62 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
                     <kbd className="px-2 py-1 bg-muted rounded text-xs">⌘ N</kbd>
                   </div>
                 </div>
+              </div>
+            </div>
+          )}
+
+          {activeTab === 'data' && (
+            <div className="space-y-6">
+              {/* Archive old articles */}
+              <div>
+                <h3 className="text-sm font-medium mb-1 flex items-center gap-2">
+                  <Trash2 className="h-4 w-4" />
+                  Archive Old Articles
+                </h3>
+                <p className="text-xs text-muted-foreground mb-4">
+                  Permanently delete articles older than the specified number of days. Bookmarked articles are preserved.
+                </p>
+                <div className="flex items-center gap-3 mb-3">
+                  <label className="text-sm text-muted-foreground whitespace-nowrap">
+                    Keep articles for
+                  </label>
+                  <select
+                    value={archiveDays}
+                    onChange={(e) => setArchiveDays(Number(e.target.value))}
+                    className="h-8 px-2 text-sm rounded-md border border-input bg-background flex-1"
+                  >
+                    {[7, 14, 30, 60, 90, 180, 365].map((d) => (
+                      <option key={d} value={d}>{d} days</option>
+                    ))}
+                  </select>
+                </div>
+                {archiveResult && (
+                  <p className="text-xs text-muted-foreground mb-3 flex items-center gap-1">
+                    <Check className="h-3 w-3 text-green-500" />
+                    {archiveResult}
+                  </p>
+                )}
+                <Button
+                  variant="destructive"
+                  size="sm"
+                  disabled={archiveMutation.isPending}
+                  onClick={async () => {
+                    setArchiveResult(null)
+                    const result = await archiveMutation.mutateAsync(archiveDays)
+                    setArchiveResult(
+                      result.archived_count > 0
+                        ? `Archived ${result.archived_count} article${result.archived_count === 1 ? '' : 's'}`
+                        : 'No articles to archive'
+                    )
+                  }}
+                >
+                  {archiveMutation.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : (
+                    <Trash2 className="h-4 w-4 mr-2" />
+                  )}
+                  Archive Now
+                </Button>
               </div>
             </div>
           )}
