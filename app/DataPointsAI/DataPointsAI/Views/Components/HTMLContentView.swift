@@ -137,12 +137,7 @@ struct HTMLContentView: NSViewRepresentable {
                 function reportHeight() {
                     // Use a small delay to ensure rendering is complete
                     setTimeout(function() {
-                        const height = Math.max(
-                            document.body.scrollHeight,
-                            document.body.offsetHeight,
-                            document.documentElement.scrollHeight,
-                            document.documentElement.offsetHeight
-                        );
+                        const height = document.body.scrollHeight;
                         window.webkit.messageHandlers.heightHandler.postMessage(height);
                     }, 50);
                 }
@@ -185,14 +180,7 @@ struct HTMLContentView: NSViewRepresentable {
         func webView(_ webView: WKWebView, didFinish navigation: WKNavigation!) {
             // Get content height after page loads with multiple attempts
             func checkHeight(attempt: Int = 0) {
-                let js = """
-                    Math.max(
-                        document.body.scrollHeight,
-                        document.body.offsetHeight,
-                        document.documentElement.scrollHeight,
-                        document.documentElement.offsetHeight
-                    )
-                """
+                let js = "document.body.scrollHeight"
                 webView.evaluateJavaScript(js) { [weak self] result, error in
                     if let height = result as? CGFloat, height > 0 {
                         DispatchQueue.main.async {

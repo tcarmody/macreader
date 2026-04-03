@@ -39,6 +39,7 @@ struct ArticleDetailView: View {
         .animation(.easeInOut(duration: 0.2), value: appState.selectedArticleDetail?.id)
         .onChange(of: appState.selectedArticleDetail?.id) { _, _ in
             // Reset chat state when article changes
+            contentHeight = 0
             isChatExpanded = false
             hasChatHistory = false
         }
