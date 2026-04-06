@@ -257,9 +257,10 @@ async def upload_file_to_library(
     )
 
     if not item_id:
-        # Clean up file on duplicate
+        # Clean up file — UUID-based URLs make true duplicates extremely unlikely,
+        # but handle defensively just in case.
         file_path.unlink(missing_ok=True)
-        raise HTTPException(status_code=409, detail="File already exists in library")
+        raise HTTPException(status_code=500, detail="Failed to add file to library")
 
     item = db.get_article(item_id)
     if not item:
@@ -530,7 +531,15 @@ async def import_newsletter_raw(
     )
 
     if not item_id:
-        raise HTTPException(status_code=409, detail="Newsletter already exists in library")
+        # Same newsletter imported again — bookmark it and return it
+        existing = db.get_article_by_url(newsletter_url)
+        if not existing:
+            raise HTTPException(status_code=409, detail="Newsletter already exists in library")
+        item_with_state = db.get_article_with_user_state(existing.id, user_id)
+        if item_with_state and not item_with_state.is_bookmarked:
+            db.toggle_bookmark(user_id, existing.id)
+            item_with_state = db.get_article_with_user_state(existing.id, user_id)
+        return StandaloneItemDetailResponse.from_db(item_with_state, already_existed=True)
 
     item = db.get_library_item(user_id, item_id)
     if not item:

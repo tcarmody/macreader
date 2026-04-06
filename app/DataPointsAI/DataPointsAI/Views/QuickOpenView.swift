@@ -83,7 +83,11 @@ struct QuickOpenView: View {
                         if !filteredArticles.isEmpty {
                             Section("Articles") {
                                 ForEach(Array(filteredArticles.enumerated()), id: \.element.id) { index, article in
-                                    QuickOpenArticleRow(article: article, isSelected: isSelected(item: .article(article)))
+                                    QuickOpenArticleRow(
+                                        article: article,
+                                        feedName: appState.feeds.first { $0.id == article.feedId }?.name,
+                                        isSelected: isSelected(item: .article(article))
+                                    )
                                         .tag(QuickOpenItem.article(article).id)
                                         .id(QuickOpenItem.article(article).id)
                                         .onTapGesture {
@@ -275,6 +279,7 @@ struct QuickOpenFeedRow: View {
 
 struct QuickOpenArticleRow: View {
     let article: Article
+    let feedName: String?
     let isSelected: Bool
 
     var body: some View {
@@ -288,11 +293,27 @@ struct QuickOpenArticleRow: View {
                     .fontWeight(.medium)
                     .lineLimit(1)
 
-                if let summary = article.summaryShort {
-                    Text(summary)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(1)
+                HStack(spacing: 6) {
+                    if let name = feedName {
+                        Text(name)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
+                    if let summary = article.summaryShort, feedName != nil {
+                        Text("·")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                        Text(summary)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    } else if let summary = article.summaryShort {
+                        Text(summary)
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .lineLimit(1)
+                    }
                 }
             }
 

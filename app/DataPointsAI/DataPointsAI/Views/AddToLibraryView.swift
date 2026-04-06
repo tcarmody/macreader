@@ -87,6 +87,16 @@ struct AddToLibraryView: View {
         }
         .padding(.horizontal, 30)
         .frame(width: 450, height: 400)
+        .onAppear {
+            // Auto-fill URL field from clipboard
+            if urlString.isEmpty, let clipboardURL = getClipboardURL() {
+                urlString = clipboardURL
+            }
+            // Default autoSummarize to on when LLM is configured
+            if case .healthy(let summarizationEnabled) = appState.serverStatus {
+                autoSummarize = summarizationEnabled
+            }
+        }
         .fileImporter(
             isPresented: $showFilePicker,
             allowedContentTypes: supportedFileTypes,
@@ -146,8 +156,8 @@ struct AddToLibraryView: View {
             Toggle("Summarize automatically", isOn: $autoSummarize)
                 .font(.callout)
 
-            // Paste from clipboard hint
-            if let clipboardURL = getClipboardURL() {
+            // Paste from clipboard hint (only when field is empty)
+            if urlString.isEmpty, let clipboardURL = getClipboardURL() {
                 Button {
                     urlString = clipboardURL
                 } label: {
