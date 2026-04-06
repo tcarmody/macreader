@@ -19,6 +19,7 @@ from starlette.middleware.sessions import SessionMiddleware
 
 from .config import config, state
 from .database import Database
+from .search import SearchIndex
 from .cache import create_cache
 from .feed_parser import FeedParser
 from .fetcher import Fetcher
@@ -56,6 +57,24 @@ async def lifespan(app: FastAPI):
     if state.db is None:
         state.db = Database(config.DB_PATH)
         state.cache = create_cache(config.CACHE_DIR)
+
+        # Initialize Tantivy search index
+        search_path = config.DB_PATH.parent / "tantivy_index"
+        try:
+            search = SearchIndex(search_path)
+            if search.count() == 0:
+                logger.info("Search index is empty — rebuilding from database...")
+                with state.db._connection.conn() as conn:
+                    rows = conn.execute(
+                        "SELECT id, feed_id, title, content, summary_full, summary_short FROM articles"
+                    ).fetchall()
+                count = search.rebuild(rows)
+                logger.info("Search index ready: %d documents", count)
+            else:
+                logger.info("Search index loaded: %d documents", search.count())
+            state.db.set_search(search)
+        except Exception:
+            logger.exception("Failed to initialize search index — falling back to FTS5")
         state.feed_parser = FeedParser()
         state.fetcher = Fetcher()
 

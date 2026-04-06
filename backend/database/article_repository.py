@@ -244,8 +244,62 @@ class ArticleRepository:
     # Note: mark_read, toggle_bookmark, bulk_mark_read, mark_feed_read, mark_all_read
     # have been moved to UserArticleStateRepository for per-user state management
 
+    def get_by_ids(self, ids: list[int]) -> list[DBArticle]:
+        """Fetch articles by IDs, preserving the given order. Missing IDs are silently skipped."""
+        if not ids:
+            return []
+        placeholders = ",".join("?" * len(ids))
+        with self._db.conn() as conn:
+            rows = conn.execute(
+                f"SELECT * FROM articles WHERE id IN ({placeholders})", ids
+            ).fetchall()
+        article_map = {row["id"]: row_to_article(row) for row in rows}
+        return [article_map[i] for i in ids if i in article_map]
+
+    def get_ids_for_archive(self, days: int) -> list[int]:
+        """Return IDs of articles that archive_old(days) would delete."""
+        cutoff = (datetime.now() - timedelta(days=days)).isoformat()
+        with self._db.conn() as conn:
+            rows = conn.execute(
+                """SELECT id FROM articles
+                   WHERE user_id IS NULL
+                     AND (published_at < ? OR (published_at IS NULL AND created_at < ?))""",
+                (cutoff, cutoff)
+            ).fetchall()
+            return [row["id"] for row in rows]
+
+    def get_ids_for_feed(self, feed_id: int) -> list[int]:
+        """Return all article IDs belonging to a feed."""
+        with self._db.conn() as conn:
+            rows = conn.execute(
+                "SELECT id FROM articles WHERE feed_id = ?", (feed_id,)
+            ).fetchall()
+            return [row["id"] for row in rows]
+
+    def get_ids_for_feeds(self, feed_ids: list[int]) -> list[int]:
+        """Return all article IDs belonging to any of the given feeds."""
+        if not feed_ids:
+            return []
+        placeholders = ",".join("?" * len(feed_ids))
+        with self._db.conn() as conn:
+            rows = conn.execute(
+                f"SELECT id FROM articles WHERE feed_id IN ({placeholders})", feed_ids
+            ).fetchall()
+            return [row["id"] for row in rows]
+
+    def filter_existing_ids(self, ids: list[int]) -> set[int]:
+        """Return only the IDs from the given list that still exist in the database."""
+        if not ids:
+            return set()
+        placeholders = ",".join("?" * len(ids))
+        with self._db.conn() as conn:
+            rows = conn.execute(
+                f"SELECT id FROM articles WHERE id IN ({placeholders})", ids
+            ).fetchall()
+            return {row["id"] for row in rows}
+
     def search(self, query: str, limit: int = 20) -> list[DBArticle]:
-        """Full-text search across articles."""
+        """Full-text search across articles (FTS5 fallback)."""
         with self._db.conn() as conn:
             rows = conn.execute("""
                 SELECT a.* FROM articles a

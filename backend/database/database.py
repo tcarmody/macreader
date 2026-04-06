@@ -7,9 +7,13 @@ while delegating to specialized repositories internally.
 
 from datetime import datetime
 from pathlib import Path
+from typing import TYPE_CHECKING
 
 from .connection import DatabaseConnection
 from .article_repository import ArticleRepository
+
+if TYPE_CHECKING:
+    from ..search import SearchIndex
 from .brief_repository import BriefRepository
 from .digest_repository import DigestRepository
 from .story_group_repository import StoryGroupRepository
@@ -44,6 +48,7 @@ class Database:
 
     def __init__(self, db_path: Path):
         self._connection = DatabaseConnection(db_path)
+        self._search: "SearchIndex | None" = None
 
         # Initialize repositories
         self.articles = ArticleRepository(self._connection)
@@ -69,6 +74,10 @@ class Database:
 
         # Digest repository (assembled auto-digests)
         self.digests = DigestRepository(self._connection)
+
+    def set_search(self, search: "SearchIndex"):
+        """Attach the Tantivy search index. Called once after startup rebuild."""
+        self._search = search
 
     # ─────────────────────────────────────────────────────────────
     # Feed operations (delegated to FeedRepository)
@@ -96,10 +105,23 @@ class Database:
         return self.feeds.update_fetched(feed_id, error)
 
     def delete_feed(self, feed_id: int):
-        return self.feeds.delete(feed_id)
+        if self._search:
+            ids_before = self.articles.get_ids_for_feed(feed_id)
+        self.feeds.delete(feed_id)
+        if self._search and ids_before:
+            # Only remove articles that were actually deleted (not moved to Archive)
+            still_exist = self.articles.filter_existing_ids(ids_before)
+            gone = [i for i in ids_before if i not in still_exist]
+            self._search.delete_many(gone)
 
     def bulk_delete_feeds(self, feed_ids: list[int]):
-        return self.feeds.bulk_delete(feed_ids)
+        if self._search and feed_ids:
+            ids_before = self.articles.get_ids_for_feeds(feed_ids)
+        self.feeds.bulk_delete(feed_ids)
+        if self._search and feed_ids and ids_before:
+            still_exist = self.articles.filter_existing_ids(ids_before)
+            gone = [i for i in ids_before if i not in still_exist]
+            self._search.delete_many(gone)
 
     def get_or_create_newsletter_feed(
         self,
@@ -136,10 +158,13 @@ class Database:
         author: str | None = None,
         published_at: datetime | None = None,
     ) -> int | None:
-        return self.library.add(
+        article_id = self.library.add(
             user_id, url, title, content, content_type,
             file_name, file_path, author, published_at
         )
+        if article_id and self._search:
+            self._search.add(article_id, self.library.feed_id, title, content, None, None)
+        return article_id
 
     def get_standalone_items(
         self,
@@ -162,7 +187,10 @@ class Database:
         return self.library.get_item(user_id, article_id)
 
     def delete_standalone_item(self, user_id: int, article_id: int) -> bool:
-        return self.library.delete(user_id, article_id)
+        deleted = self.library.delete(user_id, article_id)
+        if deleted and self._search:
+            self._search.delete(article_id)
+        return deleted
 
     def is_standalone_feed(self, feed_id: int) -> bool:
         return self.library.is_standalone_feed(feed_id)
@@ -191,11 +219,14 @@ class Database:
         has_code_blocks: bool = False,
         site_name: str | None = None,
     ) -> int | None:
-        return self.articles.add(
+        article_id = self.articles.add(
             feed_id, url, title, content, author, published_at,
             content_hash, source_url, reading_time_minutes, word_count,
             featured_image, has_code_blocks, site_name
         )
+        if article_id and self._search:
+            self._search.add(article_id, feed_id, title, content, None, None)
+        return article_id
 
     def get_articles(
         self,
@@ -238,7 +269,15 @@ class Database:
         return self.articles.get_shared_since(since, feed_ids, limit)
 
     def update_article_content(self, article_id: int, content: str):
-        return self.articles.update_content(article_id, content)
+        self.articles.update_content(article_id, content)
+        if self._search:
+            article = self.articles.get(article_id)
+            if article:
+                self._search.update(
+                    article_id, article.feed_id or 0,
+                    article.title, content,
+                    article.summary_full, article.summary_short,
+                )
 
     def update_article_source_url(self, article_id: int, source_url: str):
         return self.articles.update_source_url(article_id, source_url)
@@ -251,7 +290,15 @@ class Database:
         key_points: list[str],
         model_used: str
     ):
-        return self.articles.update_summary(article_id, summary_short, summary_full, key_points, model_used)
+        self.articles.update_summary(article_id, summary_short, summary_full, key_points, model_used)
+        if self._search:
+            article = self.articles.get(article_id)
+            if article:
+                self._search.update(
+                    article_id, article.feed_id or 0,
+                    article.title, article.content,
+                    summary_full, summary_short,
+                )
 
     # Per-user article state operations (delegated to UserArticleStateRepository)
     def mark_read(self, user_id: int, article_id: int, is_read: bool = True):
@@ -270,6 +317,10 @@ class Database:
         return self.user_state.mark_all_read(user_id, is_read)
 
     def search(self, query: str, limit: int = 20) -> list[DBArticle]:
+        if self._search:
+            ids = self._search.search(query, limit)
+            return self.articles.get_by_ids(ids)
+        # FTS5 fallback when Tantivy is not available
         return self.articles.search(query, limit)
 
     def get_duplicate_articles(self) -> list[tuple[str, list[DBArticle]]]:
@@ -279,7 +330,12 @@ class Database:
         return self.articles.get_duplicate_ids()
 
     def archive_old_articles(self, days: int = 30) -> int:
-        return self.articles.archive_old(days)
+        if self._search:
+            ids = self.articles.get_ids_for_archive(days)
+        count = self.articles.archive_old(days)
+        if self._search and ids:
+            self._search.delete_many(ids)
+        return count
 
     def get_article_stats(self, user_id: int) -> dict:
         return self.articles.get_stats(user_id)

@@ -49,16 +49,38 @@ Every feature must justify its existence. The redesign reduced backend code from
 
 ### SQLite for Persistence
 
-**Decision**: SQLite with FTS5 for full-text search, stored locally.
+**Decision**: SQLite stored locally, with Tantivy for full-text search.
 
 **Alternatives Considered**:
 - PostgreSQL: Overkill for single-user app
 - Core Data: Would complicate the client-server split
 - Cloud database: Adds latency, cost, and complexity for personal tool
 
-**Rationale**: SQLite is fast, requires no setup, and FTS5 provides excellent full-text search. Articles are inherently local data—you don't need cloud sync for an RSS reader.
+**Rationale**: SQLite is fast, requires no setup, and the article corpus is inherently local data. Full-text search is handled by Tantivy rather than SQLite's built-in FTS5 (see Search decision below).
 
-### Tiered Caching (Memory + Disk)
+### Search: Tantivy over SQLite FTS5
+
+**Decision**: Replace SQLite FTS5 full-text search with Tantivy, a Rust-based search engine running in-process via `tantivy-py`.
+
+**Alternatives Considered**:
+- **Keep FTS5 with sanitization**: A 15-line query sanitization patch fixes the immediate crash bugs. Chosen as the quick fix if search were less central, but leaves fundamental limitations in place.
+- **FTS5 trigram tokenizer**: SQLite 3.38+ supports substring matching. Would fix special-character queries without a new dependency, but produces a 3–5x larger index and still lacks relevance ranking control or fuzzy matching.
+- **Meilisearch**: High search quality, but requires a separate running process to manage and a sync mechanism between SQLite and the Meilisearch index.
+- **Whoosh / Tantivy (in-process)**: Both are in-process Python search libraries. Tantivy uses Rust (via PyO3) and is significantly faster and more capable than Whoosh.
+
+**Why FTS5 was unreliable**: FTS5 interprets characters like `+`, `-`, `.` as query operators. Queries such as `GPT-4`, `C++`, and `U.S.` crash with syntax errors; `AND`, `OR`, and `NOT` are reserved words. There was no error handling in the search path, so any such query returned silently empty results or a 500 error. Special characters are extremely common in tech news content.
+
+**Why Tantivy**: Tantivy's query parser handles `GPT-4`, `C++`, and `U.S.` natively because it uses the same unicode tokenizer at query time as at index time—punctuation is treated as a separator, not a control character. Additional capabilities over FTS5 include per-field relevance boosting (title matches outrank body text), fuzzy term matching, phrase slop, and regex queries—none of which are available in FTS5 without custom extensions.
+
+**Sync Strategy**: The `Database` facade owns sync. Every article write path (`add_article`, `update_article_content`, `update_summary`, `delete_feed`, `archive_old_articles`, `add_standalone_item`, `delete_standalone_item`) calls into the `SearchIndex` directly. This is explicit rather than trigger-based, which makes sync failures visible and debuggable. Tantivy failures are caught and logged without crashing the app; FTS5 remains as a fallback if the search index is unavailable.
+
+**Feed Deletion Edge Case**: When a feed is deleted, SQLite's `ON DELETE CASCADE` removes articles, but some articles may be moved to the Archive feed first (protected because they're bookmarked or summarized). To avoid removing those from Tantivy, the facade records article IDs before deletion, then diffs against what still exists in SQLite afterward, and only removes the truly-deleted ones. Moved articles stay in the index under their new feed.
+
+**Index Storage**: The Tantivy index lives at `data/tantivy_index/` alongside the SQLite database. On first startup the index is rebuilt from all articles in SQLite; thereafter it is kept current by the write-path hooks. There is no background sync process.
+
+**Schema**: Integer fields `id` and `feed_id` are stored and indexed (for targeted deletes). Text fields `title`, `summary_short`, `summary_full`, and `content` are indexed but not stored—content is fetched from SQLite by article ID after search, so there is no duplication of article text.
+
+**Rationale**: The in-process design means no extra service to run or monitor. The explicit sync pattern matches how every other write operation in the codebase works. The search quality improvement (correct special-character handling, better relevance ranking) directly addresses the reliability failures that prompted the change.
 
 **Decision**: Two-tier cache with in-memory LRU and persistent disk cache.
 
@@ -607,6 +629,16 @@ This setup requires no DevOps expertise and costs ~$0-5/month for personal use.
 - Frontend admin gating via `is_admin` flag from `/auth/status`
 - Distinct color identities for all 9 design styles (each theme has a unique HSL hue family)
 - Themes distinguishable by color, not just structural differences
+
+### Phase 13: Tantivy Search
+- Replaced SQLite FTS5 with Tantivy (Rust-based, in-process via tantivy-py)
+- Fixes silent failures on special-character queries (`GPT-4`, `C++`, `U.S.`, `AND`)
+- Per-field relevance boosting (title ×4, summary_short ×2, full/content ×1)
+- Three-tier query strategy: boosted boolean → plain multi-field → stripped-word fallback
+- Explicit sync via Database facade write paths (no triggers)
+- Feed-deletion edge case: diff IDs before/after to preserve Archive-moved articles
+- FTS5 retained as fallback if Tantivy is unavailable
+- One-time index rebuild on first startup from all articles in SQLite
 
 ### Current: Stable Platform
 - Native macOS app + Web PWA
