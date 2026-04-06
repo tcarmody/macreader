@@ -372,8 +372,11 @@ class StandaloneItemDetailResponse(BaseModel):
     related_links: list[RelatedLink] | None = None
     related_links_error: str | None = None
 
+    # Set to True when the URL was already in the database and was bookmarked instead of added
+    already_existed: bool = False
+
     @classmethod
-    def from_db(cls, article: DBArticle) -> "StandaloneItemDetailResponse":
+    def from_db(cls, article: DBArticle, already_existed: bool = False) -> "StandaloneItemDetailResponse":
         # Parse related links from JSON
         related_links = None
         if article.related_links:
@@ -400,6 +403,7 @@ class StandaloneItemDetailResponse(BaseModel):
             created_at=serialize_datetime(article.created_at),
             related_links=related_links,
             related_links_error=article.related_links_error,
+            already_existed=already_existed,
         )
 
 

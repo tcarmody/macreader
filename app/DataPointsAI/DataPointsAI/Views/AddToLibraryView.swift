@@ -12,6 +12,7 @@ struct AddToLibraryView: View {
     @State private var autoSummarize: Bool = false
     @State private var isLoading: Bool = false
     @State private var errorMessage: String?
+    @State private var successMessage: String?
     @State private var selectedFileURL: URL?
     @State private var selectedFileName: String?
     @State private var showFilePicker: Bool = false
@@ -52,6 +53,8 @@ struct AddToLibraryView: View {
             // Content based on selected tab
             if isLoading {
                 loadingView
+            } else if let message = successMessage {
+                alreadyExistedView(message)
             } else if let error = errorMessage {
                 errorView(error)
             } else {
@@ -231,6 +234,27 @@ struct AddToLibraryView: View {
         }
     }
 
+    private func alreadyExistedView(_ message: String) -> some View {
+        VStack(spacing: 12) {
+            Image(systemName: "bookmark.fill")
+                .font(.system(size: 36))
+                .foregroundStyle(.orange)
+
+            Text("Already in Library")
+                .font(.headline)
+
+            Text(message)
+                .font(.callout)
+                .foregroundStyle(.secondary)
+                .multilineTextAlignment(.center)
+
+            Button("Done") {
+                dismiss()
+            }
+            .padding(.top, 8)
+        }
+    }
+
     private func errorView(_ message: String) -> some View {
         VStack(spacing: 12) {
             Image(systemName: "exclamationmark.triangle.fill")
@@ -300,11 +324,15 @@ struct AddToLibraryView: View {
 
                 switch selectedTab {
                 case .url:
-                    try await appState.addURLToLibrary(
+                    let alreadyExisted = try await appState.addURLToLibrary(
                         url: urlString,
                         title: title,
                         autoSummarize: autoSummarize
                     )
+                    if alreadyExisted {
+                        successMessage = "Already in your library — bookmarked so you can find it easily."
+                        return
+                    }
 
                 case .file:
                     guard let fileURL = selectedFileURL else { return }

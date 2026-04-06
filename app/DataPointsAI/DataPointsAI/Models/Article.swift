@@ -468,6 +468,9 @@ struct LibraryItemDetail: Identifiable, Codable, Sendable {
     let relatedLinks: [RelatedLink]?
     let relatedLinksError: String?
 
+    // True when the URL already existed in the database and was bookmarked rather than added fresh
+    let alreadyExisted: Bool
+
     enum CodingKeys: String, CodingKey {
         case id
         case url
@@ -483,6 +486,7 @@ struct LibraryItemDetail: Identifiable, Codable, Sendable {
         case createdAt = "created_at"
         case relatedLinks = "related_links"
         case relatedLinksError = "related_links_error"
+        case alreadyExisted = "already_existed"
     }
 
     /// Parsed content type enum

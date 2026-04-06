@@ -163,7 +163,15 @@ async def add_url_to_library(
     )
 
     if not item_id:
-        raise HTTPException(status_code=409, detail="URL already exists in library")
+        # URL already exists (in library or as an RSS article) — bookmark it and return it
+        existing = db.get_article_by_url(request.url)
+        if not existing:
+            raise HTTPException(status_code=409, detail="URL already exists in library")
+        item_with_state = db.get_article_with_user_state(existing.id, user_id)
+        if item_with_state and not item_with_state.is_bookmarked:
+            db.toggle_bookmark(user_id, existing.id)
+            item_with_state = db.get_article_with_user_state(existing.id, user_id)
+        return StandaloneItemDetailResponse.from_db(item_with_state, already_existed=True)
 
     item = db.get_article(item_id)
     if not item:

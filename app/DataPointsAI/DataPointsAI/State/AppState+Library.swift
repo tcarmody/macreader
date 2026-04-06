@@ -27,7 +27,9 @@ extension AppState {
         }
     }
 
-    func addURLToLibrary(url: String, title: String? = nil, autoSummarize: Bool = false) async throws {
+    /// Returns true if the URL already existed in the database (and was bookmarked), false if newly added.
+    @discardableResult
+    func addURLToLibrary(url: String, title: String? = nil, autoSummarize: Bool = false) async throws -> Bool {
         let item = try await apiClient.addURLToLibrary(url: url, title: title, autoSummarize: autoSummarize)
         await loadLibraryItems()
 
@@ -43,6 +45,7 @@ extension AppState {
             createdAt: item.createdAt
         )
         selectedLibraryItemDetail = item
+        return item.alreadyExisted
     }
 
     func uploadFileToLibrary(data: Data, filename: String, title: String? = nil, autoSummarize: Bool = false) async throws {
