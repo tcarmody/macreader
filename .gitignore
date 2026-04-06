@@ -69,6 +69,7 @@ data/articles.db-shm
 data/articles.db-wal
 data/cache/
 data/chromadb/
+data/tantivy_index/
 
 # Test artifacts
 .pytest_cache/
