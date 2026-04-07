@@ -5,6 +5,7 @@ struct MainView: View {
     @EnvironmentObject var appState: AppState
     @State private var columnVisibility: NavigationSplitViewVisibility = .all
     @FocusState private var isSearchFocused: Bool
+    @State private var searchTask: Task<Void, Never>? = nil
     @StateObject private var keyboardManager = KeyboardShortcutManager.shared
     @StateObject private var articleScrollState = ArticleScrollState()
 
@@ -32,7 +33,14 @@ struct MainView: View {
         .searchable(text: $appState.searchQuery, prompt: "Search articles (press / to focus)")
         .focused($isSearchFocused)
         .onChange(of: appState.searchQuery) { _, newValue in
-            Task {
+            // Cancel any in-flight search before starting a new one.
+            // The 300ms debounce prevents firing an API call on every keystroke.
+            searchTask?.cancel()
+            searchTask = Task {
+                if newValue.count >= 2 {
+                    try? await Task.sleep(nanoseconds: 300_000_000)
+                }
+                guard !Task.isCancelled else { return }
                 await appState.search(query: newValue)
             }
         }

@@ -176,12 +176,11 @@ class AppState: ObservableObject {
             result = result.filter { !$0.isRead }
         }
 
-        if !searchQuery.isEmpty {
-            result = result.filter { article in
-                article.title.localizedCaseInsensitiveContains(searchQuery) ||
-                (article.summaryShort?.localizedCaseInsensitiveContains(searchQuery) ?? false)
-            }
-        }
+        // Do NOT apply searchQuery as a local filter here. When search is active,
+        // `articles` already contains backend full-text search results (which search
+        // title, summary, AND body content). Re-filtering locally by title/summary
+        // only would silently drop any result that matched via body content, making
+        // results disappear after the API responds.
 
         return result
     }
