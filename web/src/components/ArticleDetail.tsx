@@ -7,9 +7,6 @@ import {
   Circle,
   Share2,
   Loader2,
-  ChevronDown,
-  ChevronUp,
-  Info,
   Link2,
   MessageCircle,
   Download,
@@ -28,6 +25,8 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useAppStore } from '@/store/app-store'
@@ -44,6 +43,8 @@ import {
 import { ArticleChat } from './ArticleChat'
 import { RelatedLinks } from './RelatedLinks'
 
+type DetailTab = 'article' | 'ai' | 'related' | 'chat'
+
 export function ArticleDetail() {
   const { selectedArticleId, hasShownToast, markToastShown, markFeatureUsed } = useAppStore()
   const { data: article, isLoading } = useArticle(selectedArticleId)
@@ -56,9 +57,10 @@ export function ArticleDetail() {
   const { data: chatHistory } = useChatHistory(selectedArticleId)
   const { showToast } = useToast()
 
-  const [showSummary, setShowSummary] = useState(true)
+  const [activeTab, setActiveTab] = useState<DetailTab>('article')
   const [hasTriggeredRelated, setHasTriggeredRelated] = useState(false)
-  const [isChatExpanded, setIsChatExpanded] = useState(false)
+  const [autoSwitchAfterSummarize, setAutoSwitchAfterSummarize] = useState(false)
+  const [autoSwitchAfterRelated, setAutoSwitchAfterRelated] = useState(false)
   const [showPasteDialog, setShowPasteDialog] = useState(false)
   const [pastedHtml, setPastedHtml] = useState('')
 
@@ -80,10 +82,29 @@ export function ArticleDetail() {
     }
   }, [findRelated.isPending, hasShownToast, markToastShown, showToast, markFeatureUsed])
 
-  // Reset hasTriggeredRelated and chat state when article changes
+  // Auto-switch to AI tab when summary arrives after user triggered it
   useEffect(() => {
+    const hasSummary = article?.summary_full || article?.summary_short
+    if (hasSummary && autoSwitchAfterSummarize && !summarize.isPending) {
+      setActiveTab('ai')
+      setAutoSwitchAfterSummarize(false)
+    }
+  }, [article?.summary_full, article?.summary_short, autoSwitchAfterSummarize, summarize.isPending])
+
+  // Auto-switch to Related tab when related links arrive after user triggered it
+  useEffect(() => {
+    if (article?.related_links?.length && autoSwitchAfterRelated && !findRelated.isPending) {
+      setActiveTab('related')
+      setAutoSwitchAfterRelated(false)
+    }
+  }, [article?.related_links, autoSwitchAfterRelated, findRelated.isPending])
+
+  // Reset state when article changes
+  useEffect(() => {
+    setActiveTab('article')
     setHasTriggeredRelated(false)
-    setIsChatExpanded(false)
+    setAutoSwitchAfterSummarize(false)
+    setAutoSwitchAfterRelated(false)
   }, [selectedArticleId])
 
   if (!selectedArticleId) {
@@ -111,6 +132,7 @@ export function ArticleDetail() {
 
   const hasSummary = article.summary_full || article.summary_short
   const hasContent = article.content && article.content.length > 100
+  const relatedCount = article.related_links?.length ?? 0
 
   const handleToggleRead = () => {
     markRead.mutate({ articleId: article.id, isRead: !article.is_read })
@@ -142,11 +164,13 @@ export function ArticleDetail() {
   }
 
   const handleSummarize = () => {
+    setAutoSwitchAfterSummarize(true)
     summarize.mutate(article.id)
   }
 
   const handleFindRelated = () => {
     setHasTriggeredRelated(true)
+    setAutoSwitchAfterRelated(true)
     findRelated.mutate(article.id)
   }
 
@@ -164,6 +188,40 @@ export function ArticleDetail() {
   const handleOpenExternal = () => {
     window.open(article.url, '_blank', 'noopener,noreferrer')
   }
+
+  const aiCount = [hasSummary, relatedCount > 0, chatHistory?.has_chat].filter(Boolean).length
+  const aiPending = summarize.isPending || findRelated.isPending
+  const aiActive = aiCount > 0
+
+  const tabs: {
+    id: DetailTab
+    label: string
+    dot?: 'purple' | 'blue'
+    count?: number
+    pending?: boolean
+    disabled?: boolean
+  }[] = [
+    { id: 'article', label: 'Article' },
+    {
+      id: 'ai',
+      label: 'AI Summary',
+      dot: hasSummary ? 'purple' : undefined,
+      pending: summarize.isPending,
+    },
+    {
+      id: 'related',
+      label: 'Related',
+      dot: relatedCount > 0 ? 'blue' : undefined,
+      count: relatedCount > 0 ? relatedCount : undefined,
+      pending: findRelated.isPending,
+    },
+    {
+      id: 'chat',
+      label: 'Chat',
+      dot: chatHistory?.has_chat ? 'blue' : undefined,
+      disabled: !hasSummary,
+    },
+  ]
 
   return (
     <div className="flex-1 flex flex-col bg-background">
@@ -213,7 +271,6 @@ export function ArticleDetail() {
                 <Download className="h-4 w-4 mr-1" />
               )}
               {hasContent ? 'Refetch' : 'Fetch'}
-              <ChevronDown className="h-3 w-3 ml-1" />
             </Button>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
@@ -228,80 +285,108 @@ export function ArticleDetail() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <Tooltip
-          content="AI generates a concise summary using your configured provider (Anthropic, OpenAI, or Google)"
-          side="bottom"
-        >
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleSummarize}
-            disabled={summarize.isPending || !!article.summary_full}
-          >
-            {summarize.isPending ? (
-              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-            ) : (
-              <Sparkles className={cn("h-4 w-4 mr-1", hasSummary && "text-purple-500")} />
-            )}
-            {hasSummary ? 'Summarized' : 'Summarize'}
-            {!hasSummary && <Info className="h-2.5 w-2.5 ml-1 opacity-50" />}
-          </Button>
-        </Tooltip>
-
-        <Tooltip
-          content="Find semantically related articles using neural search"
-          side="bottom"
-        >
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleFindRelated}
-            disabled={findRelated.isPending || (!!article.related_links && article.related_links.length > 0)}
-          >
-            {findRelated.isPending ? (
-              <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-            ) : (
-              <Link2 className={cn(
-                "h-4 w-4 mr-1",
-                article.related_links && article.related_links.length > 0 && "text-blue-500"
-              )} />
-            )}
-            {article.related_links && article.related_links.length > 0 ? 'Contextualized' : 'Context'}
-            {(!article.related_links || article.related_links.length === 0) && (
-              <Info className="h-2.5 w-2.5 ml-1 opacity-50" />
-            )}
-          </Button>
-        </Tooltip>
-
-        {hasSummary && (
-          <Tooltip content="Ask questions and refine the summary" side="bottom">
+        {/* Unified AI button */}
+        <DropdownMenu>
+          <DropdownMenuTrigger asChild>
             <Button
               variant="ghost"
               size="sm"
-              onClick={() => {
-                setIsChatExpanded(true)
-                // Scroll to chat section
-                setTimeout(() => {
-                  document.getElementById('article-chat')?.scrollIntoView({
-                    behavior: 'smooth',
-                    block: 'start',
-                  })
-                }, 100)
-              }}
+              className={cn(aiActive && 'text-purple-600 dark:text-purple-400')}
             >
-              <MessageCircle
-                className={cn(
-                  'h-4 w-4 mr-1',
-                  chatHistory?.has_chat && 'text-blue-500'
-                )}
-              />
-              Chat
-              {!chatHistory?.has_chat && (
-                <Info className="h-2.5 w-2.5 ml-1 opacity-50" />
+              {aiPending ? (
+                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
+              ) : (
+                <Sparkles className={cn('h-4 w-4 mr-1.5', aiActive && 'text-purple-500')} />
+              )}
+              AI
+              {aiCount > 0 && (
+                <span className="ml-1.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-purple-500/15 px-1 text-[10px] font-semibold text-purple-600 dark:text-purple-400">
+                  {aiCount}
+                </span>
               )}
             </Button>
-          </Tooltip>
-        )}
+          </DropdownMenuTrigger>
+          <DropdownMenuContent align="start" className="w-60">
+            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
+              AI Features
+            </DropdownMenuLabel>
+            <DropdownMenuSeparator />
+
+            {/* Summary */}
+            <DropdownMenuItem
+              className="flex items-start gap-2.5 py-2.5 cursor-pointer"
+              onClick={hasSummary ? () => setActiveTab('ai') : handleSummarize}
+              disabled={summarize.isPending}
+            >
+              <Sparkles className={cn('h-4 w-4 mt-0.5 shrink-0', hasSummary ? 'text-purple-500' : 'text-muted-foreground')} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium">Summary</span>
+                  {summarize.isPending ? (
+                    <span className="text-[10px] text-muted-foreground">Generating…</span>
+                  ) : hasSummary ? (
+                    <span className="text-[10px] font-semibold text-purple-600 dark:text-purple-400">Ready ↗</span>
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground">Generate</span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground truncate mt-0.5">
+                  {hasSummary && article.key_points?.[0]
+                    ? article.key_points[0]
+                    : 'Generate a concise AI summary'}
+                </p>
+              </div>
+            </DropdownMenuItem>
+
+            {/* Related Articles */}
+            <DropdownMenuItem
+              className="flex items-start gap-2.5 py-2.5 cursor-pointer"
+              onClick={relatedCount > 0 ? () => setActiveTab('related') : handleFindRelated}
+              disabled={findRelated.isPending}
+            >
+              <Link2 className={cn('h-4 w-4 mt-0.5 shrink-0', relatedCount > 0 ? 'text-blue-500' : 'text-muted-foreground')} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium">Related Articles</span>
+                  {findRelated.isPending ? (
+                    <span className="text-[10px] text-muted-foreground">Searching…</span>
+                  ) : relatedCount > 0 ? (
+                    <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">{relatedCount} found ↗</span>
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground">Find</span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {relatedCount > 0 ? 'Neural search results' : 'Discover related content'}
+                </p>
+              </div>
+            </DropdownMenuItem>
+
+            {/* Chat */}
+            <DropdownMenuItem
+              className="flex items-start gap-2.5 py-2.5 cursor-pointer"
+              onClick={() => setActiveTab('chat')}
+              disabled={!hasSummary}
+            >
+              <MessageCircle className={cn('h-4 w-4 mt-0.5 shrink-0', chatHistory?.has_chat ? 'text-blue-500' : 'text-muted-foreground')} />
+              <div className="flex-1 min-w-0">
+                <div className="flex items-center justify-between gap-2">
+                  <span className="font-medium">Chat</span>
+                  {!hasSummary ? (
+                    <span className="text-[10px] text-muted-foreground">Needs summary</span>
+                  ) : chatHistory?.has_chat ? (
+                    <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">Active ↗</span>
+                  ) : (
+                    <span className="text-[10px] text-muted-foreground">Start</span>
+                  )}
+                </div>
+                <p className="text-xs text-muted-foreground mt-0.5">
+                  {hasSummary ? 'Ask questions about this article' : 'Generate a summary first'}
+                </p>
+              </div>
+            </DropdownMenuItem>
+          </DropdownMenuContent>
+        </DropdownMenu>
 
         <div className="ml-auto flex items-center gap-1">
           <Button variant="ghost" size="sm" onClick={handleShare}>
@@ -313,227 +398,271 @@ export function ArticleDetail() {
         </div>
       </div>
 
-      {/* Article Content */}
+      {/* Tab Strip */}
+      <div className="flex items-stretch border-b border-border bg-background shrink-0">
+        {tabs.map(({ id, label, dot, count, pending, disabled }) => (
+          <button
+            key={id}
+            onClick={() => !disabled && setActiveTab(id)}
+            disabled={disabled}
+            className={cn(
+              'flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors',
+              'border-b-2 -mb-px relative',
+              activeTab === id
+                ? 'border-primary text-foreground'
+                : 'border-transparent text-muted-foreground hover:text-foreground hover:border-border',
+              disabled && 'opacity-40 cursor-not-allowed pointer-events-none'
+            )}
+          >
+            {pending ? (
+              <Loader2 className="h-2 w-2 animate-spin text-muted-foreground" />
+            ) : dot === 'purple' ? (
+              <span className="h-1.5 w-1.5 rounded-full bg-purple-500 shrink-0" />
+            ) : dot === 'blue' ? (
+              <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
+            ) : null}
+            {label}
+            {count != null && (
+              <span className="text-xs text-muted-foreground">({count})</span>
+            )}
+          </button>
+        ))}
+      </div>
+
+      {/* Tab Content */}
       <ScrollArea className="flex-1">
-        <article className="max-w-3xl mx-auto p-8">
-          {/* Header */}
-          <header className="mb-8">
-            <h1 className="text-3xl font-bold mb-4 leading-tight">
-              {article.title}
-            </h1>
+        {/* Article Tab */}
+        {activeTab === 'article' && (
+          <article className="max-w-3xl mx-auto p-8">
+            <header className="mb-8">
+              <h1 className="text-3xl font-bold mb-4 leading-tight">
+                {article.title}
+              </h1>
 
-            <div className="flex items-center gap-3 text-sm text-muted-foreground">
-              <Badge variant="secondary">{article.feed_name}</Badge>
-              {article.author && <span>by {article.author}</span>}
-              <span>·</span>
-              <time>{formatFullDate(article.published_at)}</time>
-            </div>
+              <div className="flex items-center gap-3 text-sm text-muted-foreground">
+                <Badge variant="secondary">{article.feed_name}</Badge>
+                {article.author && <span>by {article.author}</span>}
+                <span>·</span>
+                <time>{formatFullDate(article.published_at)}</time>
+              </div>
 
-            {article.source_url && article.source_url !== article.url && (
-              <div className="mt-2">
-                <a
-                  href={article.source_url}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="text-sm text-primary hover:underline inline-flex items-center gap-1"
-                >
-                  Original source: {getDomain(article.source_url)}
-                  <ExternalLink className="h-3 w-3" />
-                </a>
+              {article.source_url && article.source_url !== article.url && (
+                <div className="mt-2">
+                  <a
+                    href={article.source_url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+                  >
+                    Original source: {getDomain(article.source_url)}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              )}
+            </header>
+
+            {hasContent ? (
+              <div
+                className="article-content prose prose-slate dark:prose-invert max-w-none"
+                dangerouslySetInnerHTML={{ __html: article.content || '' }}
+                onClick={(e) => {
+                  const target = e.target as HTMLElement
+                  const anchor = target.closest('a')
+                  if (anchor && anchor.href) {
+                    e.preventDefault()
+                    window.open(anchor.href, '_blank', 'noopener,noreferrer')
+                  }
+                }}
+              />
+            ) : (
+              <div className="text-center py-12 text-muted-foreground">
+                <p>Content not available</p>
+                <div className="mt-4 flex flex-col items-center gap-2">
+                  <Button
+                    variant="outline"
+                    onClick={handleFetchContent}
+                    disabled={fetchContent.isPending}
+                  >
+                    {fetchContent.isPending ? (
+                      <>
+                        <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                        Fetching...
+                      </>
+                    ) : (
+                      <>
+                        <Download className="h-4 w-4 mr-2" />
+                        Fetch Full Article
+                      </>
+                    )}
+                  </Button>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => setShowPasteDialog(true)}
+                  >
+                    <ClipboardPaste className="h-4 w-4 mr-2" />
+                    Paste from Browser
+                  </Button>
+                </div>
+                <p className="mt-4 text-sm">
+                  Or{' '}
+                  <a
+                    href={article.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-primary hover:underline"
+                  >
+                    read on {getDomain(article.url)}
+                  </a>
+                </p>
               </div>
             )}
 
-            {/* Quick Actions */}
-            <div className="flex flex-wrap items-center gap-2 mt-4 pt-4 border-t border-border">
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleFetchContent}
-                disabled={fetchContent.isPending}
-              >
-                {fetchContent.isPending ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4 mr-2" />
-                )}
-                {hasContent ? 'Refetch Content' : 'Fetch Full Content'}
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={() => setShowPasteDialog(true)}
-                disabled={extractFromHtml.isPending}
-              >
-                <ClipboardPaste className="h-4 w-4 mr-2" />
-                Paste from Browser
-              </Button>
-              <Button
-                variant="outline"
-                size="sm"
-                onClick={handleFindRelated}
-                disabled={findRelated.isPending || (!!article.related_links && article.related_links.length > 0)}
-              >
-                {findRelated.isPending ? (
-                  <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                ) : (
-                  <Link2 className="h-4 w-4 mr-2" />
-                )}
-                {article.related_links && article.related_links.length > 0 ? 'Related Found' : 'Find Related Articles'}
-              </Button>
-            </div>
-          </header>
-
-          {/* Summary Section */}
-          {hasSummary && (
-            <section className="mb-8 p-4 bg-purple-500/5 border border-purple-500/20 rounded-lg">
-              <button
-                onClick={() => setShowSummary(!showSummary)}
-                className="w-full flex items-center justify-between text-left"
-              >
-                <div className="flex items-center gap-2">
-                  <Sparkles className="h-4 w-4 text-purple-500" />
-                  <span className="font-semibold text-purple-700 dark:text-purple-300">
-                    AI Summary
-                  </span>
-                  {article.model_used && (
-                    <Badge variant="outline" className="text-xs">
-                      {article.model_used}
-                    </Badge>
-                  )}
-                </div>
-                {showSummary ? (
-                  <ChevronUp className="h-4 w-4 text-muted-foreground" />
-                ) : (
-                  <ChevronDown className="h-4 w-4 text-muted-foreground" />
-                )}
-              </button>
-
-              {showSummary && (
-                <div className="mt-4 space-y-4">
-                  {article.summary_full && (
-                    <p className="text-sm leading-relaxed">
-                      {smartQuotes(article.summary_full)}
-                    </p>
-                  )}
-
-                  {article.key_points && article.key_points.length > 0 && (
-                    <div>
-                      <h4 className="text-sm font-semibold mb-2">Key Points</h4>
-                      <ul className="list-disc list-inside space-y-1 text-sm">
-                        {article.key_points.map((point, i) => (
-                          <li key={i}>{smartQuotes(point)}</li>
-                        ))}
-                      </ul>
-                    </div>
-                  )}
-
-                  <div className="pt-2 border-t border-purple-500/20">
-                    <a
-                      href={article.url}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="text-xs text-muted-foreground hover:text-purple-600 dark:hover:text-purple-400 inline-flex items-center gap-1"
-                    >
-                      Source: {getDomain(article.url)}
-                      <ExternalLink className="h-3 w-3" />
-                    </a>
-                  </div>
-                </div>
-              )}
-            </section>
-          )}
-
-          {/* Related Links Section */}
-          <RelatedLinks
-            relatedLinks={article.related_links}
-            isLoading={findRelated.isPending}
-            error={article.related_links_error || findRelated.error?.message || null}
-            hasTriggered={hasTriggeredRelated}
-          />
-
-          {/* Chat Section - for Q&A and summary refinement */}
-          {hasSummary && (
-            <ArticleChat
-              articleId={article.id}
-              isExpanded={isChatExpanded}
-              onExpandedChange={setIsChatExpanded}
-            />
-          )}
-
-          {/* Main Content */}
-          {hasContent ? (
-            <div
-              className="article-content prose prose-slate dark:prose-invert max-w-none"
-              dangerouslySetInnerHTML={{ __html: article.content || '' }}
-              onClick={(e) => {
-                // Open external links in new tab
-                const target = e.target as HTMLElement
-                const anchor = target.closest('a')
-                if (anchor && anchor.href) {
-                  e.preventDefault()
-                  window.open(anchor.href, '_blank', 'noopener,noreferrer')
-                }
-              }}
-            />
-          ) : (
-            <div className="text-center py-12 text-muted-foreground">
-              <p>Content not available</p>
-              <div className="mt-4 flex flex-col items-center gap-2">
-                <Button
-                  variant="outline"
-                  onClick={handleFetchContent}
-                  disabled={fetchContent.isPending}
-                >
-                  {fetchContent.isPending ? (
-                    <>
-                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                      Fetching...
-                    </>
-                  ) : (
-                    <>
-                      <Download className="h-4 w-4 mr-2" />
-                      Fetch Full Article
-                    </>
-                  )}
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="sm"
-                  onClick={() => setShowPasteDialog(true)}
-                >
-                  <ClipboardPaste className="h-4 w-4 mr-2" />
-                  Paste from Browser
-                </Button>
-              </div>
-              <p className="mt-4 text-sm">
-                Or{' '}
+            <footer className="mt-12 pt-8 border-t border-border">
+              <div className="flex items-center justify-between text-sm text-muted-foreground">
                 <a
                   href={article.url}
                   target="_blank"
                   rel="noopener noreferrer"
-                  className="text-primary hover:underline"
+                  className="hover:text-foreground inline-flex items-center gap-1"
                 >
-                  read on {getDomain(article.url)}
+                  View original on {getDomain(article.url)}
+                  <ExternalLink className="h-3 w-3" />
                 </a>
-              </p>
-            </div>
-          )}
+              </div>
+            </footer>
+          </article>
+        )}
 
-          {/* Footer */}
-          <footer className="mt-12 pt-8 border-t border-border">
-            <div className="flex items-center justify-between text-sm text-muted-foreground">
-              <a
-                href={article.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="hover:text-foreground inline-flex items-center gap-1"
-              >
-                View original on {getDomain(article.url)}
-                <ExternalLink className="h-3 w-3" />
-              </a>
-            </div>
-          </footer>
-        </article>
+        {/* AI Summary Tab */}
+        {activeTab === 'ai' && (
+          <div className="max-w-3xl mx-auto p-8">
+            {hasSummary ? (
+              <div className="space-y-6">
+                <div className="flex items-center justify-between">
+                  <div className="flex items-center gap-2">
+                    <Sparkles className="h-5 w-5 text-purple-500" />
+                    <h2 className="text-lg font-semibold text-purple-700 dark:text-purple-300">
+                      AI Summary
+                    </h2>
+                    {article.model_used && (
+                      <Badge variant="outline" className="text-xs">
+                        {article.model_used}
+                      </Badge>
+                    )}
+                  </div>
+                  <Button
+                    variant="ghost"
+                    size="sm"
+                    onClick={() => {
+                      const text = [
+                        article.summary_full,
+                        article.key_points?.length
+                          ? '\nKey Points:\n' + article.key_points.map(p => `• ${p}`).join('\n')
+                          : '',
+                        `\n${getDomain(article.url)}\n${article.url}`,
+                      ].filter(Boolean).join('\n')
+                      navigator.clipboard.writeText(text)
+                      showToast('Summary copied', 'success')
+                    }}
+                  >
+                    Copy
+                  </Button>
+                </div>
+
+                {article.summary_full && (
+                  <p className="text-base leading-relaxed">
+                    {smartQuotes(article.summary_full)}
+                  </p>
+                )}
+
+                {article.key_points && article.key_points.length > 0 && (
+                  <div>
+                    <h3 className="text-sm font-semibold mb-3">Key Points</h3>
+                    <ul className="space-y-2">
+                      {article.key_points.map((point, i) => (
+                        <li key={i} className="flex gap-2 text-sm">
+                          <span className="text-purple-500 shrink-0 mt-0.5">•</span>
+                          {smartQuotes(point)}
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                )}
+
+                <div className="pt-4 border-t border-border">
+                  <a
+                    href={article.url}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    className="text-xs text-muted-foreground hover:text-purple-600 dark:hover:text-purple-400 inline-flex items-center gap-1"
+                  >
+                    Source: {getDomain(article.url)}
+                    <ExternalLink className="h-3 w-3" />
+                  </a>
+                </div>
+              </div>
+            ) : (
+              <div className="text-center py-16 text-muted-foreground">
+                {summarize.isPending ? (
+                  <div className="flex flex-col items-center gap-3">
+                    <Loader2 className="h-10 w-10 animate-spin text-purple-500" />
+                    <p className="font-medium">Generating summary…</p>
+                    <p className="text-sm">This may take a few seconds</p>
+                  </div>
+                ) : (
+                  <div className="flex flex-col items-center gap-4">
+                    <Sparkles className="h-12 w-12 opacity-20" />
+                    <div>
+                      <p className="text-lg font-medium mb-1">No summary yet</p>
+                      <p className="text-sm">Generate an AI summary to see key insights and highlights</p>
+                    </div>
+                    <Button onClick={handleSummarize} disabled={!!article.summary_full}>
+                      <Sparkles className="h-4 w-4 mr-2" />
+                      Generate Summary
+                    </Button>
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Related Tab */}
+        {activeTab === 'related' && (
+          <div className="max-w-3xl mx-auto p-8">
+            {hasTriggeredRelated || relatedCount > 0 || findRelated.isPending ? (
+              <RelatedLinks
+                relatedLinks={article.related_links}
+                isLoading={findRelated.isPending}
+                error={article.related_links_error || findRelated.error?.message || null}
+                hasTriggered={hasTriggeredRelated}
+              />
+            ) : (
+              <div className="text-center py-16 text-muted-foreground">
+                <Link2 className="h-12 w-12 mx-auto mb-4 opacity-20" />
+                <p className="text-lg font-medium mb-2">Find related articles</p>
+                <p className="text-sm mb-6">
+                  Discover semantically similar content using neural search
+                </p>
+                <Button onClick={handleFindRelated}>
+                  <Link2 className="h-4 w-4 mr-2" />
+                  Find Related Articles
+                </Button>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Chat Tab */}
+        {activeTab === 'chat' && hasSummary && (
+          <div className="max-w-3xl mx-auto p-8">
+            <ArticleChat
+              articleId={article.id}
+              isExpanded={true}
+            />
+          </div>
+        )}
       </ScrollArea>
 
       {/* Paste HTML Dialog */}
@@ -574,13 +703,11 @@ export function ArticleDetail() {
                 tabIndex={0}
                 onPaste={(e) => {
                   e.preventDefault()
-                  // Try to get HTML content first, fall back to plain text
                   const html = e.clipboardData.getData('text/html')
                   const text = e.clipboardData.getData('text/plain')
                   if (html) {
                     setPastedHtml(html)
                   } else if (text) {
-                    // Wrap plain text in basic HTML structure
                     setPastedHtml(`<div>${text.split('\n').map(line => `<p>${line}</p>`).join('')}</div>`)
                   }
                 }}

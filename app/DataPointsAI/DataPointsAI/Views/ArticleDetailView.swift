@@ -1,10 +1,18 @@
 import SwiftUI
 import WebKit
 
+enum DetailTab: String, CaseIterable {
+    case article = "Article"
+    case ai = "AI Summary"
+    case related = "Related"
+    case chat = "Chat"
+}
+
 /// Right pane: full article detail with summary
 struct ArticleDetailView: View {
     @EnvironmentObject var appState: AppState
     @ObservedObject var scrollState: ArticleScrollState
+    @State private var activeTab: DetailTab = .article
     @State private var isSummarizing: Bool = false
     @State private var isFetchingContent: Bool = false
     @State private var isFetchingAuthenticated: Bool = false
@@ -16,7 +24,6 @@ struct ArticleDetailView: View {
     @State private var showingLoginSheet: Bool = false
     @State private var loginURL: URL?
     @State private var loginSiteTitle: String = ""
-    @State private var isChatExpanded: Bool = false
     @State private var hasChatHistory: Bool = false
 
     var body: some View {
@@ -38,10 +45,16 @@ struct ArticleDetailView: View {
         }
         .animation(.easeInOut(duration: 0.2), value: appState.selectedArticleDetail?.id)
         .onChange(of: appState.selectedArticleDetail?.id) { _, _ in
-            // Reset chat state when article changes
+            // Reset state when article changes
             contentHeight = 0
-            isChatExpanded = false
+            activeTab = .article
             hasChatHistory = false
+        }
+        .onChange(of: appState.selectedArticleDetail?.relatedLinks?.count) { _, newCount in
+            // Auto-switch to Related tab when links arrive, if user is still on Article tab
+            if let count = newCount, count > 0, activeTab == .article {
+                withAnimation(.easeInOut(duration: 0.15)) { activeTab = .related }
+            }
         }
         .toolbar {
             toolbarContent
@@ -80,6 +93,9 @@ struct ArticleDetailView: View {
             .frame(height: 3)
             .background(Color.accentColor.opacity(0.15))
 
+            // Tab strip (sticky, outside scroll view)
+            detailTabStrip(article: article)
+
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(spacing: 0) {
@@ -88,16 +104,15 @@ struct ArticleDetailView: View {
                             .frame(height: 0)
                             .id(ArticleScrollState.topAnchorID)
 
-                        articleBody(article: article)
+                        tabContent(article: article)
                             .padding()
                             .frame(maxWidth: appState.readerModeEnabled ? readerModeMaxWidth : .infinity)
                     }
-                    .frame(maxWidth: .infinity) // Centers content when width is constrained
+                    .frame(maxWidth: .infinity)
                     .background(ScrollViewAccessor(scrollState: scrollState))
                 }
                 .onAppear {
                     scrollState.scrollProxy = proxy
-                    // Start observing after a brief delay to ensure scrollView is set
                     DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
                         scrollState.startObservingScroll()
                     }
@@ -106,6 +121,9 @@ struct ArticleDetailView: View {
                     scrollState.stopObservingScroll()
                 }
                 .onChange(of: article.id) { _, _ in
+                    scrollState.scrollToTop()
+                }
+                .onChange(of: activeTab) { _, _ in
                     scrollState.scrollToTop()
                 }
             }
@@ -118,11 +136,76 @@ struct ArticleDetailView: View {
         }
     }
 
-    // MARK: - Article Body
+    // MARK: - Tab Strip
 
     @ViewBuilder
-    private func articleBody(article: ArticleDetail) -> some View {
-        // Use reader mode settings when in reader mode
+    private func detailTabStrip(article: ArticleDetail) -> some View {
+        VStack(spacing: 0) {
+            HStack(spacing: 0) {
+                ForEach(DetailTab.allCases, id: \.self) { tab in
+                    detailTabButton(tab: tab, article: article)
+                }
+                Spacer()
+            }
+            .background(Color(NSColor.windowBackgroundColor))
+
+            Divider()
+        }
+    }
+
+    @ViewBuilder
+    private func detailTabButton(tab: DetailTab, article: ArticleDetail) -> some View {
+        let isActive = activeTab == tab
+        let isDisabled = tab == .chat && article.summaryFull == nil
+
+        Button {
+            withAnimation(.easeInOut(duration: 0.15)) {
+                activeTab = tab
+            }
+        } label: {
+            HStack(spacing: 5) {
+                // Status indicator
+                if tab == .ai && isSummarizing {
+                    ProgressView().scaleEffect(0.45).frame(width: 8, height: 8)
+                } else if tab == .related && appState.isLoadingRelated {
+                    ProgressView().scaleEffect(0.45).frame(width: 8, height: 8)
+                } else if tab == .ai && article.summaryFull != nil {
+                    Circle().fill(Color.purple).frame(width: 6, height: 6)
+                } else if tab == .related, let links = article.relatedLinks, !links.isEmpty {
+                    Circle().fill(Color.blue).frame(width: 6, height: 6)
+                } else if tab == .chat && hasChatHistory {
+                    Circle().fill(Color.blue).frame(width: 6, height: 6)
+                }
+
+                Text(tab.rawValue)
+                    .font(.system(size: 13, weight: isActive ? .semibold : .regular))
+
+                // Count for Related tab
+                if tab == .related, let count = article.relatedLinks?.count, count > 0 {
+                    Text("(\(count))")
+                        .font(.system(size: 11))
+                        .foregroundStyle(.secondary)
+                }
+            }
+            .foregroundStyle(isActive ? Color.primary : Color.secondary)
+            .padding(.horizontal, 16)
+            .padding(.vertical, 9)
+            .overlay(
+                Rectangle()
+                    .fill(isActive ? Color.accentColor : Color.clear)
+                    .frame(height: 2),
+                alignment: .bottom
+            )
+        }
+        .buttonStyle(.plain)
+        .disabled(isDisabled)
+        .opacity(isDisabled ? 0.4 : 1)
+    }
+
+    // MARK: - Tab Content
+
+    @ViewBuilder
+    private func tabContent(article: ArticleDetail) -> some View {
         let fontSize = appState.readerModeEnabled
             ? appState.settings.readerModeFontSize
             : appState.settings.articleFontSize
@@ -132,76 +215,47 @@ struct ArticleDetailView: View {
         let appTypeface = appState.settings.appTypeface
         let contentTypeface = appState.settings.contentTypeface
 
-        VStack(alignment: .leading, spacing: 16) {
-            // Header
-            articleHeader(article: article, fontSize: fontSize, lineSpacing: lineSpacing, appTypeface: appTypeface)
+        switch activeTab {
+        case .article:
+            VStack(alignment: .leading, spacing: 16) {
+                articleHeader(article: article, fontSize: fontSize, lineSpacing: lineSpacing, appTypeface: appTypeface)
+                Divider()
+                articleToolbar(article: article)
+                Divider().padding(.vertical, 8)
+                actionsSection(article: article)
+                contentSection(article: article, fontSize: fontSize, lineSpacing: lineSpacing, appTypeface: appTypeface, contentTypeface: contentTypeface)
+            }
 
-            Divider()
+        case .ai:
+            VStack(alignment: .leading, spacing: 16) {
+                summarySection(article: article, fontSize: fontSize, lineSpacing: lineSpacing, appTypeface: appTypeface)
+                keyPointsSection(article: article, fontSize: fontSize, lineSpacing: lineSpacing, appTypeface: appTypeface)
+            }
 
-            // Toolbar with Read, Save, Summarize, Context actions
-            articleToolbar(article: article)
+        case .related:
+            ArticleRelatedLinksSection(
+                relatedLinks: article.relatedLinks ?? [],
+                fontSize: fontSize,
+                lineSpacing: lineSpacing,
+                appTypeface: appTypeface,
+                isLoadingRelated: appState.isLoadingRelated,
+                relatedLinksError: article.relatedLinksError,
+                onFindRelated: {
+                    Task { await appState.loadRelatedLinks(for: article.id) }
+                }
+            )
 
-            Divider()
-                .padding(.vertical, 8)
-
-            // AI Summary section
-            summarySection(article: article, fontSize: fontSize, lineSpacing: lineSpacing, appTypeface: appTypeface)
-
-            // Key Points
-            keyPointsSection(article: article, fontSize: fontSize, lineSpacing: lineSpacing, appTypeface: appTypeface)
-
-            // Chat section - for Q&A and summary refinement
+        case .chat:
             if article.summaryFull != nil {
                 ArticleChatSection(
                     article: article,
                     fontSize: fontSize,
                     lineSpacing: lineSpacing,
                     appTypeface: appTypeface,
-                    isExpanded: $isChatExpanded,
+                    isExpanded: .constant(true),
                     hasChat: $hasChatHistory
                 )
-                .id("article-chat")
             }
-
-            // Related links section - neural search results
-            if let relatedLinks = article.relatedLinks, !relatedLinks.isEmpty {
-                ArticleRelatedLinksSection(
-                    relatedLinks: relatedLinks,
-                    fontSize: fontSize,
-                    lineSpacing: lineSpacing,
-                    appTypeface: appTypeface,
-                    isLoadingRelated: appState.isLoadingRelated,
-                    relatedLinksError: article.relatedLinksError,
-                    onFindRelated: {
-                        Task {
-                            await appState.loadRelatedLinks(for: article.id)
-                        }
-                    }
-                )
-            } else if appState.isLoadingRelated || article.relatedLinksError != nil {
-                // Show loading/error state even if no links yet
-                ArticleRelatedLinksSection(
-                    relatedLinks: [],
-                    fontSize: fontSize,
-                    lineSpacing: lineSpacing,
-                    appTypeface: appTypeface,
-                    isLoadingRelated: appState.isLoadingRelated,
-                    relatedLinksError: article.relatedLinksError,
-                    onFindRelated: {
-                        Task {
-                            await appState.loadRelatedLinks(for: article.id)
-                        }
-                    }
-                )
-            }
-
-            Divider()
-
-            // Actions
-            actionsSection(article: article)
-
-            // Original content
-            contentSection(article: article, fontSize: fontSize, lineSpacing: lineSpacing, appTypeface: appTypeface, contentTypeface: contentTypeface)
         }
     }
 
@@ -321,95 +375,83 @@ struct ArticleDetailView: View {
                 .fill(Color.secondary.opacity(0.3))
                 .frame(width: 1, height: 20)
 
-            // Summarize button
-            Button {
-                if article.summaryFull == nil {
-                    startSummarization(articleId: article.id)
+            // Unified AI Menu
+            let hasSummary = article.summaryFull != nil
+            let hasRelated = article.relatedLinks?.isEmpty == false
+            let aiCount = [hasSummary, hasRelated, hasChatHistory].filter { $0 }.count
+            let aiActive = aiCount > 0
+
+            Menu {
+                // Summary
+                if hasSummary {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.15)) { activeTab = .ai }
+                    } label: {
+                        Label("View Summary", systemImage: "sparkles")
+                    }
+                } else {
+                    Button {
+                        startSummarization(articleId: article.id)
+                    } label: {
+                        Label(isSummarizing ? "Generating Summary…" : "Generate Summary", systemImage: "sparkles")
+                    }
+                    .disabled(isSummarizing)
                 }
+
+                // Related
+                if hasRelated, let count = article.relatedLinks?.count {
+                    Button {
+                        withAnimation(.easeInOut(duration: 0.15)) { activeTab = .related }
+                    } label: {
+                        Label("View \(count) Related Articles", systemImage: "link.badge.plus")
+                    }
+                } else {
+                    Button {
+                        Task { await appState.loadRelatedLinks(for: article.id) }
+                    } label: {
+                        Label(appState.isLoadingRelated ? "Searching…" : "Find Related Articles", systemImage: "link.badge.plus")
+                    }
+                    .disabled(appState.isLoadingRelated)
+                }
+
+                Divider()
+
+                // Chat
+                Button {
+                    withAnimation(.easeInOut(duration: 0.15)) { activeTab = .chat }
+                } label: {
+                    Label(
+                        "Chat about this Article",
+                        systemImage: hasChatHistory
+                            ? "bubble.left.and.bubble.right.fill"
+                            : "bubble.left.and.bubble.right"
+                    )
+                }
+                .disabled(!hasSummary)
             } label: {
                 HStack(spacing: 6) {
-                    if isSummarizing {
-                        ProgressView()
-                            .scaleEffect(0.6)
+                    if isSummarizing || appState.isLoadingRelated {
+                        ProgressView().scaleEffect(0.6)
                     } else {
                         Image(systemName: "sparkles")
                             .font(.system(size: 14))
+                            .foregroundColor(aiActive ? .purple : .secondary)
                     }
-                    Text(article.summaryFull != nil ? "Summarized" : "Summarize")
+                    Text("AI")
                         .font(.system(size: 13))
-                    if article.summaryFull == nil && !isSummarizing {
-                        Image(systemName: "info.circle")
-                            .font(.system(size: 10))
-                            .opacity(0.5)
+                    if aiCount > 0 {
+                        Text("\(aiCount)")
+                            .font(.system(size: 10, weight: .semibold))
+                            .foregroundColor(.white)
+                            .frame(minWidth: 14, minHeight: 14)
+                            .background(Color.purple)
+                            .clipShape(Circle())
                     }
                 }
-                .foregroundColor(article.summaryFull != nil ? .primary : .secondary)
+                .foregroundColor(aiActive ? .primary : .secondary)
             }
             .buttonStyle(.plain)
-            .disabled(isSummarizing || article.summaryFull != nil)
-            .help(article.summaryFull != nil ? "Article has been summarized" : "Generate AI summary")
-
-            // Context/Related Links button
-            Button {
-                if article.relatedLinks == nil || (article.relatedLinks?.isEmpty ?? true) {
-                    Task {
-                        await appState.loadRelatedLinks(for: article.id)
-                    }
-                }
-            } label: {
-                HStack(spacing: 6) {
-                    if appState.isLoadingRelated {
-                        ProgressView()
-                            .scaleEffect(0.6)
-                    } else {
-                        Image(systemName: "link")
-                            .font(.system(size: 14))
-                            .foregroundColor((article.relatedLinks?.isEmpty == false) ? .blue : .secondary)
-                    }
-                    Text((article.relatedLinks?.isEmpty == false) ? "Contextualized" : "Context")
-                        .font(.system(size: 13))
-                    if (article.relatedLinks?.isEmpty != false) && !appState.isLoadingRelated {
-                        Image(systemName: "info.circle")
-                            .font(.system(size: 10))
-                            .opacity(0.5)
-                    }
-                }
-                .foregroundColor((article.relatedLinks?.isEmpty == false) ? .primary : .secondary)
-            }
-            .buttonStyle(.plain)
-            .disabled(appState.isLoadingRelated || (article.relatedLinks?.isEmpty == false))
-            .help((article.relatedLinks?.isEmpty == false) ? "Related articles found" : "Find semantically related articles using neural search")
-
-            // Chat button - only visible if article has summary
-            if article.summaryFull != nil {
-                Button {
-                    withAnimation(.easeInOut(duration: 0.2)) {
-                        isChatExpanded = true
-                    }
-                    // Scroll to chat section
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) {
-                        withAnimation(.easeInOut(duration: 0.3)) {
-                            scrollState.scrollProxy?.scrollTo("article-chat", anchor: .top)
-                        }
-                    }
-                } label: {
-                    HStack(spacing: 6) {
-                        Image(systemName: hasChatHistory ? "bubble.left.and.bubble.right.fill" : "bubble.left.and.bubble.right")
-                            .font(.system(size: 14))
-                            .foregroundColor(hasChatHistory ? .blue : .secondary)
-                        Text("Chat")
-                            .font(.system(size: 13))
-                        if !hasChatHistory {
-                            Image(systemName: "info.circle")
-                                .font(.system(size: 10))
-                                .opacity(0.5)
-                        }
-                    }
-                    .foregroundColor(hasChatHistory ? .primary : .secondary)
-                }
-                .buttonStyle(.plain)
-                .help("Ask questions and refine the summary")
-            }
+            .help("AI features: summary, related articles, chat")
 
             Spacer()
 
@@ -999,6 +1041,8 @@ struct ArticleDetailView: View {
                 if appState.selectedArticleDetail?.id == articleId,
                    appState.selectedArticleDetail?.summaryFull == nil {
                     summarizationError = "Summary generation timed out. The server may be busy."
+                } else if activeTab == .article {
+                    withAnimation(.easeInOut(duration: 0.15)) { activeTab = .ai }
                 }
             } catch {
                 if appState.selectedArticleDetail?.id == articleId {
