@@ -468,6 +468,41 @@ This prevents "5 copies of the same arXiv paper" results common with naive seman
 
 **Platform Support**: Currently macOS-only with independent "Find Related" button. The feature enhances article discovery without requiring it—users can opt in when they want deeper exploration of a topic.
 
+### Article Detail: Tab Strip Layout
+
+**Decision**: Organize AI features (summary, related articles, chat) into a tab strip alongside article content, rather than as collapsible accordion sections stacked below it.
+
+**Alternatives Considered**:
+- Stacked accordion sections: The original design — summary, related links, and chat collapse/expand below the article body. Requires scrolling past content to discover; AI features feel bolted on.
+- Persistent AI sidebar: A split pane showing AI content beside the article. Reduces reading width; feels like a permanent second panel rather than an optional feature.
+- Floating overlay/HUD: Shows AI status over the article. Gets in the way of reading and is hard to dismiss predictably.
+
+**Rationale**: Tabs make AI features peers of the content rather than appendages. The tab strip sits at a fixed position in the UI, so discoverability doesn't depend on scrolling. Each tab has exactly one job — no visual competition from other sections. The three-pane structure is fully preserved; the change is within the detail pane only.
+
+**Tab Design Decisions**:
+- **Dot indicators** (purple for AI summary, blue for related articles and chat) signal that content is available without requiring the user to open each tab.
+- **Chat is gated**: the Chat tab is disabled until a summary exists. Chat without context is unhelpful, and the visual disabled state communicates the prerequisite before the user clicks.
+- **Auto-advance on action completion**: clicking Summarize switches to the AI tab when the summary arrives; clicking Find Related switches to the Related tab when links load — but only if the user is still on the Article tab (hasn't navigated elsewhere). This makes the action → result flow tangible without hijacking navigation.
+- **Reset on article change**: switching articles resets to the Article tab, so reading always starts with content, not a potentially empty AI tab.
+- **Scroll reset on tab switch**: switching tabs scrolls back to the top of the content area to avoid disorienting mid-page positions.
+
+**Platform Implementation**: Web uses a CSS bottom-border underline strip. macOS uses a custom SwiftUI `HStack` of `Button` views with an `accentColor` rectangle overlay as the active indicator. Both sit outside the scroll view so the tab strip is sticky.
+
+### Unified AI Toolbar Button
+
+**Decision**: Replace three separate toolbar buttons (Summarize, Context/Find Related, Chat) with a single "AI" dropdown that shows the status of all three features and navigates to the relevant tab.
+
+**Alternatives Considered**:
+- Three separate labeled buttons: The previous design. Clear labeling but adds visual clutter; "Context" was an opaque name for Find Related.
+- Icon-only buttons with tooltips: Reduces width but increases hover-to-understand friction for new users.
+- Remove toolbar AI actions entirely: Could work now that tabs exist, but the toolbar is also the primary action trigger — the AI button is still how you *start* summarization and related-link searches.
+
+**Rationale**: The three AI features form a natural sequence: summarize → find related → chat. Grouping them under one entry point communicates that relationship. The dropdown doubles as a status dashboard — it shows the first key point as a preview when a summary is ready, the count of related articles found, and whether a chat session is active — so users can assess article enrichment and decide their next action without opening a tab. This reduces the toolbar from six interactive elements to four.
+
+**Count badge**: A small badge on the AI button (1, 2, or 3) reflects how many AI features have been activated for the current article. It gives a quick at-a-glance signal of how enriched an article is, visible from any tab.
+
+**Dropdown item behavior**: Each item is a dual-mode action. If the feature hasn't been run yet, clicking triggers the action. If the feature has completed, clicking navigates to the corresponding tab. This means the dropdown is the single place to both trigger and navigate to AI features.
+
 ### Summarization: Two-Pass Critic Pipeline
 
 **Decision**: Add an optional second LLM pass that evaluates and revises summaries for complex content.
@@ -639,6 +674,19 @@ This setup requires no DevOps expertise and costs ~$0-5/month for personal use.
 - Feed-deletion edge case: diff IDs before/after to preserve Archive-moved articles
 - FTS5 retained as fallback if Tantivy is unavailable
 - One-time index rebuild on first startup from all articles in SQLite
+
+### Phase 14: Article Detail UI Redesign
+
+- Three-pane structure preserved; article detail pane restructured with a four-tab strip (Article · AI Summary · Related · Chat)
+- AI features promoted from scroll-to-discover accordion sections to first-class tab destinations
+- Dot indicators on tabs signal content availability without requiring the user to click
+- Auto-advance ties action to result: summarize → AI tab, find related → Related tab (only if still on Article tab)
+- Chat tab gated behind summary existence on both web and macOS; visually disabled with tooltip explaining prerequisite
+- Unified AI toolbar button replaces three separate buttons (Summarize, Context, Chat)
+- AI dropdown shows inline status: first key point preview, related article count, chat active indicator
+- Count badge on AI button reflects total number of activated AI features per article
+- Scroll position resets on tab switch to avoid mid-page disorientation
+- UITODOS.md created to track remaining UI improvement backlog
 
 ### Current: Stable Platform
 - Native macOS app + Web PWA
