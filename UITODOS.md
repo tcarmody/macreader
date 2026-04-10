@@ -1,6 +1,6 @@
 # UI Improvement Plan
 
-Remaining items from the UI review session. The tab strip (item 0) is already done.
+All items complete as of 2026-04-10. See DOCTRINE.md (Phase 13) for architectural decisions.
 
 ---
 

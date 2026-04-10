@@ -503,6 +503,66 @@ This prevents "5 copies of the same arXiv paper" results common with naive seman
 
 **Dropdown item behavior**: Each item is a dual-mode action. If the feature hasn't been run yet, clicking triggers the action. If the feature has completed, clicking navigates to the corresponding tab. This means the dropdown is the single place to both trigger and navigate to AI features.
 
+### Article List: Key Points in List Response
+
+**Decision**: Include `key_points` (the first few AI-generated bullet points) in the article list API response alongside `summary_short`, and use `key_points[0]` as the row preview text when available.
+
+**Alternatives Considered**:
+- **Summary short only in list**: Simpler API, but `summary_short` is a prose sentence while `key_points[0]` is a tighter, more scannable bullet.
+- **Separate endpoint for key points**: Clean separation but adds a per-row request or a batch fetch call.
+- **Client-side combination**: Fetching article detail for every visible row is prohibitively expensive.
+
+**Rationale**: Key points are already generated as part of summarization and stored in the same `articles` row. Including them in the list response adds negligible query cost (no join needed) while replacing the raw snippet with a curated first insight. The fallback chain is `key_points[0]` → `summary_short` → nothing, so rows degrade gracefully for unsummarized articles.
+
+### Article List: `has_chat` via EXISTS Subquery
+
+**Decision**: Source the chat-badge boolean directly in the article list query using an EXISTS subquery, rather than a separate API call or join that would require fetching full chat records.
+
+**Alternatives Considered**:
+- **Separate `/articles/{id}/has-chat` call per row**: N+1 requests for N rows — unacceptable.
+- **LEFT JOIN on `article_chats`**: Returns a row per message; requires `COUNT(DISTINCT)` and changes the cardinality of the result set.
+- **Cached flag on article row**: Denormalization; the flag would go stale unless we update it on every chat mutation.
+
+**Rationale**: `EXISTS(SELECT 1 FROM article_chats WHERE article_id = ? AND user_id = ?)` is a constant-time predicate that the query planner evaluates with an index seek. It adds no extra rows and no extra round-trips. The boolean is accurate at query time without any cache invalidation work. The only cost is one extra `user_id` parameter in the SQL params list.
+
+### Search: Scope Toggle for Summary Inclusion
+
+**Decision**: Add an `include_summaries` parameter to the search endpoint. When `false`, restrict FTS5 search to `title` and `content` columns only; when `true` (default), include `summary_short` and `summary_full` in the search.
+
+**Alternatives Considered**:
+- **Always search summaries**: Reasonable default but produces false positives — searching for "transformer" in summaries matches articles about electrical transformers that the article body doesn't focus on.
+- **Always exclude summaries**: Simpler, but loses the ability to find an article you remember reading about a topic only mentioned in the AI summary.
+- **Separate search endpoints**: Over-engineered for a boolean toggle.
+
+**Rationale**: FTS5 column-restriction syntax (`title: "q" OR content: "q"`) makes this a one-line change to the query string. The toggle is persisted in client state (localStorage / AppState) so users set it once. The default `true` maximizes recall for new users; power users can narrow to body-only when they want precision.
+
+### Topics Sidebar: Dedicated Lightweight Endpoint
+
+**Decision**: Add `GET /statistics/topics/current` that returns only the most recent clustering run's topics with article counts — a purpose-built subset of the heavy `/reading-stats` endpoint.
+
+**Alternatives Considered**:
+- **Reuse `/statistics/reading-stats`**: Already returns `current_topics`, but also fetches summarization stats, reading activity, and topic trends — ~10x the work needed for a sidebar widget.
+- **Client-side filtering from full stats**: Same problem as above; forces the client to request and parse a large response just to render a list of topic names.
+- **Store topics in a separate sidebar-specific table**: Overkill; the data already exists in `topic_history`.
+
+**Rationale**: The sidebar loads on every navigation. A lightweight endpoint that reads only the latest `topic_history` rows is fast and cheap. The backend does a single `SELECT ... WHERE clustered_at = (SELECT MAX(...))` and returns a short list. Sidebar responsiveness justifies the single extra endpoint.
+
+**Client-side filtering**: Topics filter the already-fetched article list by intersecting `article_ids` from the topic response with the current list. This avoids a new filtered-articles API call and keeps the filter instant even on large lists.
+
+### Floating "Jump to AI Summary" Chip
+
+**Decision**: Show a floating capsule button in the bottom-right of the Article tab after the user scrolls past ~30% of the content, offering a one-click path to the AI tab.
+
+**Alternatives Considered**:
+- **Persistent banner at top of article**: Always visible, but occupies reading width and is distracting for users who don't want AI features.
+- **Chip after 50% or 70% scroll**: More selective, but users who skim (fast scrollers) may never trigger it.
+- **Chip only for long articles**: Adds complexity; the chip is useful at any length since the AI tab is still off-screen.
+- **No chip — rely on tab strip**: The tab strip is visible, but for users in reading flow, a contextual nudge is more effective than a passive tab label.
+
+**Rationale**: 30% is a deliberate choice — it fires after the user has read enough to decide they want context, but before they've finished and lost interest. The chip is non-intrusive (positioned over empty space, semi-transparent until hovered), auto-dismisses on tab switch, and never appears if there's no summary. It converts reading engagement directly into AI feature discovery without interrupting flow.
+
+**Scroll detection implementation**: shadcn's `ScrollArea` wraps a Radix primitive. The scrollable element is a `div[data-radix-scroll-area-viewport]` inside the scroll container — not the container itself. A `useEffect` queries this element by attribute selector and attaches a passive native `scroll` listener. On macOS, an `NSScrollView` delegate tracks `documentVisibleRect` against `documentView.frame.size.height` to compute the same ratio.
+
 ### Summarization: Two-Pass Critic Pipeline
 
 **Decision**: Add an optional second LLM pass that evaluates and revises summaries for complex content.
@@ -664,6 +724,17 @@ This setup requires no DevOps expertise and costs ~$0-5/month for personal use.
 - Frontend admin gating via `is_admin` flag from `/auth/status`
 - Distinct color identities for all 9 design styles (each theme has a unique HSL hue family)
 - Themes distinguishable by color, not just structural differences
+
+### Phase 13: AI-Integrated Article List UI
+- Key points exposed in article list API (`key_points` in `ArticleResponse`) for richer row previews
+- `has_chat` sourced via EXISTS subquery in list query (no extra per-article request)
+- `related_link_count` derived from JSON column at serialization time
+- Search scope toggle (`include_summaries`) using FTS5 column-restriction syntax
+- Dedicated lightweight `/statistics/topics/current` endpoint for sidebar topics
+- Topics sidebar section with collapsible UI and client-side topic filtering by article ID set
+- Floating "Jump to AI Summary" chip triggered at 30% scroll progress in Article tab
+- Chip scroll detection via Radix `[data-radix-scroll-area-viewport]` native event listener
+- Optional Codable fields (Int?, Bool?) for backward-compatible Swift model evolution
 
 ### Phase 13: Tantivy Search
 - Replaced SQLite FTS5 with Tantivy (Rust-based, in-process via tantivy-py)
