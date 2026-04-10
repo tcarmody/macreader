@@ -7,13 +7,13 @@ Backlog items (Issue Board, Story Basket, etc.) live in `FEATURETODOs.md`.
 
 ## Overview
 
-| Feature | New backend files | New DB | New routes | Depends on |
-|---|---|---|---|---|
-| Duplicate Story Detection | `services/story_groups.py` | `story_groups`, `story_group_members` | `GET /articles/story-groups` | clustering.py |
-| Brief Generator | `services/brief_generator.py` | `article_briefs` | `POST /articles/{id}/brief`, `POST /briefs/batch` | summarizer.py |
-| Draft Assembler | `services/draft_assembler.py` | `drafts` | `POST /digest/draft` | brief generator, clustering |
-| Coverage Gap Analysis | `services/gap_analysis.py` | — | `POST /digest/gap-analysis` | clustering, related_links |
-| Auto-Digest | `services/auto_digest.py` | `digests` | `GET /digest/auto` | all of the above |
+| Feature | Status | New backend files | New DB | New routes | Depends on |
+|---|---|---|---|---|---|
+| Duplicate Story Detection | ✅ Done | `services/story_groups.py` | `story_groups`, `story_group_members` | `GET /digest/story-groups` | clustering.py |
+| Brief Generator | ✅ Done | `services/brief_generator.py` | `article_briefs` | `POST /briefs/batch` | summarizer.py |
+| Auto-Digest | ✅ Done | `services/auto_digest.py` | `digests` | `GET /digest/auto` | brief generator, story groups |
+| Draft Assembler | ❌ Not Started | `services/draft_assembler.py` | `drafts` | `POST /digest/draft` | brief generator, clustering |
+| Coverage Gap Analysis | ❌ Not Started | `services/gap_analysis.py` | — | `POST /digest/gap-analysis` | clustering, related_links |
 
 ---
 
@@ -410,19 +410,14 @@ are cached.
 
 ## Implementation Order
 
-These features have a natural dependency chain:
-
 ```
-Story Groups  ──►  Brief Generator  ──►  Draft Assembler  ──►  Auto-Digest
-                                    └──►  Coverage Gap Analysis
+Story Groups ✅  ──►  Brief Generator ✅  ──►  Draft Assembler ❌  ──►  Auto-Digest ✅
+                                         └──►  Coverage Gap Analysis ❌
 ```
 
-**Recommended sequence:**
-1. **Brief Generator** — standalone, immediately useful, validates the LLM prompts
-2. **Story Groups** — enables smart dedup for everything downstream
-3. **Draft Assembler** — first end-to-end output a user can actually use
-4. **Coverage Gap Analysis** — enhances Draft Assembler; depends on Exa cache
-5. **Auto-Digest** — caps the pipeline; requires all four above
+**Remaining work:**
+1. **Draft Assembler** — first end-to-end output a user can actually use; depends on Brief Generator ✅ and Story Groups ✅
+2. **Coverage Gap Analysis** — enhances Draft Assembler; depends on Exa cache (related links) ✅
 
 ---
 

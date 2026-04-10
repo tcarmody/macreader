@@ -14,13 +14,19 @@ This document contains detailed implementation plans for future features in the 
 | OPML Export | ✅ Done | Export endpoint with categorization |
 | Lazy Loading | ✅ Done | Backend pagination + infinite scroll in Swift UI |
 | Smart Notifications | ✅ Done | Backend rules engine, notification history, Swift settings UI |
-| Article Sharing | ❌ Not Started | |
+| Background App Refresh | ✅ Done | Timer-based refresh like NetNewsWire |
+| Reading Statistics | ✅ Done | Statistics tab in Settings with summarization/reading/topic metrics |
+| Brief Generator | ✅ Done | Newsletter pipeline — generates blurbs in 3 lengths × 3 tones |
+| Story Groups | ✅ Done | Newsletter pipeline — semantic duplicate detection across feeds |
+| Auto-Digest | ✅ Done | Newsletter pipeline — automated digest from top stories per period |
+| Article Sharing | ⚠️ Partial | ShareLink in context menu and article detail; full NSSharingService integration not built |
+| Draft Assembler | ❌ Not Started | Newsletter pipeline — formats selected articles into a publish-ready draft |
+| Coverage Gap Analysis | ❌ Not Started | Newsletter pipeline — identifies story angles missing from a draft |
+| Onboarding & Discoverability | ❌ Not Started | Empty state CTAs, contextual tooltips, in-app help center |
 | Smart Folders | ❌ Not Started | |
 | Saved Searches | ❌ Not Started | |
 | Article Tagging | ❌ Not Started | |
 | Reading Lists | ❌ Not Started | |
-| Background App Refresh | ✅ Done | Timer-based refresh like NetNewsWire |
-| Reading Statistics | ✅ Done | Statistics tab in Settings with summarization/reading/topic metrics |
 | Feed Analytics | ❌ Not Started | |
 | Feed Discovery | ❌ Not Started | |
 | iCloud Sync | ❌ Not Started | |
@@ -638,45 +644,65 @@ See [Section 19](#19-reading-statistics--done) for full implementation details.
 
 ## Implementation Priority Recommendation
 
-### Phase 1 - Core Improvements (High Value, Medium Effort)
-1. ~~Reading Time Estimates~~ ✅
-2. Article Sharing
-3. Smart Folders
-4. Saved Searches
+### Next Up (High Value, Medium Effort)
+1. Onboarding & Discoverability — empty states, tooltips, help center
+2. Article Sharing — full NSSharingService integration (ShareLink already exists)
+3. Draft Assembler — completes the newsletter pipeline
+4. Smart Folders
+5. Saved Searches
 
-### Phase 2 - Organization (Medium Value, Medium Effort)
-5. Article Tagging
-6. Reading Lists
-7. ~~Full-Text Extraction Improvements~~ ✅
+### Organization (Medium Value, Medium Effort)
+6. Article Tagging
+7. Reading Lists
+8. Feed Analytics
 
-### Phase 3 - Performance & Analytics (High Value, Higher Effort)
-8. ~~Lazy Loading for Large Feeds~~ ✅
-9. ~~Background App Refresh~~ ✅
-10. ~~Reading Statistics~~ ✅
-11. Feed Analytics
-
-### Phase 4 - Advanced Features (Variable Value, Higher Effort)
-12. ~~Smart Notifications~~ ✅
-13. Export Options (partial)
-14. Feed Discovery
-
-### Phase 5 - Sync & Media (High Effort)
-15. iCloud Sync
-16. Third-Party Sync Services
-17. Podcast/Video Feed Support
-18. ~~Newsletter Email Import~~ ✅
+### Advanced / High Effort
+9. Coverage Gap Analysis
+10. Export Options (JSON/CSV/HTML; OPML already done)
+11. Feed Discovery
+12. iCloud Sync
+13. Third-Party Sync Services
+14. Podcast/Video Feed Support
 
 ---
+
+## Onboarding & Discoverability ❌ NOT STARTED
+
+**Goal**: Make DataPoints more accessible to new users through better empty states, contextual guidance, and an in-app help center. All items below are unstarted.
+
+### Phase 1 — Quick UX Improvements
+- [ ] Enhanced empty states with icon, title, description, and CTA buttons (Add Feed, Add URL/File)
+- [ ] "What's This?" info icons on Group By Topic, Library tab, Summarize button
+- [ ] First-time feature toasts — non-repeating, tracked in Zustand store
+- [ ] Pulsing "new feature" badge on controls that have never been used
+- [ ] Improved backend setup screen with example URL, setup instructions, and troubleshooting tips
+- [ ] More prominent Feed Manager with article count ("Manage Feeds (23)")
+- [ ] Smarter first-visit defaults: Unread filter, collapsed categories
+- [ ] Rotating helpful search placeholder tips
+
+### Phase 2 — Contextual Tooltip System
+- [ ] `SmartTooltip` component: tracks view count per hint ID, stops showing after N views
+- [ ] `CoachMark` component with pulsing indicator for first-time feature discovery
+- [ ] Hint state in Zustand store with localStorage persistence (`seenHints`, `dismissedHints`)
+- [ ] Strategic placement on 10 key elements: Add Feed, Group By, Summarize, Library, Settings, Search, Feed Manager, Bookmark, Export, Keyboard Shortcuts
+
+### Phase 3 — Help Center
+- [ ] Slide-in help panel with markdown rendering and fuzzy search
+- [ ] Keyboard shortcut reference view
+- [ ] Content: Getting Started (5 articles), Features (6), Troubleshooting (4), FAQ (3–5)
+- [ ] `?` keyboard shortcut to open; help state persisted in Zustand
+- [ ] Help button in sidebar footer
 
 ---
 
 ## Newsletter Assembly Features
 
-Features for using DataPoints as a newsletter production workbench.
-Brief Generator ✅ and Story Groups ✅ are implemented. The remaining pipeline
-(Draft Assembler, Coverage Gap Analysis, Auto-Digest) is stashed below.
+Brief Generator ✅, Story Groups ✅, and Auto-Digest ✅ are fully implemented
+(`backend/services/brief_generator.py`, `story_groups.py`, `auto_digest.py`;
+routes at `/briefs/batch`, `/digest/story-groups`, `/digest/auto`).
 
----
+Draft Assembler and Coverage Gap Analysis are not started. The full technical
+design for all five newsletter pipeline features lives in **NEWSLETTER_FEATURES_PLAN.md**.
 
 ### Draft Assembler ❌ NOT STARTED
 
@@ -868,4 +894,4 @@ Direct push of assembled drafts to newsletter platforms:
 ---
 
 *Document created: December 2024*
-*Last updated: March 2026*
+*Last updated: April 2026*

@@ -59,7 +59,7 @@ Future UI/UX improvements to consider for the macOS RSS reader app.
 ### Native macOS Integration
 - [x] **Dock Badge** - Unread count on dock icon
 - [x] **Desktop Notifications** - Alerts for new articles
-- [x] **Full-Text Search** - SQLite FTS5-powered search with `/` shortcut
+- [x] **Full-Text Search** - Tantivy-powered search (FTS5 fallback) with `/` shortcut
 
 ### Settings & Configuration
 - [x] **Refresh Interval** - Configurable auto-refresh timing
@@ -74,13 +74,21 @@ Future UI/UX improvements to consider for the macOS RSS reader app.
 
 ### Visual Polish
 - [x] **Transition Animations** - Article selection slide-in transition, fade when switching grouping modes, smooth scroll-to-selection
-- [x] **Article Themes** - Six built-in themes (Auto, Light, Dark, Sepia, Paper, Night) with visual picker in Appearance settings
+- [x] **Article Themes** - Seven built-in themes (Auto, Manuscript, Noir, Ember, Forest, Ocean, Midnight) with visual picker in Appearance settings
 
 ### Web PWA Design System
 - [x] **Design Styles** - Nine visual variants: Default, Warm, Soft, Sharp, Compact, Teal AI, High Contrast, Sepia, Mono
 - [x] **Accessibility Styles** - High Contrast (WCAG AAA with pure black/white, bold borders), Sepia (warm tones for reading), Mono (grayscale only)
 - [x] **Reduced Motion Support** - Global `prefers-reduced-motion` media query support to disable animations
 - [x] **Keyboard Shortcuts (Web)** - Implemented with react-hotkeys-hook library: j/k navigation, m toggle read, s toggle bookmark, o open in browser, r refresh, / search, Escape clear, ⌘, settings, ⌘N new feed
+
+### AI-Integrated Article List (Phase 13)
+- [x] **Key Point in List Row** - When summarized, article rows show `key_points[0]` instead of raw snippet (falls back to `summary_short`)
+- [x] **Unified AI Toolbar Button** - Summarize, Find Related, and Chat grouped behind a single AI button with status popover (macOS and web)
+- [x] **Search Mode** - Active search switches middle pane into a distinct mode: tinted header, term highlighting in row titles, scope toggle ("Search in summaries")
+- [x] **Topics Sidebar** - Collapsible Topics section below filters showing latest AI-clustered topic labels; clicking a topic filters the article list
+- [x] **Floating "Jump to AI Summary" Chip** - Appears after scrolling 30% of an article; one-click to switch to AI tab; auto-dismisses on tab switch
+- [x] **AI Enrichment Badges** - Article list rows show sparkle (summarized), chat bubble (has conversation), `+N` related links count
 
 ---
 
@@ -95,12 +103,6 @@ Add a popover preview when hovering over articles in the list (like Mail.app's q
 Expand the server status indicator to show:
 - Number of new articles since last check
 - Sync status with subtle animation
-
-### Hardware Integration
-
-#### Touch Bar Support
-- Quick actions: next/previous, bookmark, mark read
-- Feed switching
 
 ### Larger Features (Future)
 
