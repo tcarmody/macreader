@@ -47,6 +47,17 @@ struct ArticleListView: View {
                     selectionToolbar
                 }
 
+                // Search in summaries toggle (only visible when searching)
+                if !appState.searchQuery.isEmpty {
+                    Button {
+                        appState.searchIncludeSummaries.toggle()
+                        Task { await appState.search(query: appState.searchQuery) }
+                    } label: {
+                        Image(systemName: appState.searchIncludeSummaries ? "doc.text.magnifyingglass" : "doc.magnifyingglass")
+                    }
+                    .help(appState.searchIncludeSummaries ? "Searching in AI summaries (click to exclude)" : "Not searching in summaries (click to include)")
+                }
+
                 // Hide read toggle
                 Button {
                     appState.hideReadArticles.toggle()
@@ -246,7 +257,7 @@ struct ArticleListView: View {
             try await appState.markAllRead()
         case .unread:
             try await appState.markAllRead()
-        case .today, .bookmarked, .summarized, .unsummarized:
+        case .today, .bookmarked, .summarized, .unsummarized, .topic:
             // Mark all visible articles in this filter as read
             let ids = appState.filteredArticles.map { $0.id }
             try await appState.bulkMarkRead(articleIds: ids)
@@ -311,7 +322,7 @@ struct EmptyArticlesView: View {
             NothingTodayIllustration()
         case .bookmarked:
             NoBookmarksIllustration()
-        case .summarized, .unsummarized:
+        case .summarized, .unsummarized, .topic:
             SparklesIllustration()
         case .feed:
             NoArticlesIllustration()
@@ -334,6 +345,8 @@ struct EmptyArticlesView: View {
             return "No Unsummarized Articles"
         case .feed:
             return "No Articles"
+        case .topic(let label, _):
+            return "No Articles in \"\(label)\""
         }
     }
 
@@ -355,6 +368,8 @@ struct EmptyArticlesView: View {
             return "All articles have been summarized."
         case .feed:
             return "This feed has no articles yet."
+        case .topic:
+            return "No articles were found in this topic cluster."
         }
     }
 }

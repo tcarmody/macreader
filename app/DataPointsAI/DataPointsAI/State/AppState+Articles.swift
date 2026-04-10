@@ -44,6 +44,9 @@ extension AppState {
         } catch {
             self.error = error.localizedDescription
         }
+
+        // Refresh topics sidebar in background (non-critical)
+        await loadCurrentTopics()
     }
 
     /// Load more articles for infinite scroll pagination
@@ -242,6 +245,16 @@ extension AppState {
         updateDockBadge()
     }
 
+    // MARK: - Topics
+
+    func loadCurrentTopics() async {
+        do {
+            currentTopics = try await apiClient.getCurrentTopics()
+        } catch {
+            // Non-critical — sidebar just won't show topics section
+        }
+    }
+
     // MARK: - Search
 
     func search(query: String) async {
@@ -251,7 +264,7 @@ extension AppState {
         }
 
         do {
-            articles = try await apiClient.search(query: query)
+            articles = try await apiClient.search(query: query, includeSummaries: searchIncludeSummaries)
         } catch {
             self.error = error.localizedDescription
         }

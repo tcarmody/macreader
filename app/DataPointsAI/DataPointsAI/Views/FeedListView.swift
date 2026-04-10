@@ -54,6 +54,44 @@ struct FeedListView: View {
                 FilterRow(filter: .unsummarized, count: nil)
             }
 
+            // Topics section (from most recent AI clustering run)
+            if !appState.currentTopics.isEmpty {
+                Section {
+                    if !appState.collapsedCategories.contains("Topics") {
+                        ForEach(appState.currentTopics, id: \.label) { topic in
+                            let isSelected: Bool = {
+                                if case .topic(let label, _) = appState.selectedFilter {
+                                    return label == topic.label
+                                }
+                                return false
+                            }()
+                            Button {
+                                appState.selectedFilter = .topic(topic.label, topic.articleIds ?? [])
+                            } label: {
+                                HStack {
+                                    Image(systemName: "tag.fill")
+                                        .foregroundStyle(.purple)
+                                        .font(.caption)
+                                    Text(topic.label)
+                                        .lineLimit(1)
+                                    Spacer()
+                                    Text("\(topic.count)")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .listRowBackground(isSelected ? Color.accentColor.opacity(0.1) : nil)
+                        }
+                    }
+                } header: {
+                    TopicsHeader(
+                        isCollapsed: appState.collapsedCategories.contains("Topics"),
+                        onToggle: { appState.toggleCategoryCollapsed("Topics") }
+                    )
+                }
+                .collapsible(false)
+            }
+
             // Newsletters section
             if !appState.newsletterFeeds.isEmpty {
                 Section {

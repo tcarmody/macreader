@@ -106,6 +106,10 @@ export async function getStats(): Promise<StatsResponse> {
   return fetchApi('/stats')
 }
 
+export async function getCurrentTopics(): Promise<import('@/types').TopicInfo[]> {
+  return fetchApi('/statistics/topics/current')
+}
+
 export async function getSettings(): Promise<AppSettings> {
   return fetchApi('/settings')
 }
@@ -282,8 +286,10 @@ export async function findRelatedLinks(
 }
 
 // Search
-export async function searchArticles(query: string): Promise<Article[]> {
-  return fetchApi(`/search?q=${encodeURIComponent(query)}`)
+export async function searchArticles(query: string, includeSummaries: boolean = true): Promise<Article[]> {
+  const params = new URLSearchParams({ q: query })
+  if (!includeSummaries) params.append('include_summaries', 'false')
+  return fetchApi(`/search?${params}`)
 }
 
 // Library (Standalone Items)

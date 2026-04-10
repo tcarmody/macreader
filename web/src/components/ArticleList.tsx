@@ -18,6 +18,8 @@ import {
   Plus,
   Info,
   Copy,
+  FileText,
+  MessageCircle,
 } from 'lucide-react'
 import { cn, formatDate, stripHtml, smartQuotes } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -58,6 +60,8 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
     setSelectedArticleId,
     searchQuery,
     isSearching,
+    searchIncludeSummaries,
+    toggleSearchIncludeSummaries,
     groupBy,
     setGroupBy,
     sortBy,
@@ -90,7 +94,8 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
     }
   }, [groupBy, hasShownToast, markToastShown, showToast])
   const { data: searchResults = [], isLoading: searchLoading } = useSearch(
-    isSearching ? searchQuery : ''
+    isSearching ? searchQuery : '',
+    searchIncludeSummaries
   )
   const markRead = useMarkArticleRead()
   const markAllRead = useMarkAllRead()
@@ -110,10 +115,19 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
   // Flatten paginated articles
   const articles = articlesData?.pages.flat() ?? []
 
+  // Topic filter: client-side filter by article IDs from the selected topic cluster
+  const topicArticleIds = typeof selectedFilter === 'object' && selectedFilter.type === 'topic'
+    ? new Set(selectedFilter.articleIds)
+    : null
+
   // When searching, always use flat search results
   // When groupBy !== 'none', use server-side grouped data
   // Otherwise use flat articles with client-side date grouping
-  const allArticles = isSearching ? searchResults : articles
+  const allArticles = isSearching
+    ? searchResults
+    : topicArticleIds
+      ? articles.filter(a => topicArticleIds.has(a.id))
+      : articles
 
   // Apply hide read filter client-side (separate from the Unread filter)
   const displayArticles = hideRead
@@ -184,6 +198,7 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
         summarized: 'Summarized',
       }[selectedFilter]
     }
+    if (selectedFilter.type === 'topic') return selectedFilter.label
     return 'Articles'
   }
 
@@ -247,45 +262,69 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
   return (
     <div className="w-80 border-r border-border flex flex-col bg-background">
       {/* Header */}
-      <div className="p-4 border-b border-border flex flex-col gap-2">
+      <div className={cn(
+        "p-4 border-b border-border flex flex-col gap-2",
+        isSearching && "bg-primary/5"
+      )}>
         <div className="flex items-center justify-between">
           <h2 className="font-semibold">{getFilterTitle()}</h2>
           <div className="flex items-center gap-1">
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={() => markAllRead.mutate()}
-              disabled={markAllRead.isPending}
-              title="Mark all as read"
-            >
-              <CheckCheck className={cn("h-4 w-4", markAllRead.isPending && "animate-pulse")} />
-            </Button>
-            <Button
-              variant="ghost"
-              size="icon"
-              className="h-7 w-7"
-              onClick={toggleHideRead}
-              title={hideRead ? 'Show read articles' : 'Hide read articles'}
-            >
-              {hideRead ? (
-                <EyeOff className="h-4 w-4" />
-              ) : (
-                <Eye className="h-4 w-4" />
-              )}
-            </Button>
-            <Button
-              variant={hideDuplicates ? 'secondary' : 'ghost'}
-              size="icon"
-              className="h-7 w-7"
-              onClick={toggleHideDuplicates}
-              title={hideDuplicates ? 'Showing unique articles only' : 'Show unique articles only'}
-            >
-              <Copy className="h-4 w-4" />
-            </Button>
+            {isSearching ? (
+              <Tooltip content={searchIncludeSummaries ? 'Currently searching titles, content, and AI summaries' : 'Currently searching titles and content only'}>
+                <Button
+                  variant={searchIncludeSummaries ? 'secondary' : 'ghost'}
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={toggleSearchIncludeSummaries}
+                  title={searchIncludeSummaries ? 'Searching in summaries (click to exclude)' : 'Not searching in summaries (click to include)'}
+                >
+                  <FileText className="h-4 w-4" />
+                </Button>
+              </Tooltip>
+            ) : (
+              <>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={() => markAllRead.mutate()}
+                  disabled={markAllRead.isPending}
+                  title="Mark all as read"
+                >
+                  <CheckCheck className={cn("h-4 w-4", markAllRead.isPending && "animate-pulse")} />
+                </Button>
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={toggleHideRead}
+                  title={hideRead ? 'Show read articles' : 'Hide read articles'}
+                >
+                  {hideRead ? (
+                    <EyeOff className="h-4 w-4" />
+                  ) : (
+                    <Eye className="h-4 w-4" />
+                  )}
+                </Button>
+                <Button
+                  variant={hideDuplicates ? 'secondary' : 'ghost'}
+                  size="icon"
+                  className="h-7 w-7"
+                  onClick={toggleHideDuplicates}
+                  title={hideDuplicates ? 'Showing unique articles only' : 'Show unique articles only'}
+                >
+                  <Copy className="h-4 w-4" />
+                </Button>
+              </>
+            )}
             <Badge variant="secondary">{totalCount}</Badge>
           </div>
         </div>
+        {isSearching && (
+          <p className="text-xs text-muted-foreground">
+            {searchIncludeSummaries ? 'Searching titles, content, and AI summaries' : 'Searching titles and content only'}
+          </p>
+        )}
 
         {/* Group by picker */}
         <div className="flex gap-0.5 p-0.5 rounded-md border border-input bg-muted/30">
@@ -391,6 +430,7 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
                       isSelected={selectedArticleId === article.id}
                       onSelect={() => handleSelectArticle(article)}
                       storyGroup={storyGroupByArticleId[article.id]}
+                      searchQuery={isSearching ? searchQuery : undefined}
                     />
                   ))}
                 </div>
@@ -413,6 +453,7 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
                       isSelected={selectedArticleId === article.id}
                       onSelect={() => handleSelectArticle(article)}
                       storyGroup={storyGroupByArticleId[article.id]}
+                      searchQuery={isSearching ? searchQuery : undefined}
                     />
                   ))}
                 </div>
@@ -444,15 +485,39 @@ interface ArticleListItemProps {
   isSelected: boolean
   onSelect: () => void
   storyGroup?: { label: string; count: number }
+  searchQuery?: string
 }
 
-function ArticleListItem({ article, isSelected, onSelect, storyGroup }: ArticleListItemProps) {
-  // Prefer sentence-length brief (polished, AI-written) over raw summary_short
-  const summary = article.brief
-    ? article.brief
-    : article.summary_short
-      ? stripHtml(article.summary_short)
-      : null
+function HighlightedText({ text, query, className }: { text: string; query: string; className?: string }) {
+  if (!query || query.length < 2) return <span className={className}>{text}</span>
+
+  const regex = new RegExp(`(${query.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')})`, 'gi')
+  const parts = text.split(regex)
+
+  return (
+    <span className={className}>
+      {parts.map((part, i) =>
+        regex.test(part) ? (
+          <mark key={i} className="bg-yellow-200 dark:bg-yellow-800/60 text-inherit rounded-sm px-0.5">
+            {part}
+          </mark>
+        ) : (
+          part
+        )
+      )}
+    </span>
+  )
+}
+
+function ArticleListItem({ article, isSelected, onSelect, storyGroup, searchQuery }: ArticleListItemProps) {
+  // Prefer first key point when summarized (most distilled), then brief, then raw snippet
+  const summary = article.key_points?.[0]
+    ? article.key_points[0]
+    : article.brief
+      ? article.brief
+      : article.summary_short
+        ? stripHtml(article.summary_short)
+        : null
 
   return (
     <button
@@ -474,15 +539,19 @@ function ArticleListItem({ article, isSelected, onSelect, storyGroup }: ArticleL
             "text-sm line-clamp-2",
             !article.is_read ? "font-semibold" : "font-medium"
           )}>
-            {article.title}
+            {searchQuery ? (
+              <HighlightedText text={article.title} query={searchQuery} />
+            ) : article.title}
           </h3>
 
           {summary && (
             <p className={cn(
               "text-xs text-muted-foreground mt-1",
-              article.brief ? "line-clamp-1" : "line-clamp-2"
+              article.brief || article.key_points?.[0] ? "line-clamp-1" : "line-clamp-2"
             )}>
-              {smartQuotes(summary)}
+              {searchQuery ? (
+                <HighlightedText text={smartQuotes(summary)} query={searchQuery} />
+              ) : smartQuotes(summary)}
             </p>
           )}
 
@@ -505,7 +574,18 @@ function ArticleListItem({ article, isSelected, onSelect, storyGroup }: ArticleL
                 <BookMarked className="h-3 w-3 text-amber-500" />
               )}
               {article.summary_short && (
-                <Sparkles className="h-3 w-3 text-purple-500" />
+                <Sparkles className="h-3 w-3 text-purple-500" title="Summarized" />
+              )}
+              {article.has_chat && (
+                <MessageCircle className="h-3 w-3 text-blue-500/70" title="Has conversation" />
+              )}
+              {article.related_link_count > 0 && (
+                <span
+                  className="text-[10px] font-medium text-blue-500/70 leading-none"
+                  title={`${article.related_link_count} related articles`}
+                >
+                  +{article.related_link_count}
+                </span>
               )}
             </div>
           </div>

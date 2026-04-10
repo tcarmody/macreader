@@ -4,7 +4,7 @@ Remaining items from the UI review session. The tab strip (item 0) is already do
 
 ---
 
-## 1. Article list: show first key point instead of raw snippet when summarized
+## ~~1. Article list: show first key point instead of raw snippet when summarized~~ ✓ Done
 
 **What**: When an article has been summarized, replace the subtitle/snippet text in the article list row with the first key point from the AI summary.
 
@@ -32,7 +32,7 @@ Remaining items from the UI review session. The tab strip (item 0) is already do
 
 ---
 
-## 3. Search: dedicated mode with richer results
+## ~~3. Search: dedicated mode with richer results~~ ✓ Done
 
 **What**: When the search bar is active, switch the middle pane into a distinct **search mode** — different header treatment, matched terms highlighted in the result rows, and optionally a toggle to "search within AI summaries."
 
@@ -50,7 +50,7 @@ Remaining items from the UI review session. The tab strip (item 0) is already do
 
 ---
 
-## 4. Sidebar: Topics section as a first-class entry point
+## ~~4. Sidebar: Topics section as a first-class entry point~~ ✓ Done
 
 **What**: Add a collapsible "Topics" section in the sidebar (below the filter list) showing the last N AI-discovered topic clusters as clickable items. Clicking a topic filters the article list to that cluster.
 
@@ -65,7 +65,7 @@ Remaining items from the UI review session. The tab strip (item 0) is already do
 
 ---
 
-## 5. Reading progress → "Jump to AI Summary" floating chip
+## ~~5. Reading progress → "Jump to AI Summary" floating chip~~ ✓ Done
 
 **What**: After scrolling past ~30% of the Article tab content, show a small floating chip in the bottom-right of the article pane:
 
@@ -85,7 +85,7 @@ Clicking it switches to the AI tab (or scrolls to it if we revert to inline layo
 
 ---
 
-## 6. Article list rows: richer AI state indicators
+## ~~6. Article list rows: richer AI state indicators~~ ✓ Done
 
 **What**: Beyond the current "summarized" sparkle badge, show:
 - A chat bubble count badge when a conversation exists for that article

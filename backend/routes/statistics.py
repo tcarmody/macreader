@@ -195,6 +195,27 @@ async def trigger_topic_clustering(
     )
 
 
+@router.get("/topics/current")
+async def get_current_topics(
+    db: Annotated[Database, Depends(get_db)],
+    limit: int = Query(default=8, ge=1, le=20),
+) -> list[TopicInfo]:
+    """Get topics from the most recent clustering run (lightweight sidebar data)."""
+    topic_history = db.statistics.get_topic_history(limit=50)
+    if not topic_history:
+        return []
+
+    latest_clustered_at = topic_history[0].clustered_at
+    topics = [
+        TopicInfo(label=th.topic_label, count=th.article_count, article_ids=th.article_ids)
+        for th in topic_history
+        if th.clustered_at == latest_clustered_at
+    ]
+    # Sort by article count descending, return top N
+    topics.sort(key=lambda t: t.count, reverse=True)
+    return topics[:limit]
+
+
 @router.get("/topics/trends")
 async def get_topic_trends(
     db: Annotated[Database, Depends(get_db)],

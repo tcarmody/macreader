@@ -41,6 +41,11 @@ struct Article: Identifiable, Codable, Hashable, Sendable {
     // Enhanced metadata
     let readingTimeMinutes: Int?
     let author: String?
+    let keyPoints: [String]?
+
+    // AI enrichment state for list badges (optional for backward compatibility)
+    let relatedLinkCount: Int?
+    let hasChat: Bool?
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -55,6 +60,9 @@ struct Article: Identifiable, Codable, Hashable, Sendable {
         case createdAt = "created_at"
         case readingTimeMinutes = "reading_time_minutes"
         case author
+        case keyPoints = "key_points"
+        case relatedLinkCount = "related_link_count"
+        case hasChat = "has_chat"
     }
 
     /// The best URL to open - prefers source URL over aggregator URL
@@ -63,8 +71,8 @@ struct Article: Identifiable, Codable, Hashable, Sendable {
     /// Title with HTML entities decoded (smart quotes, etc.)
     var displayTitle: String { title.htmlDecoded }
 
-    /// Preview text for article list
-    var summaryPreview: String? { summaryShort }
+    /// Preview text for article list — first key point when summarized, otherwise raw snippet
+    var summaryPreview: String? { keyPoints?.first ?? summaryShort }
 
     /// Formatted reading time string (e.g., "5 min")
     var readingTimeDisplay: String? {

@@ -99,6 +99,7 @@ def row_to_article(row: sqlite3.Row) -> DBArticle:
         extracted_keywords=safe_get("extracted_keywords"),
         related_links_error=safe_get("related_links_error"),
         brief=safe_get("brief"),
+        has_chat=safe_get_bool("has_chat"),
     )
 
 

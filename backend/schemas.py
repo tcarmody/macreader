@@ -70,8 +70,24 @@ class ArticleResponse(BaseModel):
     # Sentence-length brief from article_briefs (shown in list preview when available)
     brief: str | None = None
 
+    # Key points for list preview (first point shown instead of snippet when summarized)
+    key_points: list[str] | None = None
+
+    # AI enrichment counts for article list badges
+    related_link_count: int = 0
+    has_chat: bool = False
+
     @classmethod
     def from_db(cls, article: DBArticle) -> "ArticleResponse":
+        # Parse related_links JSON string to get count
+        related_count = 0
+        if article.related_links:
+            import json as _json
+            try:
+                related_count = len(_json.loads(article.related_links))
+            except Exception:
+                pass
+
         return cls(
             id=article.id,
             feed_id=article.feed_id,
@@ -87,6 +103,9 @@ class ArticleResponse(BaseModel):
             author=article.author,
             feed_name=article.feed_name,
             brief=article.brief,
+            key_points=article.key_points,
+            related_link_count=related_count,
+            has_chat=getattr(article, 'has_chat', False),
         )
 
 

@@ -1,5 +1,19 @@
 import Foundation
 
+// MARK: - Topic Info (used for sidebar Topics section)
+
+struct TopicInfo: Codable, Hashable, Sendable {
+    let label: String
+    let count: Int
+    let articleIds: [Int]?
+
+    enum CodingKeys: String, CodingKey {
+        case label
+        case count
+        case articleIds = "article_ids"
+    }
+}
+
 // MARK: - API Error
 
 /// Errors from API calls
@@ -567,19 +581,6 @@ extension APIClient {
             case avgPerWeek = "avg_per_week"
             case periodStart = "period_start"
             case periodEnd = "period_end"
-        }
-    }
-
-    /// Single topic info
-    struct TopicInfo: Codable, Sendable {
-        let label: String
-        let count: Int
-        let articleIds: [Int]?
-
-        enum CodingKeys: String, CodingKey {
-            case label
-            case count
-            case articleIds = "article_ids"
         }
     }
 

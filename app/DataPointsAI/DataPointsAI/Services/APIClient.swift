@@ -193,11 +193,14 @@ final class APIClient {
 
     // MARK: - Search
 
-    func search(query: String, limit: Int = 20) async throws -> [Article] {
-        let queryItems = [
+    func search(query: String, limit: Int = 20, includeSummaries: Bool = true) async throws -> [Article] {
+        var queryItems = [
             URLQueryItem(name: "q", value: query),
             URLQueryItem(name: "limit", value: String(limit))
         ]
+        if !includeSummaries {
+            queryItems.append(URLQueryItem(name: "include_summaries", value: "false"))
+        }
         return try await get(path: "/search", queryItems: queryItems)
     }
 
@@ -575,6 +578,11 @@ final class APIClient {
             URLQueryItem(name: "top_n", value: String(topN))
         ]
         return try await get(path: "/statistics/topics/trends", queryItems: queryItems)
+    }
+
+    /// Get topics from the most recent clustering run (for sidebar navigation)
+    func getCurrentTopics() async throws -> [TopicInfo] {
+        return try await get(path: "/statistics/topics/current")
     }
 
     // MARK: - Article Chat

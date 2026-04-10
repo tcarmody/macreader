@@ -18,10 +18,13 @@ export interface Article {
   title: string
   summary_short: string | null
   brief: string | null
+  key_points: string[] | null
   is_read: boolean
   is_bookmarked: boolean
   published_at: string
   created_at: string
+  related_link_count: number
+  has_chat: boolean
 }
 
 export interface RelatedLink {
@@ -125,6 +128,7 @@ export type FilterType =
   | 'summarized'
   | { type: 'feed'; feedId: number }
   | { type: 'category'; category: string }
+  | { type: 'topic'; label: string; articleIds: number[] }
 
 export type GroupBy = 'none' | 'date' | 'feed' | 'topic'
 

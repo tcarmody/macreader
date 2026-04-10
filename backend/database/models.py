@@ -51,6 +51,9 @@ class DBArticle:
     # Sentence-length brief from article_briefs (populated by list queries with JOIN)
     brief: str | None = None
 
+    # Chat existence flag (populated by list queries with EXISTS subquery)
+    has_chat: bool = False
+
 
 @dataclass
 class DBUser:

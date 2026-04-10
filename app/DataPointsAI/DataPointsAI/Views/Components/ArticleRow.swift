@@ -16,6 +16,20 @@ struct ArticleRow: View {
         appState.settings.listDensity
     }
 
+    /// Title with search term highlighted (yellow background) when a search is active
+    private var highlightedTitle: AttributedString {
+        let query = appState.searchQuery
+        var attributed = AttributedString(article.displayTitle)
+        guard query.count >= 2 else { return attributed }
+
+        var searchRange = attributed.startIndex..<attributed.endIndex
+        while let range = attributed[searchRange].range(of: query, options: [.caseInsensitive, .diacriticInsensitive]) {
+            attributed[range].backgroundColor = .yellow.withAlphaComponent(0.5)
+            searchRange = range.upperBound..<attributed.endIndex
+        }
+        return attributed
+    }
+
     var body: some View {
         VStack(alignment: .leading, spacing: listDensity == .compact ? 2 : 4) {
             // Title row with unread indicator
@@ -41,8 +55,8 @@ struct ArticleRow: View {
                 .padding(.top, listDensity == .compact ? 2 : 4)
 
                 VStack(alignment: .leading, spacing: listDensity == .compact ? 2 : 4) {
-                    // Title - bold for unread, semibold for read
-                    Text(article.displayTitle)
+                    // Title - bold for unread, semibold for read; highlighted when searching
+                    Text(highlightedTitle)
                         .font(.headline)
                         .fontWeight(article.isRead ? .semibold : .bold)
                         .lineLimit(listDensity == .compact ? 1 : 2)
@@ -57,11 +71,28 @@ struct ArticleRow: View {
                         Text("·")
                         Text(article.timeAgo)
 
+                        Spacer()
+
+                        // AI enrichment badges
                         if article.isBookmarked {
-                            Spacer()
                             Image(systemName: "star.fill")
                                 .font(.caption)
                                 .foregroundStyle(.yellow)
+                        }
+                        if article.summaryShort != nil {
+                            Image(systemName: "sparkles")
+                                .font(.caption2)
+                                .foregroundStyle(.purple.opacity(0.7))
+                        }
+                        if article.hasChat == true {
+                            Image(systemName: "bubble.left.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.blue.opacity(0.6))
+                        }
+                        if let count = article.relatedLinkCount, count > 0 {
+                            Text("+\(count)")
+                                .font(.system(size: 9, weight: .medium))
+                                .foregroundStyle(.blue.opacity(0.6))
                         }
                     }
                     .font(.caption)
@@ -258,7 +289,10 @@ struct ArticleRow: View {
         publishedAt: Date().addingTimeInterval(-7200),
         createdAt: Date(),
         readingTimeMinutes: 5,
-        author: "John Doe"
+        author: "John Doe",
+        keyPoints: nil,
+        relatedLinkCount: 3,
+        hasChat: true
     )
 
     ArticleRow(article: article)

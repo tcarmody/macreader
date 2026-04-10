@@ -8,6 +8,7 @@ export const queryKeys = {
   status: ['status'] as const,
   authStatus: ['authStatus'] as const,
   stats: ['stats'] as const,
+  topics: ['topics'] as const,
   settings: ['settings'] as const,
   feeds: ['feeds'] as const,
   articles: (filter: FilterType, sortBy: SortBy) => ['articles', filter, sortBy] as const,
@@ -64,6 +65,14 @@ export function useStats() {
     queryKey: queryKeys.stats,
     queryFn: api.getStats,
     staleTime: 10000, // 10 seconds
+  })
+}
+
+export function useTopics() {
+  return useQuery({
+    queryKey: queryKeys.topics,
+    queryFn: api.getCurrentTopics,
+    staleTime: 5 * 60 * 1000, // 5 minutes
   })
 }
 
@@ -372,10 +381,10 @@ export function useFindRelatedLinks() {
 }
 
 // Search
-export function useSearch(query: string) {
+export function useSearch(query: string, includeSummaries: boolean = true) {
   return useQuery({
-    queryKey: queryKeys.search(query),
-    queryFn: () => api.searchArticles(query),
+    queryKey: [...queryKeys.search(query), includeSummaries] as const,
+    queryFn: () => api.searchArticles(query, includeSummaries),
     enabled: query.length >= 2,
     staleTime: 60000,
   })

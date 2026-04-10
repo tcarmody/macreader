@@ -26,6 +26,7 @@ interface AppState {
   hideDuplicates: boolean
   searchQuery: string
   isSearching: boolean
+  searchIncludeSummaries: boolean
 
   // Feature Usage Tracking
   featureUsage: {
@@ -56,6 +57,7 @@ interface AppState {
   toggleHideDuplicates: () => void
   setSearchQuery: (query: string) => void
   setIsSearching: (isSearching: boolean) => void
+  toggleSearchIncludeSummaries: () => void
   setApiConfig: (config: ApiKeyConfig) => void
   clearApiKeys: () => void
   setDesignStyle: (style: DesignStyle) => void
@@ -88,6 +90,7 @@ export const useAppStore = create<AppState>()(
       hideDuplicates: false,
       searchQuery: '',
       isSearching: false,
+      searchIncludeSummaries: true,
 
       // Initial Feature Usage
       featureUsage: {
@@ -134,6 +137,7 @@ export const useAppStore = create<AppState>()(
       toggleHideDuplicates: () => set((state) => ({ hideDuplicates: !state.hideDuplicates })),
       setSearchQuery: (query) => set({ searchQuery: query }),
       setIsSearching: (isSearching) => set({ isSearching }),
+      toggleSearchIncludeSummaries: () => set((state) => ({ searchIncludeSummaries: !state.searchIncludeSummaries })),
       setApiConfig: (config) => {
         // Also store in localStorage for API client to access
         localStorage.setItem('apiConfig', JSON.stringify(config))
@@ -170,6 +174,7 @@ export const useAppStore = create<AppState>()(
         sortBy: state.sortBy,
         hideRead: state.hideRead,
         hideDuplicates: state.hideDuplicates,
+        searchIncludeSummaries: state.searchIncludeSummaries,
         featureUsage: state.featureUsage,
         // Convert Set to Array for JSON serialization
         shownToasts: [...state.shownToasts],

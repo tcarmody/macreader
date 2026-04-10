@@ -109,10 +109,11 @@ enum ArticleFilter: Hashable, Codable {
     case summarized
     case unsummarized
     case feed(Int)
+    case topic(String, [Int])  // label, articleIds
 
-    // Custom coding for the associated value case
+    // Custom coding for the associated value cases
     private enum CodingKeys: String, CodingKey {
-        case type, feedId
+        case type, feedId, topicLabel, articleIds
     }
 
     init(from decoder: Decoder) throws {
@@ -128,6 +129,10 @@ enum ArticleFilter: Hashable, Codable {
         case "feed":
             let feedId = try container.decode(Int.self, forKey: .feedId)
             self = .feed(feedId)
+        case "topic":
+            let label = try container.decode(String.self, forKey: .topicLabel)
+            let ids = try container.decode([Int].self, forKey: .articleIds)
+            self = .topic(label, ids)
         default: self = .all
         }
     }
@@ -144,6 +149,10 @@ enum ArticleFilter: Hashable, Codable {
         case .feed(let feedId):
             try container.encode("feed", forKey: .type)
             try container.encode(feedId, forKey: .feedId)
+        case .topic(let label, let ids):
+            try container.encode("topic", forKey: .type)
+            try container.encode(label, forKey: .topicLabel)
+            try container.encode(ids, forKey: .articleIds)
         }
     }
 
@@ -156,6 +165,7 @@ enum ArticleFilter: Hashable, Codable {
         case .summarized: return "Summarized"
         case .unsummarized: return "Unsummarized"
         case .feed: return "Feed"
+        case .topic(let label, _): return label
         }
     }
 
@@ -168,6 +178,7 @@ enum ArticleFilter: Hashable, Codable {
         case .summarized: return "sparkles"
         case .unsummarized: return "sparkles.rectangle.stack"
         case .feed: return "dot.radiowaves.up.forward"
+        case .topic: return "tag.fill"
         }
     }
 }

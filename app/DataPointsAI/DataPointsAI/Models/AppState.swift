@@ -23,6 +23,8 @@ class AppState: ObservableObject {
     @Published var selectedArticle: Article?
     @Published var selectedArticleDetail: ArticleDetail?
     @Published var searchQuery: String = ""
+    @Published var searchIncludeSummaries: Bool = true
+    @Published var currentTopics: [TopicInfo] = []
     @Published var isLoading: Bool = false
     @Published var error: String?
     @Published var settings: AppSettings = .default
@@ -101,6 +103,9 @@ class AppState: ObservableObject {
     // MARK: - Computed Properties
 
     var currentFilterName: String {
+        if !searchQuery.isEmpty {
+            return "Search: \"\(searchQuery)\""
+        }
         switch selectedFilter {
         case .all:
             return "All Articles"
@@ -116,6 +121,8 @@ class AppState: ObservableObject {
             return "Unsummarized"
         case .feed(let id):
             return feeds.first { $0.id == id }?.name ?? "Feed"
+        case .topic(let label, _):
+            return label
         }
     }
 
@@ -170,6 +177,9 @@ class AppState: ObservableObject {
             result = result.filter { $0.summaryShort == nil }
         case .feed(let id):
             result = result.filter { $0.feedId == id }
+        case .topic(_, let ids):
+            let idSet = Set(ids)
+            result = result.filter { idSet.contains($0.id) }
         }
 
         if hideReadArticles && selectedFilter != .unread {

@@ -42,13 +42,14 @@ async def health_check() -> dict:
 async def search(
     q: str,
     db: Annotated[Database, Depends(get_db)],
-    limit: int = Query(default=20, le=100)
+    limit: int = Query(default=20, le=100),
+    include_summaries: bool = Query(default=True)
 ) -> list[ArticleResponse]:
     """Full-text search across articles and summaries."""
     if len(q) < 2:
         raise HTTPException(status_code=400, detail="Query too short")
 
-    articles = db.search(q, limit=limit)
+    articles = db.search(q, limit=limit, include_summaries=include_summaries)
     return [ArticleResponse.from_db(a) for a in articles]
 
 

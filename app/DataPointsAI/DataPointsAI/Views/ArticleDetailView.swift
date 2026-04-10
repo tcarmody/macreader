@@ -126,6 +126,28 @@ struct ArticleDetailView: View {
                 .onChange(of: activeTab) { _, _ in
                     scrollState.scrollToTop()
                 }
+                .overlay(alignment: .bottomTrailing) {
+                    // "Jump to AI Summary" chip — shown after scrolling 30%+ in the Article tab
+                    let hasSummary = article.summaryFull != nil || article.summaryShort != nil
+                    if hasSummary && activeTab == .article && scrollState.scrollProgress >= 0.3 {
+                        Button {
+                            withAnimation(.easeInOut(duration: 0.15)) { activeTab = .ai }
+                        } label: {
+                            Label("AI Summary", systemImage: "sparkles")
+                                .font(.system(size: 12, weight: .semibold))
+                                .foregroundStyle(.white)
+                                .padding(.horizontal, 14)
+                                .padding(.vertical, 8)
+                                .background(Color.purple)
+                                .clipShape(Capsule())
+                                .shadow(color: .black.opacity(0.25), radius: 6, y: 3)
+                        }
+                        .buttonStyle(.plain)
+                        .padding(.trailing, 20)
+                        .padding(.bottom, 20)
+                        .transition(.move(edge: .bottom).combined(with: .opacity))
+                    }
+                }
             }
 
             // Status bar at bottom

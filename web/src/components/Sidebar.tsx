@@ -20,6 +20,7 @@ import {
   Info,
   LayoutList,
   BarChart2,
+  Tags,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -29,7 +30,7 @@ import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip } from '@/components/ui/tooltip'
 import { useAppStore } from '@/store/app-store'
-import { useFeeds, useRefreshFeeds, useStats, useAuthStatus } from '@/hooks/use-queries'
+import { useFeeds, useRefreshFeeds, useStats, useAuthStatus, useTopics } from '@/hooks/use-queries'
 import type { Feed, FilterType } from '@/types'
 
 interface SidebarProps {
@@ -54,6 +55,7 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
 
   const { data: feeds = [], isLoading: feedsLoading } = useFeeds()
   const { data: stats } = useStats()
+  const { data: topics = [] } = useTopics()
   const { data: authStatus } = useAuthStatus()
   const refreshFeeds = useRefreshFeeds()
   const isAdmin = authStatus?.is_admin ?? true // default true for backwards compat
@@ -91,6 +93,7 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
     !hasCompletedInitialSetup ? new Set(categories) : new Set()
   )
   const [collapsedNewsletters, setCollapsedNewsletters] = useState(false)
+  const [collapsedTopics, setCollapsedTopics] = useState(false)
 
   // Rotating search placeholders for discoverability
   const searchPlaceholders = [
@@ -140,6 +143,11 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
     }
     return false
   }
+
+  const isTopicSelected = (label: string) =>
+    typeof selectedFilter === 'object' &&
+    selectedFilter.type === 'topic' &&
+    selectedFilter.label === label
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
@@ -364,6 +372,58 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
                 </button>
               ))}
             </div>
+
+            {/* Topics Section */}
+            {topics.length > 0 && (
+              <>
+                <Separator className="my-2" />
+                <div className="px-2 mb-2">
+                  <button
+                    onClick={() => setCollapsedTopics(!collapsedTopics)}
+                    className="w-full flex items-center gap-1 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
+                  >
+                    {collapsedTopics ? (
+                      <ChevronRight className="h-3 w-3" />
+                    ) : (
+                      <ChevronDown className="h-3 w-3" />
+                    )}
+                    <Tags className="h-3 w-3 text-purple-500" />
+                    <span className="flex-1 text-left truncate font-medium">Topics</span>
+                  </button>
+
+                  {!collapsedTopics && (
+                    <div className="ml-4 space-y-0.5">
+                      {topics.map((topic) => (
+                        <button
+                          key={topic.label}
+                          onClick={() => {
+                            setCurrentView('feeds')
+                            setSelectedFilter({
+                              type: 'topic',
+                              label: topic.label,
+                              articleIds: topic.article_ids ?? [],
+                            })
+                            setIsSearching(false)
+                          }}
+                          className={cn(
+                            "w-full flex items-center gap-2 px-2 py-1 rounded-md text-sm transition-colors",
+                            isTopicSelected(topic.label)
+                              ? "bg-secondary text-secondary-foreground"
+                              : "hover:bg-muted text-muted-foreground hover:text-foreground"
+                          )}
+                        >
+                          <Tags className="h-3 w-3 flex-shrink-0 text-purple-400" />
+                          <span className="flex-1 text-left truncate">{topic.label}</span>
+                          <Badge variant="secondary" className="text-xs">
+                            {topic.count}
+                          </Badge>
+                        </button>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
 
             <Separator className="my-2" />
 

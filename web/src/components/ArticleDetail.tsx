@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import {
   BookMarked,
   ExternalLink,
@@ -63,6 +63,8 @@ export function ArticleDetail() {
   const [autoSwitchAfterRelated, setAutoSwitchAfterRelated] = useState(false)
   const [showPasteDialog, setShowPasteDialog] = useState(false)
   const [pastedHtml, setPastedHtml] = useState('')
+  const [showSummaryChip, setShowSummaryChip] = useState(false)
+  const scrollAreaRef = useRef<HTMLDivElement>(null)
 
   // Show first-time toast when summarization starts
   useEffect(() => {
@@ -105,7 +107,33 @@ export function ArticleDetail() {
     setHasTriggeredRelated(false)
     setAutoSwitchAfterSummarize(false)
     setAutoSwitchAfterRelated(false)
+    setShowSummaryChip(false)
   }, [selectedArticleId])
+
+  // Hide chip when switching away from article tab
+  useEffect(() => {
+    if (activeTab !== 'article') setShowSummaryChip(false)
+  }, [activeTab])
+
+  // Attach scroll listener to the radix scroll area viewport
+  useEffect(() => {
+    const container = scrollAreaRef.current
+    if (!container) return
+    const viewport = container.querySelector('[data-radix-scroll-area-viewport]') as HTMLElement | null
+    if (!viewport) return
+
+    const handleScroll = () => {
+      if (activeTab !== 'article') return
+      const { scrollTop, scrollHeight, clientHeight } = viewport
+      const scrollable = scrollHeight - clientHeight
+      if (scrollable <= 0) return
+      const pct = scrollTop / scrollable
+      setShowSummaryChip(pct >= 0.3)
+    }
+
+    viewport.addEventListener('scroll', handleScroll, { passive: true })
+    return () => viewport.removeEventListener('scroll', handleScroll)
+  }, [activeTab, selectedArticleId])
 
   if (!selectedArticleId) {
     return (
@@ -430,7 +458,8 @@ export function ArticleDetail() {
       </div>
 
       {/* Tab Content */}
-      <ScrollArea className="flex-1">
+      <div className="flex-1 relative overflow-hidden" ref={scrollAreaRef}>
+      <ScrollArea className="h-full">
         {/* Article Tab */}
         {activeTab === 'article' && (
           <article className="max-w-3xl mx-auto p-8">
@@ -664,6 +693,20 @@ export function ArticleDetail() {
           </div>
         )}
       </ScrollArea>
+
+      {/* Floating "Jump to AI Summary" chip */}
+      {hasSummary && activeTab === 'article' && showSummaryChip && (
+        <div className="absolute bottom-6 right-6 z-10 pointer-events-none">
+          <button
+            className="pointer-events-auto flex items-center gap-2 px-4 py-2 rounded-full bg-purple-600 text-white text-sm font-medium shadow-lg hover:bg-purple-700 active:scale-95 transition-all animate-in slide-in-from-bottom-2 duration-200"
+            onClick={() => setActiveTab('ai')}
+          >
+            <Sparkles className="h-3.5 w-3.5" />
+            AI Summary
+          </button>
+        </div>
+      )}
+      </div>
 
       {/* Paste HTML Dialog */}
       {showPasteDialog && (

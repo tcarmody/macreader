@@ -316,12 +316,12 @@ class Database:
     def mark_all_read(self, user_id: int, is_read: bool = True) -> int:
         return self.user_state.mark_all_read(user_id, is_read)
 
-    def search(self, query: str, limit: int = 20) -> list[DBArticle]:
+    def search(self, query: str, limit: int = 20, include_summaries: bool = True) -> list[DBArticle]:
         if self._search:
             ids = self._search.search(query, limit)
             return self.articles.get_by_ids(ids)
         # FTS5 fallback when Tantivy is not available
-        return self.articles.search(query, limit)
+        return self.articles.search(query, limit, include_summaries=include_summaries)
 
     def get_duplicate_articles(self) -> list[tuple[str, list[DBArticle]]]:
         return self.articles.get_duplicates()

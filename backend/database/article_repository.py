@@ -139,7 +139,8 @@ class ArticleRepository:
                    COALESCE(uas.is_bookmarked, 0) as is_bookmarked,
                    uas.read_at,
                    uas.bookmarked_at,
-                   ab.content AS brief
+                   ab.content AS brief,
+                   EXISTS(SELECT 1 FROM article_chats ac WHERE ac.article_id = a.id AND ac.user_id = ?) AS has_chat
             FROM articles a
             LEFT JOIN user_article_state uas
                 ON uas.article_id = a.id AND uas.user_id = ?
@@ -147,7 +148,8 @@ class ArticleRepository:
                 ON ab.article_id = a.id AND ab.length = 'sentence' AND ab.tone = 'neutral'
             WHERE a.user_id IS NULL
         """
-        params: list = [user_id]
+        # Two user_id params: one for EXISTS(article_chats), one for user_article_state JOIN
+        params: list = [user_id, user_id]
 
         if feed_id is not None:
             query += " AND a.feed_id = ?"
@@ -298,16 +300,22 @@ class ArticleRepository:
             ).fetchall()
             return {row["id"] for row in rows}
 
-    def search(self, query: str, limit: int = 20) -> list[DBArticle]:
-        """Full-text search across articles (FTS5 fallback)."""
+    def search(self, query: str, limit: int = 20, include_summaries: bool = True) -> list[DBArticle]:
+        """Full-text search across articles (FTS5)."""
         with self._db.conn() as conn:
+            # When excluding summaries, restrict to title and content columns only
+            if include_summaries:
+                fts_query = query
+            else:
+                escaped = query.replace('"', '""')
+                fts_query = f'title: "{escaped}" OR content: "{escaped}"'
             rows = conn.execute("""
                 SELECT a.* FROM articles a
                 JOIN articles_fts fts ON a.id = fts.rowid
                 WHERE articles_fts MATCH ?
                 ORDER BY rank
                 LIMIT ?
-            """, (query, limit)).fetchall()
+            """, (fts_query, limit)).fetchall()
             return [row_to_article(row) for row in rows]
 
     def get_duplicates(self) -> list[tuple[str, list[DBArticle]]]:
