@@ -25,6 +25,7 @@ class AppState: ObservableObject {
     @Published var searchQuery: String = ""
     @Published var searchIncludeSummaries: Bool = true
     @Published var currentTopics: [TopicInfo] = []
+    @Published var savedSearches: [SavedSearch] = []
     @Published var isLoading: Bool = false
     @Published var error: String?
     @Published var settings: AppSettings = .default
@@ -123,6 +124,8 @@ class AppState: ObservableObject {
             return feeds.first { $0.id == id }?.name ?? "Feed"
         case .topic(let label, _):
             return label
+        case .savedSearch(_, let query):
+            return "Search: \"\(query)\""
         }
     }
 
@@ -180,6 +183,8 @@ class AppState: ObservableObject {
         case .topic(_, let ids):
             let idSet = Set(ids)
             result = result.filter { idSet.contains($0.id) }
+        case .savedSearch:
+            break  // articles already populated by search() in AppState+Articles
         }
 
         if hideReadArticles && selectedFilter != .unread {

@@ -1,5 +1,34 @@
 import Foundation
 
+// MARK: - Saved Search
+
+struct SavedSearch: Codable, Identifiable, Hashable, Sendable {
+    let id: Int
+    let name: String
+    let query: String
+    let includeSummaries: Bool
+    let lastUsedAt: Date?
+    let createdAt: Date
+
+    enum CodingKeys: String, CodingKey {
+        case id, name, query
+        case includeSummaries = "include_summaries"
+        case lastUsedAt = "last_used_at"
+        case createdAt = "created_at"
+    }
+}
+
+struct SavedSearchCreate: Encodable {
+    let name: String
+    let query: String
+    let includeSummaries: Bool
+
+    enum CodingKeys: String, CodingKey {
+        case name, query
+        case includeSummaries = "include_summaries"
+    }
+}
+
 // MARK: - Topic Info (used for sidebar Topics section)
 
 struct TopicInfo: Codable, Hashable, Sendable {

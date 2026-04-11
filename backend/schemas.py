@@ -7,7 +7,7 @@ from enum import Enum
 from pydantic import BaseModel, field_validator
 
 from .database import DBArticle, DBFeed
-from .database.models import DBNotificationRule, DBNotificationHistory
+from .database.models import DBNotificationRule, DBNotificationHistory, DBSavedSearch
 
 
 def serialize_datetime(dt: datetime | None) -> str | None:
@@ -851,3 +851,33 @@ class AutoDigestResponse(BaseModel):
     format: str
     raw: str
     cached: bool
+
+
+# ─────────────────────────────────────────────────────────────
+# Saved Search Schemas
+# ─────────────────────────────────────────────────────────────
+
+class SavedSearchResponse(BaseModel):
+    id: int
+    name: str
+    query: str
+    include_summaries: bool
+    last_used_at: str | None
+    created_at: str
+
+    @classmethod
+    def from_db(cls, s: DBSavedSearch) -> "SavedSearchResponse":
+        return cls(
+            id=s.id,
+            name=s.name,
+            query=s.query,
+            include_summaries=s.include_summaries,
+            last_used_at=serialize_datetime(s.last_used_at),
+            created_at=serialize_datetime(s.created_at),
+        )
+
+
+class SavedSearchCreate(BaseModel):
+    name: str
+    query: str
+    include_summaries: bool = True

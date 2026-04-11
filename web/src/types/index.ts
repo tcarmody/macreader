@@ -119,6 +119,15 @@ export interface StatsResponse {
   summarized_articles: number
 }
 
+export interface SavedSearch {
+  id: number
+  name: string
+  query: string
+  include_summaries: boolean
+  last_used_at: string | null
+  created_at: string
+}
+
 // Filter types for article list
 export type FilterType =
   | 'all'

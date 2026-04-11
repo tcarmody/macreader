@@ -47,7 +47,7 @@ struct ArticleListView: View {
                     selectionToolbar
                 }
 
-                // Search in summaries toggle (only visible when searching)
+                // Search in summaries toggle + save search (only visible when searching)
                 if !appState.searchQuery.isEmpty {
                     Button {
                         appState.searchIncludeSummaries.toggle()
@@ -56,6 +56,19 @@ struct ArticleListView: View {
                         Image(systemName: appState.searchIncludeSummaries ? "doc.text.magnifyingglass" : "doc.magnifyingglass")
                     }
                     .help(appState.searchIncludeSummaries ? "Searching in AI summaries (click to exclude)" : "Not searching in summaries (click to include)")
+
+                    let alreadySaved = appState.savedSearches.contains {
+                        $0.query == appState.searchQuery && $0.includeSummaries == appState.searchIncludeSummaries
+                    }
+                    Button {
+                        if !alreadySaved {
+                            Task { await appState.saveCurrentSearch(name: appState.searchQuery) }
+                        }
+                    } label: {
+                        Image(systemName: alreadySaved ? "bookmark.fill" : "bookmark")
+                    }
+                    .disabled(alreadySaved)
+                    .help(alreadySaved ? "Search already saved" : "Save this search")
                 }
 
                 // Hide read toggle
@@ -257,7 +270,7 @@ struct ArticleListView: View {
             try await appState.markAllRead()
         case .unread:
             try await appState.markAllRead()
-        case .today, .bookmarked, .summarized, .unsummarized, .topic:
+        case .today, .bookmarked, .summarized, .unsummarized, .topic, .savedSearch:
             // Mark all visible articles in this filter as read
             let ids = appState.filteredArticles.map { $0.id }
             try await appState.bulkMarkRead(articleIds: ids)
@@ -324,7 +337,7 @@ struct EmptyArticlesView: View {
             NoBookmarksIllustration()
         case .summarized, .unsummarized, .topic:
             SparklesIllustration()
-        case .feed:
+        case .feed, .savedSearch:
             NoArticlesIllustration()
         }
     }
@@ -347,6 +360,8 @@ struct EmptyArticlesView: View {
             return "No Articles"
         case .topic(let label, _):
             return "No Articles in \"\(label)\""
+        case .savedSearch(_, let query):
+            return "No Results for \"\(query)\""
         }
     }
 
@@ -370,6 +385,8 @@ struct EmptyArticlesView: View {
             return "This feed has no articles yet."
         case .topic:
             return "No articles were found in this topic cluster."
+        case .savedSearch:
+            return "Try a different search term."
         }
     }
 }

@@ -109,11 +109,12 @@ enum ArticleFilter: Hashable, Codable {
     case summarized
     case unsummarized
     case feed(Int)
-    case topic(String, [Int])  // label, articleIds
+    case topic(String, [Int])       // label, articleIds
+    case savedSearch(Int, String)   // id, query
 
     // Custom coding for the associated value cases
     private enum CodingKeys: String, CodingKey {
-        case type, feedId, topicLabel, articleIds
+        case type, feedId, topicLabel, articleIds, savedSearchId, savedSearchQuery
     }
 
     init(from decoder: Decoder) throws {
@@ -133,6 +134,10 @@ enum ArticleFilter: Hashable, Codable {
             let label = try container.decode(String.self, forKey: .topicLabel)
             let ids = try container.decode([Int].self, forKey: .articleIds)
             self = .topic(label, ids)
+        case "savedSearch":
+            let id = try container.decode(Int.self, forKey: .savedSearchId)
+            let query = try container.decode(String.self, forKey: .savedSearchQuery)
+            self = .savedSearch(id, query)
         default: self = .all
         }
     }
@@ -153,6 +158,10 @@ enum ArticleFilter: Hashable, Codable {
             try container.encode("topic", forKey: .type)
             try container.encode(label, forKey: .topicLabel)
             try container.encode(ids, forKey: .articleIds)
+        case .savedSearch(let id, let query):
+            try container.encode("savedSearch", forKey: .type)
+            try container.encode(id, forKey: .savedSearchId)
+            try container.encode(query, forKey: .savedSearchQuery)
         }
     }
 
@@ -166,6 +175,7 @@ enum ArticleFilter: Hashable, Codable {
         case .unsummarized: return "Unsummarized"
         case .feed: return "Feed"
         case .topic(let label, _): return label
+        case .savedSearch(_, let query): return query
         }
     }
 
@@ -179,6 +189,7 @@ enum ArticleFilter: Hashable, Codable {
         case .unsummarized: return "sparkles.rectangle.stack"
         case .feed: return "dot.radiowaves.up.forward"
         case .topic: return "tag.fill"
+        case .savedSearch: return "bookmark.fill"
         }
     }
 }

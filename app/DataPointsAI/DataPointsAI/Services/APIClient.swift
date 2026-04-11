@@ -191,6 +191,25 @@ final class APIClient {
         return try await get(path: "/feeds/export-opml")
     }
 
+    // MARK: - Saved Searches
+
+    func getSavedSearches() async throws -> [SavedSearch] {
+        return try await get(path: "/searches/saved")
+    }
+
+    func createSavedSearch(name: String, query: String, includeSummaries: Bool) async throws -> SavedSearch {
+        let body = SavedSearchCreate(name: name, query: query, includeSummaries: includeSummaries)
+        return try await post(path: "/searches/saved", body: body)
+    }
+
+    func deleteSavedSearch(id: Int) async throws {
+        let _: EmptyResponse = try await delete(path: "/searches/saved/\(id)")
+    }
+
+    func touchSavedSearch(id: Int) async throws {
+        let _: EmptyResponse = try await post(path: "/searches/saved/\(id)/use")
+    }
+
     // MARK: - Search
 
     func search(query: String, limit: Int = 20, includeSummaries: Bool = true) async throws -> [Article] {

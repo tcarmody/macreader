@@ -32,7 +32,10 @@ extension AppState {
                     publishedAt: detail.publishedAt,
                     createdAt: detail.createdAt,
                     readingTimeMinutes: detail.readingTimeMinutes,
-                    author: detail.author
+                    author: detail.author,
+                    keyPoints: detail.keyPoints,
+                    relatedLinkCount: nil,
+                    hasChat: nil
                 )
                 selectedArticle = article
                 selectedArticleDetail = detail

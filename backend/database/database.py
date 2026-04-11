@@ -26,6 +26,7 @@ from .notification_repository import NotificationRepository
 from .statistics_repository import StatisticsRepository
 from .user_repository import UserRepository
 from .user_article_state_repository import UserArticleStateRepository
+from .saved_search_repository import SavedSearchRepository
 from .models import DBArticle, DBFeed, DBNotificationRule, DBNotificationHistory
 
 
@@ -74,6 +75,9 @@ class Database:
 
         # Digest repository (assembled auto-digests)
         self.digests = DigestRepository(self._connection)
+
+        # Saved search repository (per-user persistent queries)
+        self.saved_searches = SavedSearchRepository(self._connection)
 
     def set_search(self, search: "SearchIndex"):
         """Attach the Tantivy search index. Called once after startup rebuild."""

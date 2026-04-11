@@ -1,6 +1,6 @@
 import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
 import * as api from '@/api/client'
-import type { FilterType, GroupBy, SortBy, Article, ArticleDetail } from '@/types'
+import type { FilterType, GroupBy, SortBy, Article, ArticleDetail, SavedSearch } from '@/types'
 import { useSummarizationPolling } from './use-polling'
 
 // Query Keys
@@ -16,6 +16,7 @@ export const queryKeys = {
   article: (id: number) => ['article', id] as const,
   articleChat: (id: number) => ['articleChat', id] as const,
   search: (query: string) => ['search', query] as const,
+  savedSearches: ['savedSearches'] as const,
   library: (params?: { content_type?: string; bookmarked_only?: boolean }) =>
     ['library', params] as const,
   libraryItem: (id: number) => ['libraryItem', id] as const,
@@ -387,6 +388,48 @@ export function useSearch(query: string, includeSummaries: boolean = true) {
     queryFn: () => api.searchArticles(query, includeSummaries),
     enabled: query.length >= 2,
     staleTime: 60000,
+  })
+}
+
+// Saved Searches
+export function useSavedSearches() {
+  return useQuery({
+    queryKey: queryKeys.savedSearches,
+    queryFn: api.getSavedSearches,
+    staleTime: 60000,
+  })
+}
+
+export function useCreateSavedSearch() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ name, query, includeSummaries }: { name: string; query: string; includeSummaries: boolean }) =>
+      api.createSavedSearch(name, query, includeSummaries),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.savedSearches }),
+  })
+}
+
+export function useDeleteSavedSearch() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.deleteSavedSearch(id),
+    onSuccess: () => queryClient.invalidateQueries({ queryKey: queryKeys.savedSearches }),
+  })
+}
+
+export function useTouchSavedSearch() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: (id: number) => api.touchSavedSearch(id),
+    onSuccess: (_, id) => {
+      // Optimistically reorder by moving this item to the front
+      queryClient.setQueryData<SavedSearch[]>(queryKeys.savedSearches, (old) => {
+        if (!old) return old
+        const item = old.find((s) => s.id === id)
+        if (!item) return old
+        return [{ ...item, last_used_at: new Date().toISOString() }, ...old.filter((s) => s.id !== id)]
+      })
+    },
   })
 }
 

@@ -21,6 +21,8 @@ import {
   LayoutList,
   BarChart2,
   Tags,
+  Bookmark,
+  X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -30,7 +32,10 @@ import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip } from '@/components/ui/tooltip'
 import { useAppStore } from '@/store/app-store'
-import { useFeeds, useRefreshFeeds, useStats, useAuthStatus, useTopics } from '@/hooks/use-queries'
+import {
+  useFeeds, useRefreshFeeds, useStats, useAuthStatus, useTopics,
+  useSavedSearches, useCreateSavedSearch, useDeleteSavedSearch, useTouchSavedSearch,
+} from '@/hooks/use-queries'
 import type { Feed, FilterType } from '@/types'
 
 interface SidebarProps {
@@ -50,6 +55,7 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
     searchQuery,
     setSearchQuery,
     setIsSearching,
+    searchIncludeSummaries,
     hasCompletedInitialSetup,
   } = useAppStore()
 
@@ -57,6 +63,10 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
   const { data: stats } = useStats()
   const { data: topics = [] } = useTopics()
   const { data: authStatus } = useAuthStatus()
+  const { data: savedSearches = [] } = useSavedSearches()
+  const createSavedSearch = useCreateSavedSearch()
+  const deleteSavedSearch = useDeleteSavedSearch()
+  const touchSavedSearch = useTouchSavedSearch()
   const refreshFeeds = useRefreshFeeds()
   const isAdmin = authStatus?.is_admin ?? true // default true for backwards compat
 
@@ -94,6 +104,11 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
   )
   const [collapsedNewsletters, setCollapsedNewsletters] = useState(false)
   const [collapsedTopics, setCollapsedTopics] = useState(false)
+  const [collapsedSavedSearches, setCollapsedSavedSearches] = useState(false)
+
+  const isSearchAlreadySaved = savedSearches.some(
+    (s) => s.query === searchQuery.trim() && s.include_summaries === searchIncludeSummaries
+  )
 
   // Rotating search placeholders for discoverability
   const searchPlaceholders = [
@@ -220,8 +235,28 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
               placeholder={searchPlaceholder}
               value={searchQuery}
               onChange={(e) => setSearchQuery(e.target.value)}
-              className="pl-8 h-9"
+              className={cn("pl-8 h-9", searchQuery.length >= 2 && "pr-8")}
             />
+            {searchQuery.length >= 2 && (
+              <button
+                type="button"
+                title={isSearchAlreadySaved ? "Already saved" : "Save this search"}
+                disabled={isSearchAlreadySaved || createSavedSearch.isPending}
+                onClick={() => createSavedSearch.mutate({
+                  name: searchQuery.trim(),
+                  query: searchQuery.trim(),
+                  includeSummaries: searchIncludeSummaries,
+                })}
+                className={cn(
+                  "absolute right-2 top-2.5 h-4 w-4 transition-colors",
+                  isSearchAlreadySaved
+                    ? "text-primary"
+                    : "text-muted-foreground hover:text-foreground"
+                )}
+              >
+                <Bookmark className="h-4 w-4" fill={isSearchAlreadySaved ? "currentColor" : "none"} />
+              </button>
+            )}
           </div>
         </form>
       </div>
@@ -372,6 +407,54 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
                 </button>
               ))}
             </div>
+
+            {/* Saved Searches Section */}
+            {savedSearches.length > 0 && (
+              <>
+                <Separator className="my-2" />
+                <div className="px-2 mb-2">
+                  <button
+                    onClick={() => setCollapsedSavedSearches(!collapsedSavedSearches)}
+                    className="w-full flex items-center gap-1 px-2 py-1 text-sm text-muted-foreground hover:text-foreground"
+                  >
+                    {collapsedSavedSearches ? (
+                      <ChevronRight className="h-3 w-3" />
+                    ) : (
+                      <ChevronDown className="h-3 w-3" />
+                    )}
+                    <Bookmark className="h-3 w-3 text-blue-500" />
+                    <span className="flex-1 text-left truncate font-medium">Saved Searches</span>
+                  </button>
+
+                  {!collapsedSavedSearches && (
+                    <div className="ml-4 space-y-0.5">
+                      {savedSearches.map((saved) => (
+                        <div key={saved.id} className="group flex items-center">
+                          <button
+                            onClick={() => {
+                              setSearchQuery(saved.query)
+                              setIsSearching(true)
+                              touchSavedSearch.mutate(saved.id)
+                            }}
+                            className="flex-1 flex items-center gap-2 px-2 py-1 rounded-md text-sm transition-colors hover:bg-muted text-muted-foreground hover:text-foreground min-w-0"
+                          >
+                            <Search className="h-3 w-3 flex-shrink-0" />
+                            <span className="flex-1 text-left truncate">{saved.name}</span>
+                          </button>
+                          <button
+                            onClick={() => deleteSavedSearch.mutate(saved.id)}
+                            className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-opacity flex-shrink-0"
+                            title="Remove saved search"
+                          >
+                            <X className="h-3 w-3" />
+                          </button>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </>
+            )}
 
             {/* Topics Section */}
             {topics.length > 0 && (

@@ -292,6 +292,21 @@ class DatabaseConnection:
                 CREATE INDEX IF NOT EXISTS idx_article_briefs_article_id ON article_briefs(article_id);
             """)
 
+            # Saved searches (per-user persistent search queries)
+            connection.executescript("""
+                CREATE TABLE IF NOT EXISTS saved_searches (
+                    id                INTEGER PRIMARY KEY AUTOINCREMENT,
+                    user_id           INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+                    name              TEXT    NOT NULL,
+                    query             TEXT    NOT NULL,
+                    include_summaries INTEGER NOT NULL DEFAULT 1,
+                    last_used_at      TIMESTAMP,
+                    created_at        TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                );
+
+                CREATE INDEX IF NOT EXISTS idx_saved_searches_user ON saved_searches(user_id);
+            """)
+
             # Migrate existing read/bookmark state from articles table to user_article_state
             # This handles databases that were created before multi-user support was added
             self._migrate_article_state_to_user_state(connection)

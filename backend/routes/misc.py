@@ -9,7 +9,10 @@ from fastapi import APIRouter, Depends, HTTPException, Query
 from ..auth import verify_api_key, get_current_user, require_admin
 from ..config import state, get_db, config
 from ..database import Database
-from ..schemas import ArticleResponse, SettingsResponse, SettingsUpdateRequest
+from ..schemas import (
+    ArticleResponse, SettingsResponse, SettingsUpdateRequest,
+    SavedSearchResponse, SavedSearchCreate,
+)
 
 # Protected routes require authentication
 router = APIRouter(tags=["misc"], dependencies=[Depends(verify_api_key)])
@@ -91,6 +94,57 @@ async def update_settings(
         db.set_setting("llm_provider", request.llm_provider)
 
     return await get_settings(db)
+
+
+# ─────────────────────────────────────────────────────────────
+# Stats
+# ─────────────────────────────────────────────────────────────
+
+# ─────────────────────────────────────────────────────────────
+# Saved Searches
+# ─────────────────────────────────────────────────────────────
+
+@router.get("/searches/saved")
+async def list_saved_searches(
+    db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)],
+) -> list[SavedSearchResponse]:
+    """List all saved searches for the current user."""
+    return [SavedSearchResponse.from_db(s) for s in db.saved_searches.get_all(user_id)]
+
+
+@router.post("/searches/saved", status_code=201)
+async def create_saved_search(
+    body: SavedSearchCreate,
+    db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)],
+) -> SavedSearchResponse:
+    """Save a search query for quick re-use."""
+    if len(body.query.strip()) < 2:
+        raise HTTPException(status_code=400, detail="Query too short")
+    saved = db.saved_searches.create(user_id, body.name.strip(), body.query.strip(), body.include_summaries)
+    return SavedSearchResponse.from_db(saved)
+
+
+@router.delete("/searches/saved/{search_id}", status_code=204)
+async def delete_saved_search(
+    search_id: int,
+    db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)],
+) -> None:
+    """Delete a saved search."""
+    if not db.saved_searches.delete(search_id, user_id):
+        raise HTTPException(status_code=404, detail="Saved search not found")
+
+
+@router.post("/searches/saved/{search_id}/use", status_code=204)
+async def touch_saved_search(
+    search_id: int,
+    db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)],
+) -> None:
+    """Update last_used_at so the list stays sorted by recency."""
+    db.saved_searches.touch(search_id, user_id)
 
 
 # ─────────────────────────────────────────────────────────────

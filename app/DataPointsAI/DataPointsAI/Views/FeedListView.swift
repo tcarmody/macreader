@@ -54,6 +54,67 @@ struct FeedListView: View {
                 FilterRow(filter: .unsummarized, count: nil)
             }
 
+            // Saved Searches section
+            if !appState.savedSearches.isEmpty {
+                Section {
+                    if !appState.collapsedCategories.contains("Saved Searches") {
+                        ForEach(appState.savedSearches) { saved in
+                            let isSelected: Bool = {
+                                if case .savedSearch(let id, _) = appState.selectedFilter {
+                                    return id == saved.id
+                                }
+                                return false
+                            }()
+                            HStack {
+                                Button {
+                                    Task { await appState.activateSavedSearch(saved) }
+                                } label: {
+                                    HStack {
+                                        Image(systemName: "bookmark.fill")
+                                            .foregroundStyle(.blue)
+                                            .font(.caption)
+                                        Text(saved.name)
+                                            .lineLimit(1)
+                                        Spacer()
+                                    }
+                                }
+                                .buttonStyle(.plain)
+                                .listRowBackground(isSelected ? Color.accentColor.opacity(0.1) : nil)
+
+                                Button {
+                                    Task { await appState.deleteSavedSearch(id: saved.id) }
+                                } label: {
+                                    Image(systemName: "xmark")
+                                        .font(.caption2)
+                                        .foregroundStyle(.secondary)
+                                }
+                                .buttonStyle(.plain)
+                                .opacity(0)
+                                .overlay(
+                                    // Only show delete on hover via .onHover is complex; keep always-visible at low opacity
+                                    // and use context menu as primary delete surface
+                                    EmptyView()
+                                )
+                                .help("Remove saved search")
+                            }
+                            .contextMenu {
+                                Button(role: .destructive) {
+                                    Task { await appState.deleteSavedSearch(id: saved.id) }
+                                } label: {
+                                    Label("Remove", systemImage: "trash")
+                                }
+                            }
+                        }
+                    }
+                } header: {
+                    SavedSearchesHeader(
+                        isCollapsed: appState.collapsedCategories.contains("Saved Searches"),
+                        onToggle: { appState.toggleCategoryCollapsed("Saved Searches") }
+                    )
+                }
+                .collapsible(false)
+            }
+
             // Topics section (from most recent AI clustering run)
             if !appState.currentTopics.isEmpty {
                 Section {

@@ -167,6 +167,18 @@ class DBDigest:
 
 
 @dataclass
+class DBSavedSearch:
+    """A user's saved search query for quick re-use."""
+    id: int
+    user_id: int
+    name: str
+    query: str
+    include_summaries: bool
+    last_used_at: datetime | None
+    created_at: datetime
+
+
+@dataclass
 class DBArticleChat:
     """Chat session for an article (one per user per article)."""
     id: int

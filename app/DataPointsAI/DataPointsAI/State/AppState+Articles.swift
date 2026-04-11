@@ -26,6 +26,10 @@ extension AppState {
             return try await apiClient.getArticles(summarizedOnly: false, hideDuplicates: hideDupes, limit: limit, offset: offset)
         case .feed(let id):
             return try await apiClient.getArticles(feedId: id, hideDuplicates: hideDupes, limit: limit, offset: offset)
+        case .topic:
+            return try await apiClient.getArticles(hideDuplicates: hideDupes, limit: limit, offset: offset)
+        case .savedSearch(_, let query):
+            return try await apiClient.search(query: query, limit: limit, includeSummaries: searchIncludeSummaries)
         }
     }
 
@@ -45,8 +49,9 @@ extension AppState {
             self.error = error.localizedDescription
         }
 
-        // Refresh topics sidebar in background (non-critical)
+        // Refresh sidebar data in background (non-critical)
         await loadCurrentTopics()
+        await loadSavedSearches()
     }
 
     /// Load more articles for infinite scroll pagination
@@ -243,6 +248,54 @@ extension AppState {
 
         feeds = try await apiClient.getFeeds()
         updateDockBadge()
+    }
+
+    // MARK: - Saved Searches
+
+    func loadSavedSearches() async {
+        do {
+            savedSearches = try await apiClient.getSavedSearches()
+        } catch {
+            // Non-critical — sidebar just won't show saved searches section
+        }
+    }
+
+    func saveCurrentSearch(name: String) async {
+        guard searchQuery.count >= 2 else { return }
+        do {
+            let saved = try await apiClient.createSavedSearch(
+                name: name,
+                query: searchQuery,
+                includeSummaries: searchIncludeSummaries
+            )
+            savedSearches.insert(saved, at: 0)
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    func deleteSavedSearch(id: Int) async {
+        do {
+            try await apiClient.deleteSavedSearch(id: id)
+            savedSearches.removeAll { $0.id == id }
+        } catch {
+            self.error = error.localizedDescription
+        }
+    }
+
+    func activateSavedSearch(_ saved: SavedSearch) async {
+        searchQuery = saved.query
+        searchIncludeSummaries = saved.includeSummaries
+        selectedFilter = .savedSearch(saved.id, saved.query)
+        await search(query: saved.query)
+        // Update recency in background
+        Task {
+            try? await apiClient.touchSavedSearch(id: saved.id)
+            if let idx = savedSearches.firstIndex(where: { $0.id == saved.id }) {
+                let item = savedSearches.remove(at: idx)
+                savedSearches.insert(item, at: 0)
+            }
+        }
     }
 
     // MARK: - Topics

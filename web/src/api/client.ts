@@ -14,6 +14,7 @@ import type {
   OAuthStatus,
   ReadingStatsResponse,
   StoryGroup,
+  SavedSearch,
 } from '@/types'
 
 // Get API configuration from localStorage
@@ -290,6 +291,27 @@ export async function searchArticles(query: string, includeSummaries: boolean = 
   const params = new URLSearchParams({ q: query })
   if (!includeSummaries) params.append('include_summaries', 'false')
   return fetchApi(`/search?${params}`)
+}
+
+// Saved Searches
+export async function getSavedSearches(): Promise<SavedSearch[]> {
+  return fetchApi('/searches/saved')
+}
+
+export async function createSavedSearch(name: string, query: string, includeSummaries: boolean): Promise<SavedSearch> {
+  return fetchApi('/searches/saved', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ name, query, include_summaries: includeSummaries }),
+  })
+}
+
+export async function deleteSavedSearch(id: number): Promise<void> {
+  await fetchApi(`/searches/saved/${id}`, { method: 'DELETE' })
+}
+
+export async function touchSavedSearch(id: number): Promise<void> {
+  await fetchApi(`/searches/saved/${id}/use`, { method: 'POST' })
 }
 
 // Library (Standalone Items)
