@@ -21,7 +21,7 @@ import {
   LayoutList,
   BarChart2,
   Tags,
-  Bookmark,
+  Pin,
   X,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
@@ -240,7 +240,7 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
             {searchQuery.length >= 2 && (
               <button
                 type="button"
-                title={isSearchAlreadySaved ? "Already saved" : "Save this search"}
+                title={isSearchAlreadySaved ? "Already pinned" : "Pin this search"}
                 disabled={isSearchAlreadySaved || createSavedSearch.isPending}
                 onClick={() => createSavedSearch.mutate({
                   name: searchQuery.trim(),
@@ -254,7 +254,7 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
                     : "text-muted-foreground hover:text-foreground"
                 )}
               >
-                <Bookmark className="h-4 w-4" fill={isSearchAlreadySaved ? "currentColor" : "none"} />
+                <Pin className="h-4 w-4" />
               </button>
             )}
           </div>
@@ -422,8 +422,8 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
                     ) : (
                       <ChevronDown className="h-3 w-3" />
                     )}
-                    <Bookmark className="h-3 w-3 text-blue-500" />
-                    <span className="flex-1 text-left truncate font-medium">Saved Searches</span>
+                    <Pin className="h-3 w-3 text-blue-500" />
+                    <span className="flex-1 text-left truncate font-medium">Pinned Searches</span>
                     <span className="text-xs text-muted-foreground tabular-nums">{savedSearches.length}</span>
                   </button>
 
@@ -445,7 +445,7 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
                           <button
                             onClick={() => deleteSavedSearch.mutate(saved.id)}
                             className="opacity-0 group-hover:opacity-100 p-1 rounded hover:bg-muted text-muted-foreground hover:text-foreground transition-opacity flex-shrink-0"
-                            title="Remove saved search"
+                            title="Unpin"
                           >
                             <X className="h-3 w-3" />
                           </button>
