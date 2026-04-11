@@ -22,7 +22,6 @@ interface AppState {
   currentView: 'feeds' | 'library' | 'digest' | 'stats'
   groupBy: GroupBy
   sortBy: SortBy
-  hideRead: boolean
   hideDuplicates: boolean
   searchQuery: string
   isSearching: boolean
@@ -52,8 +51,6 @@ interface AppState {
   setCurrentView: (view: 'feeds' | 'library' | 'digest' | 'stats') => void
   setGroupBy: (groupBy: GroupBy) => void
   setSortBy: (sortBy: SortBy) => void
-  setHideRead: (hideRead: boolean) => void
-  toggleHideRead: () => void
   toggleHideDuplicates: () => void
   setSearchQuery: (query: string) => void
   setIsSearching: (isSearching: boolean) => void
@@ -86,7 +83,6 @@ export const useAppStore = create<AppState>()(
       currentView: 'feeds',
       groupBy: 'none',
       sortBy: 'newest',
-      hideRead: false,
       hideDuplicates: false,
       searchQuery: '',
       isSearching: false,
@@ -132,8 +128,6 @@ export const useAppStore = create<AppState>()(
         },
       })),
       setSortBy: (sortBy) => set({ sortBy }),
-      setHideRead: (hideRead) => set({ hideRead }),
-      toggleHideRead: () => set((state) => ({ hideRead: !state.hideRead })),
       toggleHideDuplicates: () => set((state) => ({ hideDuplicates: !state.hideDuplicates })),
       setSearchQuery: (query) => set({ searchQuery: query }),
       setIsSearching: (isSearching) => set({ isSearching }),
@@ -172,7 +166,6 @@ export const useAppStore = create<AppState>()(
         currentView: state.currentView,
         groupBy: state.groupBy,
         sortBy: state.sortBy,
-        hideRead: state.hideRead,
         hideDuplicates: state.hideDuplicates,
         searchIncludeSummaries: state.searchIncludeSummaries,
         featureUsage: state.featureUsage,

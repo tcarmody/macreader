@@ -4,8 +4,6 @@ import {
   Circle,
   Sparkles,
   ExternalLink,
-  Eye,
-  EyeOff,
   ArrowUpDown,
   LayoutList,
   Calendar,
@@ -74,8 +72,6 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
     setGroupBy,
     sortBy,
     setSortBy,
-    hideRead,
-    toggleHideRead,
     hideDuplicates,
     toggleHideDuplicates,
     featureUsage,
@@ -137,16 +133,11 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
       ? articles.filter(a => topicArticleIds.has(a.id))
       : articles
 
-  // Apply hide read filter client-side (separate from the Unread filter)
-  const displayArticles = hideRead
-    ? allArticles.filter((a) => !a.is_read)
-    : allArticles
-
   // Client-side date grouping for flat view (groupBy === 'none')
   const clientGroupedArticles = useMemo(() => {
     const groups: Record<string, Article[]> = {}
 
-    displayArticles.forEach((article) => {
+    allArticles.forEach((article) => {
       const date = new Date(article.published_at)
       const today = new Date()
       const yesterday = new Date(today)
@@ -168,21 +159,12 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
     })
 
     return groups
-  }, [displayArticles])
+  }, [allArticles])
 
-  // Server-side grouped data with hide read filter applied
   const serverGroups = useMemo(() => {
     if (!groupedData?.groups) return []
-    if (!hideRead) return groupedData.groups
-
-    // Filter out read articles from each group
     return groupedData.groups
-      .map(group => ({
-        ...group,
-        articles: group.articles.filter(a => !a.is_read)
-      }))
-      .filter(group => group.articles.length > 0)
-  }, [groupedData, hideRead])
+  }, [groupedData])
 
   const handleSelectArticle = (article: Article) => {
     setSelectedArticleId(article.id)
@@ -265,7 +247,7 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
   // Calculate total count based on mode
   const totalCount = groupBy !== 'none' && !isSearching
     ? serverGroups.reduce((sum, g) => sum + g.articles.length, 0)
-    : displayArticles.length
+    : allArticles.length
 
   return (
     <div className="w-80 border-r border-border flex flex-col bg-background">
@@ -293,7 +275,7 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button
-                    variant={(hideRead || hideDuplicates) ? 'secondary' : 'ghost'}
+                    variant={hideDuplicates ? 'secondary' : 'ghost'}
                     size="icon"
                     className="h-7 w-7"
                     title="List options"
@@ -310,14 +292,6 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
                     Mark all as read
                   </DropdownMenuItem>
                   <DropdownMenuSeparator />
-                  <DropdownMenuItem onClick={toggleHideRead}>
-                    {hideRead ? (
-                      <Eye className="h-4 w-4 mr-2" />
-                    ) : (
-                      <EyeOff className="h-4 w-4 mr-2" />
-                    )}
-                    {hideRead ? 'Show read articles' : 'Hide read articles'}
-                  </DropdownMenuItem>
                   <DropdownMenuItem onClick={toggleHideDuplicates}>
                     <Copy className={cn("h-4 w-4 mr-2", hideDuplicates && "text-primary")} />
                     {hideDuplicates ? 'Show all articles' : 'Hide duplicates'}
