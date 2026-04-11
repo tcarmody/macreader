@@ -57,7 +57,7 @@ struct FeedListView: View {
             // Saved Searches section
             if !appState.savedSearches.isEmpty {
                 Section {
-                    if !appState.collapsedCategories.contains("Saved Searches") {
+                    if !appState.collapsedCategories.contains("Pinned Searches") {
                         ForEach(appState.savedSearches) { saved in
                             let isSelected: Bool = {
                                 if case .savedSearch(let id, _) = appState.selectedFilter {
@@ -70,7 +70,7 @@ struct FeedListView: View {
                                     Task { await appState.activateSavedSearch(saved) }
                                 } label: {
                                     HStack {
-                                        Image(systemName: "bookmark.fill")
+                                        Image(systemName: "pin.fill")
                                             .foregroundStyle(.blue)
                                             .font(.caption)
                                         Text(saved.name)
@@ -108,8 +108,8 @@ struct FeedListView: View {
                     }
                 } header: {
                     SavedSearchesHeader(
-                        isCollapsed: appState.collapsedCategories.contains("Saved Searches"),
-                        onToggle: { appState.toggleCategoryCollapsed("Saved Searches") }
+                        isCollapsed: appState.collapsedCategories.contains("Pinned Searches"),
+                        onToggle: { appState.toggleCategoryCollapsed("Pinned Searches") }
                     )
                 }
                 .collapsible(false)

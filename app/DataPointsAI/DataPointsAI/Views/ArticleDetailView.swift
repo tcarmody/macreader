@@ -179,9 +179,16 @@ struct ArticleDetailView: View {
     private func detailTabButton(tab: DetailTab, article: ArticleDetail) -> some View {
         let isActive = activeTab == tab
         let isDisabled = tab == .chat && article.summaryFull == nil
+        let hasSummary = article.summaryFull != nil
+        let hasRelated = article.relatedLinks?.isEmpty == false
 
         Button {
             withAnimation(.easeInOut(duration: 0.15)) {
+                if tab == .ai && !hasSummary && !isSummarizing {
+                    startSummarization(articleId: article.id)
+                } else if tab == .related && !hasRelated && !appState.isLoadingRelated {
+                    Task { await appState.loadRelatedLinks(for: article.id) }
+                }
                 activeTab = tab
             }
         } label: {
@@ -191,12 +198,16 @@ struct ArticleDetailView: View {
                     ProgressView().scaleEffect(0.45).frame(width: 8, height: 8)
                 } else if tab == .related && appState.isLoadingRelated {
                     ProgressView().scaleEffect(0.45).frame(width: 8, height: 8)
-                } else if tab == .ai && article.summaryFull != nil {
+                } else if tab == .ai && hasSummary {
                     Circle().fill(Color.purple).frame(width: 6, height: 6)
-                } else if tab == .related, let links = article.relatedLinks, !links.isEmpty {
+                } else if tab == .related && hasRelated {
                     Circle().fill(Color.blue).frame(width: 6, height: 6)
                 } else if tab == .chat && hasChatHistory {
                     Circle().fill(Color.blue).frame(width: 6, height: 6)
+                } else if (tab == .ai || tab == .related) && !isDisabled {
+                    Image(systemName: "plus")
+                        .font(.system(size: 7, weight: .medium))
+                        .foregroundStyle(.secondary.opacity(0.5))
                 }
 
                 Text(tab.rawValue)
@@ -396,84 +407,6 @@ struct ArticleDetailView: View {
             Rectangle()
                 .fill(Color.secondary.opacity(0.3))
                 .frame(width: 1, height: 20)
-
-            // Unified AI Menu
-            let hasSummary = article.summaryFull != nil
-            let hasRelated = article.relatedLinks?.isEmpty == false
-            let aiCount = [hasSummary, hasRelated, hasChatHistory].filter { $0 }.count
-            let aiActive = aiCount > 0
-
-            Menu {
-                // Summary
-                if hasSummary {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.15)) { activeTab = .ai }
-                    } label: {
-                        Label("View Summary", systemImage: "sparkles")
-                    }
-                } else {
-                    Button {
-                        startSummarization(articleId: article.id)
-                    } label: {
-                        Label(isSummarizing ? "Generating Summary…" : "Generate Summary", systemImage: "sparkles")
-                    }
-                    .disabled(isSummarizing)
-                }
-
-                // Related
-                if hasRelated, let count = article.relatedLinks?.count {
-                    Button {
-                        withAnimation(.easeInOut(duration: 0.15)) { activeTab = .related }
-                    } label: {
-                        Label("View \(count) Related Articles", systemImage: "link.badge.plus")
-                    }
-                } else {
-                    Button {
-                        Task { await appState.loadRelatedLinks(for: article.id) }
-                    } label: {
-                        Label(appState.isLoadingRelated ? "Searching…" : "Find Related Articles", systemImage: "link.badge.plus")
-                    }
-                    .disabled(appState.isLoadingRelated)
-                }
-
-                Divider()
-
-                // Chat
-                Button {
-                    withAnimation(.easeInOut(duration: 0.15)) { activeTab = .chat }
-                } label: {
-                    Label(
-                        "Chat about this Article",
-                        systemImage: hasChatHistory
-                            ? "bubble.left.and.bubble.right.fill"
-                            : "bubble.left.and.bubble.right"
-                    )
-                }
-                .disabled(!hasSummary)
-            } label: {
-                HStack(spacing: 6) {
-                    if isSummarizing || appState.isLoadingRelated {
-                        ProgressView().scaleEffect(0.6)
-                    } else {
-                        Image(systemName: "sparkles")
-                            .font(.system(size: 14))
-                            .foregroundColor(aiActive ? .purple : .secondary)
-                    }
-                    Text("AI")
-                        .font(.system(size: 13))
-                    if aiCount > 0 {
-                        Text("\(aiCount)")
-                            .font(.system(size: 10, weight: .semibold))
-                            .foregroundColor(.white)
-                            .frame(minWidth: 14, minHeight: 14)
-                            .background(Color.purple)
-                            .clipShape(Circle())
-                    }
-                }
-                .foregroundColor(aiActive ? .primary : .secondary)
-            }
-            .buttonStyle(.plain)
-            .help("AI features: summary, related articles, chat")
 
             Spacer()
 

@@ -65,19 +65,11 @@ struct ArticleListView: View {
                             Task { await appState.saveCurrentSearch(name: appState.searchQuery) }
                         }
                     } label: {
-                        Image(systemName: alreadySaved ? "bookmark.fill" : "bookmark")
+                        Image(systemName: alreadySaved ? "pin.fill" : "pin")
                     }
                     .disabled(alreadySaved)
-                    .help(alreadySaved ? "Search already saved" : "Save this search")
+                    .help(alreadySaved ? "Search already pinned" : "Pin this search")
                 }
-
-                // Hide read toggle
-                Button {
-                    appState.hideReadArticles.toggle()
-                } label: {
-                    Image(systemName: appState.hideReadArticles ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
-                }
-                .help(appState.hideReadArticles ? "Show Read Articles" : "Hide Read Articles")
 
                 // Sort menu
                 Menu {

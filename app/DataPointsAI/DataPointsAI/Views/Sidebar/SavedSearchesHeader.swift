@@ -1,6 +1,6 @@
 import SwiftUI
 
-/// Header for the Saved Searches section with collapse toggle
+/// Header for the Pinned Searches section with collapse toggle
 struct SavedSearchesHeader: View {
     let isCollapsed: Bool
     let onToggle: () -> Void
@@ -13,10 +13,10 @@ struct SavedSearchesHeader: View {
                     .foregroundStyle(.secondary)
                     .frame(width: 12)
 
-                Image(systemName: "bookmark.fill")
+                Image(systemName: "pin.fill")
                     .foregroundStyle(.blue)
 
-                Text("Saved Searches")
+                Text("Pinned Searches")
                     .font(.headline)
                     .foregroundStyle(.primary)
 

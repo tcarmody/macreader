@@ -53,7 +53,6 @@ class AppState: ObservableObject {
     @Published var showFeedManager: Bool = false
     @Published var groupByMode: GroupByMode = .date
     @Published var sortOption: ArticleSortOption = .newestFirst
-    @Published var hideReadArticles: Bool = false
     @Published var isClusteringLoading: Bool = false
     @Published var readerModeEnabled: Bool = false
 
@@ -185,10 +184,6 @@ class AppState: ObservableObject {
             result = result.filter { idSet.contains($0.id) }
         case .savedSearch:
             break  // articles already populated by search() in AppState+Articles
-        }
-
-        if hideReadArticles && selectedFilter != .unread {
-            result = result.filter { !$0.isRead }
         }
 
         // Do NOT apply searchQuery as a local filter here. When search is active,

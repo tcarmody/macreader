@@ -73,26 +73,30 @@ struct ArticleRow: View {
 
                         Spacer()
 
-                        // AI enrichment badges
+                        // State indicators
                         if article.isBookmarked {
-                            Image(systemName: "star.fill")
-                                .font(.caption)
+                            Image(systemName: "bookmark.fill")
+                                .font(.caption2)
                                 .foregroundStyle(.yellow)
                         }
-                        if article.summaryShort != nil {
-                            Image(systemName: "sparkles")
-                                .font(.caption2)
-                                .foregroundStyle(.purple.opacity(0.7))
-                        }
-                        if article.hasChat == true {
-                            Image(systemName: "bubble.left.fill")
-                                .font(.caption2)
-                                .foregroundStyle(.blue.opacity(0.6))
-                        }
-                        if let count = article.relatedLinkCount, count > 0 {
-                            Text("+\(count)")
-                                .font(.system(size: 9, weight: .medium))
-                                .foregroundStyle(.blue.opacity(0.6))
+                        let hasAny = article.summaryShort != nil || article.hasChat == true || (article.relatedLinkCount ?? 0) > 0
+                        if hasAny {
+                            HStack(spacing: 3) {
+                                if article.summaryShort != nil {
+                                    Circle().fill(Color.purple.opacity(0.6)).frame(width: 5, height: 5)
+                                }
+                                if let count = article.relatedLinkCount, count > 0 {
+                                    Circle().fill(Color.blue.opacity(0.6)).frame(width: 5, height: 5)
+                                }
+                                if article.hasChat == true {
+                                    Circle().fill(Color.blue.opacity(0.4)).frame(width: 5, height: 5)
+                                }
+                            }
+                            .help([
+                                article.summaryShort != nil ? "Summary" : nil,
+                                (article.relatedLinkCount ?? 0) > 0 ? "\(article.relatedLinkCount!) related" : nil,
+                                article.hasChat == true ? "Chat" : nil,
+                            ].compactMap { $0 }.joined(separator: " · "))
                         }
                     }
                     .font(.caption)

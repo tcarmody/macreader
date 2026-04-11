@@ -192,11 +192,6 @@ struct RSSReaderApp: App {
 
                 Divider()
 
-                Button(appState.hideReadArticles ? "Show Read Articles" : "Hide Read Articles") {
-                    appState.hideReadArticles.toggle()
-                }
-                .keyboardShortcut("h", modifiers: .command)
-
                 Button("Toggle Sidebar") {
                     appState.sidebarVisible.toggle()
                 }
