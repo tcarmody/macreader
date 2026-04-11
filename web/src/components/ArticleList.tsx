@@ -2,7 +2,6 @@ import { useMemo, useEffect } from 'react'
 import {
   BookMarked,
   Circle,
-  Sparkles,
   ExternalLink,
   ArrowUpDown,
   LayoutList,
@@ -17,7 +16,6 @@ import {
   Info,
   Copy,
   FileText,
-  MessageCircle,
   SlidersHorizontal,
 } from 'lucide-react'
 import { cn, formatDate, stripHtml, smartQuotes } from '@/lib/utils'
@@ -542,32 +540,34 @@ function ArticleListItem({ article, isSelected, onSelect, storyGroup, searchQuer
             <span>·</span>
             <span>{formatDate(article.published_at)}</span>
 
-            <div className="flex items-center gap-1 ml-auto">
+            <div className="flex items-center gap-1.5 ml-auto">
               {storyGroup && (
-                <Badge
-                  variant="outline"
-                  className="text-[10px] h-4 px-1 py-0 text-blue-600 border-blue-300 dark:text-blue-400 dark:border-blue-700"
+                <span
+                  className="text-[10px] font-medium text-blue-500/70 leading-none"
                   title={storyGroup.label}
                 >
                   {storyGroup.count} sources
-                </Badge>
+                </span>
               )}
               {article.is_bookmarked && (
                 <BookMarked className="h-3 w-3 text-amber-500" />
               )}
-              {article.summary_short && (
-                <Sparkles className="h-3 w-3 text-purple-500" title="Summarized" />
-              )}
-              {article.has_chat && (
-                <MessageCircle className="h-3 w-3 text-blue-500/70" title="Has conversation" />
-              )}
-              {article.related_link_count > 0 && (
-                <span
-                  className="text-[10px] font-medium text-blue-500/70 leading-none"
-                  title={`${article.related_link_count} related articles`}
-                >
-                  +{article.related_link_count}
-                </span>
+              {(article.summary_short || article.has_chat || article.related_link_count > 0) && (
+                <div className="flex items-center gap-0.5" title={[
+                  article.summary_short && 'Summary',
+                  article.related_link_count > 0 && `${article.related_link_count} related`,
+                  article.has_chat && 'Chat',
+                ].filter(Boolean).join(' · ')}>
+                  {article.summary_short && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-purple-500/60" />
+                  )}
+                  {article.related_link_count > 0 && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-blue-500/60" />
+                  )}
+                  {article.has_chat && (
+                    <span className="h-1.5 w-1.5 rounded-full bg-blue-400/40" />
+                  )}
+                </div>
               )}
             </div>
           </div>
