@@ -288,18 +288,20 @@ export function ArticleDetail() {
 
         <DropdownMenu>
           <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              disabled={fetchContent.isPending || extractFromHtml.isPending}
-            >
-              {fetchContent.isPending || extractFromHtml.isPending ? (
-                <Loader2 className="h-4 w-4 mr-1 animate-spin" />
-              ) : (
-                <Download className="h-4 w-4 mr-1" />
-              )}
-              {hasContent ? 'Refetch' : 'Fetch'}
-            </Button>
+            <Tooltip content={hasContent ? 'Refetch full content' : 'Fetch full content'}>
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                disabled={fetchContent.isPending || extractFromHtml.isPending}
+              >
+                {fetchContent.isPending || extractFromHtml.isPending ? (
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                ) : (
+                  <Download className="h-4 w-4" />
+                )}
+              </Button>
+            </Tooltip>
           </DropdownMenuTrigger>
           <DropdownMenuContent align="start">
             <DropdownMenuItem onClick={handleFetchContent}>
@@ -416,13 +418,17 @@ export function ArticleDetail() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        <div className="ml-auto flex items-center gap-1">
-          <Button variant="ghost" size="sm" onClick={handleShare}>
-            <Share2 className="h-4 w-4" />
-          </Button>
-          <Button variant="ghost" size="sm" onClick={handleOpenExternal}>
-            <ExternalLink className="h-4 w-4" />
-          </Button>
+        <div className="ml-auto flex items-center gap-0.5">
+          <Tooltip content="Share">
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={handleShare}>
+              <Share2 className="h-4 w-4" />
+            </Button>
+          </Tooltip>
+          <Tooltip content="Open in browser">
+            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={handleOpenExternal}>
+              <ExternalLink className="h-4 w-4" />
+            </Button>
+          </Tooltip>
         </div>
       </div>
 

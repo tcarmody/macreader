@@ -20,6 +20,7 @@ import {
   Copy,
   FileText,
   MessageCircle,
+  SlidersHorizontal,
 } from 'lucide-react'
 import { cn, formatDate, stripHtml, smartQuotes } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -29,6 +30,13 @@ import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { BadgePulse } from '@/components/ui/badge-pulse'
 import { Tooltip } from '@/components/ui/tooltip'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { useToast } from '@/components/ui/toast'
 import { useAppStore } from '@/store/app-store'
 import { useArticles, useArticlesGrouped, useSearch, useMarkArticleRead, useMarkAllRead, useStoryGroups } from '@/hooks/use-queries'
@@ -282,40 +290,40 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
                 </Button>
               </Tooltip>
             ) : (
-              <>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={() => markAllRead.mutate()}
-                  disabled={markAllRead.isPending}
-                  title="Mark all as read"
-                >
-                  <CheckCheck className={cn("h-4 w-4", markAllRead.isPending && "animate-pulse")} />
-                </Button>
-                <Button
-                  variant="ghost"
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={toggleHideRead}
-                  title={hideRead ? 'Show read articles' : 'Hide read articles'}
-                >
-                  {hideRead ? (
-                    <EyeOff className="h-4 w-4" />
-                  ) : (
-                    <Eye className="h-4 w-4" />
-                  )}
-                </Button>
-                <Button
-                  variant={hideDuplicates ? 'secondary' : 'ghost'}
-                  size="icon"
-                  className="h-7 w-7"
-                  onClick={toggleHideDuplicates}
-                  title={hideDuplicates ? 'Showing unique articles only' : 'Show unique articles only'}
-                >
-                  <Copy className="h-4 w-4" />
-                </Button>
-              </>
+              <DropdownMenu>
+                <DropdownMenuTrigger asChild>
+                  <Button
+                    variant={(hideRead || hideDuplicates) ? 'secondary' : 'ghost'}
+                    size="icon"
+                    className="h-7 w-7"
+                    title="List options"
+                  >
+                    <SlidersHorizontal className="h-4 w-4" />
+                  </Button>
+                </DropdownMenuTrigger>
+                <DropdownMenuContent align="end">
+                  <DropdownMenuItem
+                    onClick={() => markAllRead.mutate()}
+                    disabled={markAllRead.isPending}
+                  >
+                    <CheckCheck className={cn("h-4 w-4 mr-2", markAllRead.isPending && "animate-pulse")} />
+                    Mark all as read
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={toggleHideRead}>
+                    {hideRead ? (
+                      <Eye className="h-4 w-4 mr-2" />
+                    ) : (
+                      <EyeOff className="h-4 w-4 mr-2" />
+                    )}
+                    {hideRead ? 'Show read articles' : 'Hide read articles'}
+                  </DropdownMenuItem>
+                  <DropdownMenuItem onClick={toggleHideDuplicates}>
+                    <Copy className={cn("h-4 w-4 mr-2", hideDuplicates && "text-primary")} />
+                    {hideDuplicates ? 'Show all articles' : 'Hide duplicates'}
+                  </DropdownMenuItem>
+                </DropdownMenuContent>
+              </DropdownMenu>
             )}
             <Badge variant="secondary">{totalCount}</Badge>
           </div>
