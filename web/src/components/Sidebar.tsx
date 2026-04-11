@@ -103,8 +103,8 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
     !hasCompletedInitialSetup ? new Set(categories) : new Set()
   )
   const [collapsedNewsletters, setCollapsedNewsletters] = useState(false)
-  const [collapsedTopics, setCollapsedTopics] = useState(false)
-  const [collapsedSavedSearches, setCollapsedSavedSearches] = useState(false)
+  const [collapsedTopics, setCollapsedTopics] = useState(true)
+  const [collapsedSavedSearches, setCollapsedSavedSearches] = useState(true)
 
   const isSearchAlreadySaved = savedSearches.some(
     (s) => s.query === searchQuery.trim() && s.include_summaries === searchIncludeSummaries
@@ -424,6 +424,7 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
                     )}
                     <Bookmark className="h-3 w-3 text-blue-500" />
                     <span className="flex-1 text-left truncate font-medium">Saved Searches</span>
+                    <span className="text-xs text-muted-foreground tabular-nums">{savedSearches.length}</span>
                   </button>
 
                   {!collapsedSavedSearches && (
@@ -472,6 +473,7 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
                     )}
                     <Tags className="h-3 w-3 text-purple-500" />
                     <span className="flex-1 text-left truncate font-medium">Topics</span>
+                    <span className="text-xs text-muted-foreground tabular-nums">{topics.length}</span>
                   </button>
 
                   {!collapsedTopics && (
