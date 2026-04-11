@@ -8,10 +8,10 @@ import {
   Share2,
   Loader2,
   Link2,
-  MessageCircle,
   Download,
   ClipboardPaste,
   X,
+  Plus,
 } from 'lucide-react'
 import { cn, formatFullDate, getDomain, smartQuotes } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -25,8 +25,6 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuLabel,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/components/ui/dropdown-menu'
 import { useAppStore } from '@/store/app-store'
@@ -217,9 +215,14 @@ export function ArticleDetail() {
     window.open(article.url, '_blank', 'noopener,noreferrer')
   }
 
-  const aiCount = [hasSummary, relatedCount > 0, chatHistory?.has_chat].filter(Boolean).length
-  const aiPending = summarize.isPending || findRelated.isPending
-  const aiActive = aiCount > 0
+  const handleTabClick = (id: DetailTab) => {
+    if (id === 'ai' && !hasSummary && !summarize.isPending) {
+      handleSummarize()
+    } else if (id === 'related' && relatedCount === 0 && !findRelated.isPending && !hasTriggeredRelated) {
+      handleFindRelated()
+    }
+    setActiveTab(id)
+  }
 
   const tabs: {
     id: DetailTab
@@ -315,109 +318,6 @@ export function ArticleDetail() {
           </DropdownMenuContent>
         </DropdownMenu>
 
-        {/* Unified AI button */}
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="sm"
-              className={cn(aiActive && 'text-purple-600 dark:text-purple-400')}
-            >
-              {aiPending ? (
-                <Loader2 className="h-4 w-4 mr-1.5 animate-spin" />
-              ) : (
-                <Sparkles className={cn('h-4 w-4 mr-1.5', aiActive && 'text-purple-500')} />
-              )}
-              AI
-              {aiCount > 0 && (
-                <span className="ml-1.5 flex h-4 min-w-[1rem] items-center justify-center rounded-full bg-purple-500/15 px-1 text-[10px] font-semibold text-purple-600 dark:text-purple-400">
-                  {aiCount}
-                </span>
-              )}
-            </Button>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start" className="w-60">
-            <DropdownMenuLabel className="text-xs font-normal text-muted-foreground">
-              AI Features
-            </DropdownMenuLabel>
-            <DropdownMenuSeparator />
-
-            {/* Summary */}
-            <DropdownMenuItem
-              className="flex items-start gap-2.5 py-2.5 cursor-pointer"
-              onClick={hasSummary ? () => setActiveTab('ai') : handleSummarize}
-              disabled={summarize.isPending}
-            >
-              <Sparkles className={cn('h-4 w-4 mt-0.5 shrink-0', hasSummary ? 'text-purple-500' : 'text-muted-foreground')} />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium">Summary</span>
-                  {summarize.isPending ? (
-                    <span className="text-[10px] text-muted-foreground">Generating…</span>
-                  ) : hasSummary ? (
-                    <span className="text-[10px] font-semibold text-purple-600 dark:text-purple-400">Ready ↗</span>
-                  ) : (
-                    <span className="text-[10px] text-muted-foreground">Generate</span>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground truncate mt-0.5">
-                  {hasSummary && article.key_points?.[0]
-                    ? article.key_points[0]
-                    : 'Generate a concise AI summary'}
-                </p>
-              </div>
-            </DropdownMenuItem>
-
-            {/* Related Articles */}
-            <DropdownMenuItem
-              className="flex items-start gap-2.5 py-2.5 cursor-pointer"
-              onClick={relatedCount > 0 ? () => setActiveTab('related') : handleFindRelated}
-              disabled={findRelated.isPending}
-            >
-              <Link2 className={cn('h-4 w-4 mt-0.5 shrink-0', relatedCount > 0 ? 'text-blue-500' : 'text-muted-foreground')} />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium">Related Articles</span>
-                  {findRelated.isPending ? (
-                    <span className="text-[10px] text-muted-foreground">Searching…</span>
-                  ) : relatedCount > 0 ? (
-                    <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">{relatedCount} found ↗</span>
-                  ) : (
-                    <span className="text-[10px] text-muted-foreground">Find</span>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {relatedCount > 0 ? 'Neural search results' : 'Discover related content'}
-                </p>
-              </div>
-            </DropdownMenuItem>
-
-            {/* Chat */}
-            <DropdownMenuItem
-              className="flex items-start gap-2.5 py-2.5 cursor-pointer"
-              onClick={() => setActiveTab('chat')}
-              disabled={!hasSummary}
-            >
-              <MessageCircle className={cn('h-4 w-4 mt-0.5 shrink-0', chatHistory?.has_chat ? 'text-blue-500' : 'text-muted-foreground')} />
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center justify-between gap-2">
-                  <span className="font-medium">Chat</span>
-                  {!hasSummary ? (
-                    <span className="text-[10px] text-muted-foreground">Needs summary</span>
-                  ) : chatHistory?.has_chat ? (
-                    <span className="text-[10px] font-semibold text-blue-600 dark:text-blue-400">Active ↗</span>
-                  ) : (
-                    <span className="text-[10px] text-muted-foreground">Start</span>
-                  )}
-                </div>
-                <p className="text-xs text-muted-foreground mt-0.5">
-                  {hasSummary ? 'Ask questions about this article' : 'Generate a summary first'}
-                </p>
-              </div>
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
         <div className="ml-auto flex items-center gap-0.5">
           <Tooltip content="Share">
             <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={handleShare}>
@@ -437,7 +337,7 @@ export function ArticleDetail() {
         {tabs.map(({ id, label, dot, count, pending, disabled }) => (
           <button
             key={id}
-            onClick={() => !disabled && setActiveTab(id)}
+            onClick={() => !disabled && handleTabClick(id)}
             disabled={disabled}
             className={cn(
               'flex items-center gap-1.5 px-4 py-2.5 text-sm font-medium transition-colors',
@@ -454,6 +354,8 @@ export function ArticleDetail() {
               <span className="h-1.5 w-1.5 rounded-full bg-purple-500 shrink-0" />
             ) : dot === 'blue' ? (
               <span className="h-1.5 w-1.5 rounded-full bg-blue-500 shrink-0" />
+            ) : (id === 'ai' || id === 'related') ? (
+              <Plus className="h-2.5 w-2.5 shrink-0 opacity-40" />
             ) : null}
             {label}
             {count != null && (
