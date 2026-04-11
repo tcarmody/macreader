@@ -23,6 +23,7 @@ import {
   Tags,
   Pin,
   X,
+  Keyboard,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -31,6 +32,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip } from '@/components/ui/tooltip'
+import { Dialog } from '@/components/ui/dialog'
 import { useAppStore } from '@/store/app-store'
 import {
   useFeeds, useRefreshFeeds, useStats, useAuthStatus, useTopics,
@@ -105,6 +107,7 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
   const [collapsedNewsletters, setCollapsedNewsletters] = useState(false)
   const [collapsedTopics, setCollapsedTopics] = useState(true)
   const [collapsedSavedSearches, setCollapsedSavedSearches] = useState(true)
+  const [shortcutsOpen, setShortcutsOpen] = useState(false)
 
   const isSearchAlreadySaved = savedSearches.some(
     (s) => s.query === searchQuery.trim() && s.include_summaries === searchIncludeSummaries
@@ -654,12 +657,39 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
       </ScrollArea>
 
       {/* Footer */}
-      <div className="p-2 border-t border-border">
-        <Button variant="ghost" className="w-full justify-start" onClick={onOpenSettings}>
+      <div className="p-2 border-t border-border flex items-center gap-1">
+        <Button variant="ghost" className="flex-1 justify-start" onClick={onOpenSettings}>
           <Settings className="h-4 w-4 mr-2" />
           Settings
         </Button>
+        <Tooltip content="Keyboard shortcuts">
+          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => setShortcutsOpen(true)}>
+            <Keyboard className="h-4 w-4" />
+          </Button>
+        </Tooltip>
       </div>
+
+      <Dialog isOpen={shortcutsOpen} onClose={() => setShortcutsOpen(false)} title="Keyboard Shortcuts">
+        <div className="space-y-2 text-sm">
+          {[
+            ['Next article', 'j'],
+            ['Previous article', 'k'],
+            ['Toggle read', 'm'],
+            ['Toggle bookmark', 's'],
+            ['Open in browser', 'o'],
+            ['Refresh feeds', 'r'],
+            ['Search', '/'],
+            ['Clear search', 'Esc'],
+            ['Settings', '⌘ ,'],
+            ['Add new feed', '⌘ N'],
+          ].map(([label, key]) => (
+            <div key={label} className="flex justify-between items-center">
+              <span className="text-muted-foreground">{label}</span>
+              <kbd className="px-2 py-1 bg-muted rounded text-xs font-mono">{key}</kbd>
+            </div>
+          ))}
+        </div>
+      </Dialog>
     </div>
   )
 }
