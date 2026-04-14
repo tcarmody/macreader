@@ -7,10 +7,11 @@ This document records key architectural and design decisions made during the dev
 ## Table of Contents
 
 1. [Core Philosophy](#core-philosophy)
-2. [Architecture Decisions](#architecture-decisions)
-3. [Technology Choices](#technology-choices)
-4. [Feature Decisions](#feature-decisions)
-5. [Lessons Learned](#lessons-learned)
+2. [UI/UX Design Principles](#uiux-design-principles)
+3. [Architecture Decisions](#architecture-decisions)
+4. [Technology Choices](#technology-choices)
+5. [Feature Decisions](#feature-decisions)
+6. [Lessons Learned](#lessons-learned)
 
 ---
 
@@ -31,6 +32,59 @@ Simple surface, power features on demand. New users see a clean three-pane layou
 ### Minimal Viable Complexity
 
 Every feature must justify its existence. The redesign reduced backend code from ~15,000 lines to ~2,500 lines while preserving all functionality. Simpler code is easier to maintain, debug, and extend.
+
+---
+
+## UI/UX Design Principles
+
+### State-First UI: Show Results, Not Actions
+
+**Principle**: The UI should reflect what exists, not what the user can do. Buttons and actions should recede; content and state should lead.
+
+**Application**: In the article list, compact colored dots (purple for AI summary, blue for related links, faded blue for chat) replaced named icons and badge counts. The dots are data — they tell you what has been done to an article. The actions that produced them live in the detail view where they belong. An article row's job is triage, not feature advertising.
+
+**Why it matters**: Showing action buttons in every row creates visual noise proportional to the number of features, not proportional to their relevance to the user at that moment. An article with no summary shouldn't advertise "Summarize" — the user is trying to decide whether to open the article at all.
+
+### One Canonical Path for Each Job
+
+**Principle**: When two UI elements do the same thing, remove one. Don't keep the redundant one "for discoverability."
+
+**Application**:
+- "Hide Read" toggle was removed because the "Unread" smart feed already filters to unread articles. Two ways to do the same thing produce inconsistent state and confuse users about which one is authoritative.
+- The AI dropdown was removed after smart tabs absorbed both its jobs (trigger + navigate). The dropdown's existence alongside the tab strip implied they were different things, when they weren't.
+- The macOS selection toolbar had two envelope buttons (mark read, mark unread). These were collapsed into a single smart toggle that reads the current state and flips it, labeled accordingly.
+
+### Visual Hierarchy as an Alternative to Overflow Menus
+
+**Principle**: Before collapsing secondary actions into a dropdown, try demoting them in-place: smaller size, muted color, secondary position. Reserve dropdowns for genuinely variable/contextual sets of actions.
+
+**Application**: Fetch, Share, and External Link in the article detail toolbar were demoted to `h-7 w-7` icon-only buttons with muted foreground color, rather than hidden behind a `...` menu. They're still one click away for power users; they just no longer compete visually with primary actions.
+
+**Why it matters**: Overflow menus trade discoverability for visual cleanliness, but they also hide actions permanently behind an interaction step. Visual demotion achieves cleanliness without hiding. A muted icon is scannable; a `...` menu requires opening to know what's inside.
+
+### Progressive Disclosure in the Sidebar
+
+**Principle**: Power-user sections (Topics, Pinned Searches) should be collapsed by default. Their presence is signaled by a badge showing the count of items, so users know there's something there without it taking up space until they ask for it.
+
+**Application**: Topics and Pinned Searches sections in the sidebar default to collapsed with count badges. New users see a clean sidebar; returning users who use these features will expand the sections once and the preference persists.
+
+### Terminology Disambiguation: Save vs. Pin
+
+**Principle**: When two distinct features share the same verb or icon, one of them must be renamed. "Save" is too generic — it means bookmark, save-to-read-later, save-search, and more.
+
+**Application**: The bookmark action on articles stays as "Save" (bookmark icon). The action of keeping a search query for reuse was renamed "Pin" with a pin icon throughout both platforms — the button, the section header, the empty states, the tooltip text, and all menu items.
+
+**Why it matters**: "Saved Searches" and "Saved Articles" created genuine user confusion — were pinned searches like bookmarks? Could you "save" a search the way you save an article? "Pinned Searches" signals a different kind of persistence (I want to keep this query available) without conflating it with reading-list bookmarks.
+
+### macOS Toolbar Separation: Inline vs. Window Toolbar
+
+**Principle**: On macOS, the window toolbar and an inline detail-view toolbar are both visible when an article is open. Avoid duplicating actions between them.
+
+**Application**:
+- **Inline article toolbar** (inside the detail pane, above the tab strip): owns all article-level actions — Read toggle, Bookmark, the smart tab strip, and secondary utility buttons (Fetch, Share, External Link). This toolbar is only visible when an article is selected.
+- **Window toolbar** (macOS title bar area): owns global utility actions that make sense regardless of what's selected — Reader Mode and Fetch Content. Read toggle and Bookmark were removed from the window toolbar because they already live in the inline toolbar.
+
+**Why it matters**: macOS merges toolbar items from all views into one bar. Before this separation, opening an article while articles were selected produced three envelope icons simultaneously: mark-read and mark-unread from the selection toolbar, plus the read-toggle from the window toolbar. Users couldn't know which icon did what. Assigning each toolbar a clear scope of responsibility prevents this collision.
 
 ---
 
@@ -433,9 +487,11 @@ The URL scheme makes the fetch mechanism immediately apparent in code. A simple 
 
 ### Article Organization (Web)
 
-**Decision**: Provide grouping (date/feed/topic), sorting (newest/oldest/title), and hide-read toggle in the web PWA article list.
+**Decision**: Provide grouping (date/feed/topic) and sorting (newest/oldest/title) in the web PWA article list. A separate "Unread" smart feed handles read-state filtering.
 
-**Rationale**: Power users need ways to manage large article lists. Grouping by topic (AI-powered) surfaces related stories. Grouping by feed helps when catching up on specific sources. Sorting by title helps find specific articles. Hide-read toggle reduces visual clutter. These controls match the macOS app's capabilities for feature parity.
+**Rationale**: Power users need ways to manage large article lists. Grouping by topic (AI-powered) surfaces related stories. Grouping by feed helps when catching up on specific sources. Sorting by title helps find specific articles.
+
+**Hide-Read Removed**: An explicit "hide read" toggle was removed. The "Unread" smart feed already does this job — selecting it filters to unread articles across all subscriptions. A redundant toggle that duplicates an existing filter violates the principle of having one canonical way to do things. The toggle also required its own UI state separate from the filter state, which created subtle inconsistencies (e.g., marking an article read while "hide read" was on would cause it to vanish immediately, but the same article would still appear if you navigated to the Unread feed). Removing it simplifies both the UI and the state model.
 
 ### Related Links via Neural Search
 
@@ -488,20 +544,24 @@ This prevents "5 copies of the same arXiv paper" results common with naive seman
 
 **Platform Implementation**: Web uses a CSS bottom-border underline strip. macOS uses a custom SwiftUI `HStack` of `Button` views with an `accentColor` rectangle overlay as the active indicator. Both sit outside the scroll view so the tab strip is sticky.
 
-### Unified AI Toolbar Button
+### Unified AI Entry Point: Smart Tabs
 
-**Decision**: Replace three separate toolbar buttons (Summarize, Context/Find Related, Chat) with a single "AI" dropdown that shows the status of all three features and navigates to the relevant tab.
+**Decision**: The tab strip is the single entry point for all AI features (Summary, Related, Chat). Clicking a tab that has no content yet triggers generation inline — no separate toolbar button or dropdown needed.
+
+**History**: Three separate toolbar buttons (Summarize, Context/Find Related, Chat) were first consolidated into a single "AI" dropdown. The dropdown was then removed entirely once smart tabs made it redundant. The dropdown had two jobs: trigger actions and navigate to results. Smart tabs do both, so the dropdown was pure overhead — an extra click and an extra mental model to maintain.
+
+**Smart Tab Behavior**:
+- **AI tab (no summary yet)**: clicking triggers summarization and switches to the AI tab.
+- **Related tab (no links yet)**: clicking triggers Find Related and switches to the Related tab.
+- **Chat tab**: only enabled once a summary exists; clicking opens the chat directly.
+- Tabs with triggerable but empty content show a small `+` indicator (web: `<Plus />` icon at 40% opacity; macOS: SF Symbol `plus` at secondary color) so users know the click will do something.
 
 **Alternatives Considered**:
-- Three separate labeled buttons: The previous design. Clear labeling but adds visual clutter; "Context" was an opaque name for Find Related.
-- Icon-only buttons with tooltips: Reduces width but increases hover-to-understand friction for new users.
-- Remove toolbar AI actions entirely: Could work now that tabs exist, but the toolbar is also the primary action trigger — the AI button is still how you *start* summarization and related-link searches.
+- AI dropdown: Intermediate design. Better than three separate buttons, but still duplicated the tab strip's navigation role.
+- Three separate buttons: Original design. Clear but noisy; added width and cognitive load.
+- Tabs as navigation only (action stays in toolbar): Keeps action and navigation separate but forces users to learn two surfaces.
 
-**Rationale**: The three AI features form a natural sequence: summarize → find related → chat. Grouping them under one entry point communicates that relationship. The dropdown doubles as a status dashboard — it shows the first key point as a preview when a summary is ready, the count of related articles found, and whether a chat session is active — so users can assess article enrichment and decide their next action without opening a tab. This reduces the toolbar from six interactive elements to four.
-
-**Count badge**: A small badge on the AI button (1, 2, or 3) reflects how many AI features have been activated for the current article. It gives a quick at-a-glance signal of how enriched an article is, visible from any tab.
-
-**Dropdown item behavior**: Each item is a dual-mode action. If the feature hasn't been run yet, clicking triggers the action. If the feature has completed, clicking navigates to the corresponding tab. This means the dropdown is the single place to both trigger and navigate to AI features.
+**Rationale**: The tab strip is already visible and labeled. Making it dual-purpose (navigate + trigger) eliminates the toolbar AI button entirely and reduces the total number of interactive elements in the toolbar. The `+` indicator communicates affordance without requiring a tooltip or separate button. The action → result flow is tangible: clicking a tab triggers the work, and the same tab shows the result when it arrives.
 
 ### Article List: Key Points in List Response
 
