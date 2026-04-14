@@ -221,29 +221,24 @@ struct ArticleListView: View {
     @ViewBuilder
     private var selectionToolbar: some View {
         let count = appState.selectedArticleIds.count
+        let allRead = appState.selectedArticleIds.allSatisfy { id in
+            appState.groupedArticles.flatMap { $0.articles }.first { $0.id == id }?.isRead == true
+        }
 
         Button {
             Task {
-                try? await appState.bulkMarkRead(articleIds: Array(appState.selectedArticleIds), isRead: true)
+                try? await appState.bulkMarkRead(articleIds: Array(appState.selectedArticleIds), isRead: !allRead)
                 appState.selectedArticleIds.removeAll()
+                listSelection.removeAll()
             }
         } label: {
-            Image(systemName: "envelope.open")
+            Image(systemName: allRead ? "envelope.badge" : "envelope.open")
         }
-        .help("Mark \(count) as Read")
-
-        Button {
-            Task {
-                try? await appState.bulkMarkRead(articleIds: Array(appState.selectedArticleIds), isRead: false)
-                appState.selectedArticleIds.removeAll()
-            }
-        } label: {
-            Image(systemName: "envelope.badge")
-        }
-        .help("Mark \(count) as Unread")
+        .help(allRead ? "Mark \(count) as Unread" : "Mark \(count) as Read")
 
         Button {
             appState.selectedArticleIds.removeAll()
+            listSelection.removeAll()
         } label: {
             Image(systemName: "xmark.circle")
         }

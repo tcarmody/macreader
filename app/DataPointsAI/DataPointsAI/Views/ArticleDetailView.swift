@@ -895,39 +895,6 @@ struct ArticleDetailView: View {
         if let article = appState.selectedArticleDetail {
             ToolbarItem {
                 Button {
-                    if let selectedArticle = appState.selectedArticle {
-                        Task {
-                            let newStatus = !(appState.selectedArticleDetail?.isRead ?? false)
-                            try? await appState.markRead(articleId: selectedArticle.id, isRead: newStatus)
-                        }
-                    }
-                } label: {
-                    Label(
-                        article.isRead ? "Mark as Unread" : "Mark as Read",
-                        systemImage: article.isRead ? "envelope.open" : "envelope.badge"
-                    )
-                }
-                .help(article.isRead ? "Mark as Unread" : "Mark as Read")
-            }
-
-            ToolbarItem {
-                Button {
-                    if let selectedArticle = appState.selectedArticle {
-                        Task {
-                            try? await appState.toggleBookmark(articleId: selectedArticle.id)
-                        }
-                    }
-                } label: {
-                    Label(
-                        article.isBookmarked ? "Remove Bookmark" : "Bookmark",
-                        systemImage: article.isBookmarked ? "star.fill" : "star"
-                    )
-                }
-                .help(article.isBookmarked ? "Remove Bookmark" : "Bookmark")
-            }
-
-            ToolbarItem {
-                Button {
                     fetchContent(articleId: article.id)
                 } label: {
                     if isFetchingContent {
@@ -940,25 +907,6 @@ struct ArticleDetailView: View {
                 }
                 .disabled(isFetchingContent)
                 .help("Extract full article content from website")
-            }
-
-            ToolbarItem {
-                Button {
-                    startSummarization(articleId: article.id)
-                } label: {
-                    if isSummarizing {
-                        ProgressView()
-                            .scaleEffect(0.5)
-                            .frame(width: 16, height: 16)
-                    } else {
-                        Label(
-                            article.summaryFull != nil ? "Regenerate Summary" : "Generate Summary",
-                            systemImage: article.summaryFull != nil ? "sparkles" : "sparkles.rectangle.stack"
-                        )
-                    }
-                }
-                .disabled(isSummarizing)
-                .help(article.summaryFull != nil ? "Regenerate Summary" : "Generate Summary")
             }
 
             ToolbarItem {
