@@ -55,6 +55,7 @@ interface AppState {
   setSearchQuery: (query: string) => void
   setIsSearching: (isSearching: boolean) => void
   toggleSearchIncludeSummaries: () => void
+  setHasCompletedInitialSetup: (value: boolean) => void
   setApiConfig: (config: ApiKeyConfig) => void
   clearApiKeys: () => void
   setDesignStyle: (style: DesignStyle) => void
@@ -132,6 +133,7 @@ export const useAppStore = create<AppState>()(
       setSearchQuery: (query) => set({ searchQuery: query }),
       setIsSearching: (isSearching) => set({ isSearching }),
       toggleSearchIncludeSummaries: () => set((state) => ({ searchIncludeSummaries: !state.searchIncludeSummaries })),
+      setHasCompletedInitialSetup: (value) => set({ hasCompletedInitialSetup: value }),
       setApiConfig: (config) => {
         // Also store in localStorage for API client to access
         localStorage.setItem('apiConfig', JSON.stringify(config))

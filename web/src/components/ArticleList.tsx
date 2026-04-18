@@ -372,28 +372,52 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
       {/* Article List */}
       <ScrollArea className="flex-1">
         {totalCount === 0 ? (
-          <EmptyState
-            icon={Inbox}
-            title="No articles found"
-            description={
-              isSearching
-                ? "Try a different search term"
-                : selectedFilter === 'all'
-                ? "Add feeds to start reading"
-                : selectedFilter === 'unread'
-                ? "All caught up! No unread articles"
-                : "No articles match this filter"
-            }
-            action={
-              !isSearching && selectedFilter === 'all' && onAddFeed ? (
-                <Button onClick={onAddFeed} size="sm">
-                  <Plus className="h-4 w-4 mr-1" />
-                  Add Your First Feed
+          isSearching ? (
+            <EmptyState
+              icon={Inbox}
+              title="No results found"
+              description={`No articles matched "${searchQuery}"`}
+              className="p-8"
+            />
+          ) : selectedFilter === 'all' && onAddFeed ? (
+            <EmptyState
+              icon={Rss}
+              title="No feeds yet"
+              description="Subscribe to RSS feeds or paste any URL to get started"
+              action={
+                <div className="flex flex-col gap-2 w-full">
+                  <Button onClick={onAddFeed} size="sm" className="w-full">
+                    <Plus className="h-4 w-4 mr-1" />
+                    Add Your First Feed
+                  </Button>
+                </div>
+              }
+              className="p-8"
+            />
+          ) : selectedFilter === 'unread' ? (
+            <EmptyState
+              icon={Inbox}
+              title="All caught up!"
+              description="You've read everything. Check back later or browse your full archive."
+              action={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => useAppStore.getState().setSelectedFilter('all')}
+                >
+                  Browse All Articles
                 </Button>
-              ) : null
-            }
-            className="p-8"
-          />
+              }
+              className="p-8"
+            />
+          ) : (
+            <EmptyState
+              icon={Inbox}
+              title="No articles found"
+              description="No articles match this filter"
+              className="p-8"
+            />
+          )
         ) : groupBy !== 'none' && !isSearching ? (
           // Server-side grouping (date, feed, or topic)
           <div className="p-2">

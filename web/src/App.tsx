@@ -100,8 +100,8 @@ function AppContent() {
 
   if (needsSetup) {
     return (
-      <div className="h-screen flex items-center justify-center bg-background p-4">
-        <div className="max-w-2xl w-full">
+      <div className="h-screen flex items-center justify-center bg-background p-4 overflow-auto">
+        <div className="max-w-2xl w-full py-8">
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
               <Server className="h-8 w-8 text-primary" />
@@ -112,7 +112,7 @@ function AppContent() {
             </p>
           </div>
 
-          <div className="bg-card border border-border rounded-lg p-6 mb-6">
+          <div className="bg-card border border-border rounded-lg p-6 mb-4">
             <h2 className="text-lg font-semibold mb-4">Getting Started</h2>
             <div className="space-y-4">
               <div className="flex gap-3">
@@ -122,10 +122,11 @@ function AppContent() {
                 <div>
                   <h3 className="font-medium mb-1">Configure your backend</h3>
                   <p className="text-sm text-muted-foreground">
-                    Set your backend server URL in settings
+                    Point this app at your running Data Points server. Use the full URL including the port if needed.
                   </p>
-                  <div className="mt-2 p-2 bg-muted rounded text-xs font-mono">
-                    Example: https://your-backend.railway.app
+                  <div className="mt-2 space-y-1">
+                    <div className="p-2 bg-muted rounded text-xs font-mono">http://localhost:5005</div>
+                    <div className="p-2 bg-muted rounded text-xs font-mono">https://your-backend.railway.app</div>
                   </div>
                 </div>
               </div>
@@ -140,7 +141,7 @@ function AppContent() {
                     Add your feeds
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    Subscribe to RSS feeds and newsletters
+                    Subscribe to RSS/Atom feeds or import an OPML file from another reader
                   </p>
                 </div>
               </div>
@@ -155,11 +156,21 @@ function AppContent() {
                     Enable AI features
                   </h3>
                   <p className="text-sm text-muted-foreground">
-                    Configure your API keys for summarization
+                    Add an Anthropic or OpenAI API key in Settings → AI to unlock one-click summarization
                   </p>
                 </div>
               </div>
             </div>
+          </div>
+
+          <div className="bg-amber-50 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800 rounded-lg p-4 mb-6 text-sm">
+            <p className="font-medium text-amber-900 dark:text-amber-200 mb-2">Troubleshooting</p>
+            <ul className="space-y-1 text-amber-800 dark:text-amber-300 text-xs list-disc list-inside">
+              <li>Make sure the backend server is running before connecting</li>
+              <li>If running locally, check the port matches your server (default: 5005)</li>
+              <li>CORS errors? Ensure your <code className="font-mono">CORS_ORIGINS</code> env var includes this URL</li>
+              <li>Using HTTPS? Your backend must also serve HTTPS or be behind a proxy</li>
+            </ul>
           </div>
 
           <div className="flex flex-col sm:flex-row gap-3">

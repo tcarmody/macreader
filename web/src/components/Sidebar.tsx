@@ -32,6 +32,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip } from '@/components/ui/tooltip'
+import { BadgePulse } from '@/components/ui/badge-pulse'
 import { Dialog } from '@/components/ui/dialog'
 import { useAppStore } from '@/store/app-store'
 import {
@@ -59,6 +60,8 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
     setIsSearching,
     searchIncludeSummaries,
     hasCompletedInitialSetup,
+    setHasCompletedInitialSetup,
+    featureUsage,
   } = useAppStore()
 
   const { data: feeds = [], isLoading: feedsLoading } = useFeeds()
@@ -71,6 +74,13 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
   const touchSavedSearch = useTouchSavedSearch()
   const refreshFeeds = useRefreshFeeds()
   const isAdmin = authStatus?.is_admin ?? true // default true for backwards compat
+
+  // Mark initial setup complete once the user has feeds
+  useEffect(() => {
+    if (!hasCompletedInitialSetup && feeds.length > 0) {
+      setHasCompletedInitialSetup(true)
+    }
+  }, [feeds.length, hasCompletedInitialSetup, setHasCompletedInitialSetup])
 
   // Separate newsletter feeds from RSS feeds
   const { rssFeeds, newsletterFeeds } = useMemo(() => {
@@ -283,12 +293,17 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
             <Button
               variant={currentView === 'library' ? 'secondary' : 'ghost'}
               size="sm"
-              className="flex-1"
+              className="flex-1 relative"
               onClick={() => setCurrentView('library')}
             >
               <Library className="h-4 w-4 mr-1" />
               Library
               <Info className="h-2.5 w-2.5 ml-1 opacity-50" />
+              {!featureUsage.hasUsedLibrary && (
+                <span className="absolute -top-0.5 -right-0.5">
+                  <BadgePulse />
+                </span>
+              )}
             </Button>
           </Tooltip>
           <Tooltip
@@ -531,7 +546,7 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
                       title="Bulk edit, organize, and manage your feeds"
                     >
                       <ListFilter className="h-3 w-3 mr-1" />
-                      Manage
+                      Manage ({rssFeeds.length})
                     </Button>
                   )}
                   {isAdmin && (
