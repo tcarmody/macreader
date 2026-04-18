@@ -251,6 +251,22 @@ class BulkDeleteFeedsRequest(BaseModel):
     feed_ids: list[int]
 
 
+class DiscoverFeedsRequest(BaseModel):
+    """Request to discover feeds at a URL."""
+    url: str
+
+
+class DiscoveredFeed(BaseModel):
+    """A single discovered feed candidate."""
+    url: str
+    title: str | None = None
+
+
+class DiscoverFeedsResponse(BaseModel):
+    """Response from feed discovery."""
+    feeds: list[DiscoveredFeed]
+
+
 # ─────────────────────────────────────────────────────────────
 # Summarization Schemas
 # ─────────────────────────────────────────────────────────────

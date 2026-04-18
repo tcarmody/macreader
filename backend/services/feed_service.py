@@ -1,18 +1,21 @@
 """
 Feed service: business logic for feed management operations.
 
-Handles feed subscription, refresh, and OPML import/export.
+Handles feed subscription, refresh, OPML import/export, and feed discovery.
 """
 
+import re
 from typing import TYPE_CHECKING
+from urllib.parse import urljoin, urlparse
 
+import httpx
 from fastapi import BackgroundTasks, HTTPException
 
 from ..database import Database
 from ..database.models import DBFeed
 from ..exceptions import require_feed
 from ..opml import parse_opml, generate_opml, OPMLFeed
-from ..schemas import OPMLImportResult
+from ..schemas import OPMLImportResult, DiscoveredFeed
 from ..tasks import refresh_all_feeds, refresh_single_feed, fetch_feed_articles
 
 if TYPE_CHECKING:
@@ -95,6 +98,75 @@ class FeedService:
             raise HTTPException(status_code=500, detail="Failed to retrieve feed")
 
         return db_feed
+
+    async def discover(self, url: str) -> list[DiscoveredFeed]:
+        """
+        Discover RSS/Atom feeds at a given URL.
+
+        Two-tier approach:
+        1. Parse <link rel="alternate"> tags from the page HTML
+        2. Probe common feed paths if no link tags found
+        """
+        # Normalise: ensure scheme present
+        if not url.startswith(("http://", "https://")):
+            url = "https://" + url
+
+        candidates: list[DiscoveredFeed] = []
+
+        headers = {"User-Agent": "DataPointsAI/1.0 (feed discovery)"}
+        try:
+            async with httpx.AsyncClient(follow_redirects=True, timeout=10) as client:
+                resp = await client.get(url, headers=headers)
+                resp.raise_for_status()
+                html = resp.text
+                final_url = str(resp.url)
+        except httpx.HTTPError as e:
+            raise HTTPException(status_code=400, detail=f"Could not fetch URL: {e}")
+
+        # Tier 1: <link rel="alternate" type="application/rss+xml|atom+xml">
+        pattern = re.compile(
+            r'<link[^>]+rel=["\']alternate["\'][^>]*>',
+            re.IGNORECASE,
+        )
+        type_pattern = re.compile(r'type=["\']application/(rss|atom)\+xml["\']', re.IGNORECASE)
+        href_pattern = re.compile(r'href=["\']([^"\']+)["\']', re.IGNORECASE)
+        title_pattern = re.compile(r'title=["\']([^"\']*)["\']', re.IGNORECASE)
+
+        for tag in pattern.finditer(html):
+            tag_str = tag.group(0)
+            if not type_pattern.search(tag_str):
+                continue
+            href_match = href_pattern.search(tag_str)
+            if not href_match:
+                continue
+            feed_url = urljoin(final_url, href_match.group(1))
+            title_match = title_pattern.search(tag_str)
+            candidates.append(DiscoveredFeed(
+                url=feed_url,
+                title=title_match.group(1) if title_match else None,
+            ))
+
+        if candidates:
+            return candidates
+
+        # Tier 2: probe common paths
+        base = f"{urlparse(final_url).scheme}://{urlparse(final_url).netloc}"
+        common_paths = ["/feed", "/rss", "/feed.xml", "/rss.xml", "/atom.xml", "/feed/atom"]
+        async with httpx.AsyncClient(follow_redirects=True, timeout=8) as client:
+            for path in common_paths:
+                probe_url = base + path
+                try:
+                    r = await client.get(probe_url, headers=headers)
+                    content_type = r.headers.get("content-type", "")
+                    if r.status_code == 200 and any(
+                        ct in content_type for ct in ("rss", "atom", "xml")
+                    ):
+                        candidates.append(DiscoveredFeed(url=probe_url))
+                        break
+                except httpx.HTTPError:
+                    continue
+
+        return candidates
 
     def unsubscribe(self, feed_id: int) -> None:
         """

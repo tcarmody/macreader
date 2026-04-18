@@ -18,6 +18,8 @@ from ..schemas import (
     OPMLImportRequest,
     OPMLImportResult,
     OPMLImportResponse,
+    DiscoverFeedsRequest,
+    DiscoverFeedsResponse,
 )
 from ..opml import parse_opml, generate_opml, OPMLFeed
 from ..tasks import refresh_all_feeds, refresh_single_feed, fetch_feed_articles
@@ -75,6 +77,19 @@ async def add_feed(
         raise HTTPException(status_code=500, detail="Failed to retrieve feed")
 
     return FeedResponse.from_db(db_feed)
+
+
+@router.post("/discover")
+async def discover_feeds(
+    request: DiscoverFeedsRequest,
+    db: Annotated[Database, Depends(get_db)],
+    _admin: Annotated[int, Depends(require_admin)] = 0,
+) -> DiscoverFeedsResponse:
+    """Discover RSS/Atom feeds at a given website URL."""
+    from ..services.feed_service import FeedService
+    service = FeedService(db=db, feed_parser=state.feed_parser)
+    feeds = await service.discover(request.url)
+    return DiscoverFeedsResponse(feeds=feeds)
 
 
 @router.delete("/{feed_id}")
