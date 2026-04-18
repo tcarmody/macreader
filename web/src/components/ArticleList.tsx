@@ -26,6 +26,7 @@ import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
 import { BadgePulse } from '@/components/ui/badge-pulse'
 import { Tooltip } from '@/components/ui/tooltip'
+import { SmartTooltip } from '@/components/ui/smart-tooltip'
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -339,13 +340,15 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
             )
 
             return showInfo ? (
-              <Tooltip
+              <SmartTooltip
                 key={option.value}
-                content="AI analyzes and groups similar articles by topic (works best with 10+ articles)"
+                hintId="group-by-topic-tip"
+                title="Group by Topic"
+                body="AI clusters your articles into topic groups. Works best with 10+ unread articles."
                 side="bottom"
               >
                 {buttonContent}
-              </Tooltip>
+              </SmartTooltip>
             ) : buttonContent
           })}
         </div>

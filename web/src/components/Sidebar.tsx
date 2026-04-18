@@ -33,6 +33,8 @@ import { Separator } from '@/components/ui/separator'
 import { Badge } from '@/components/ui/badge'
 import { Tooltip } from '@/components/ui/tooltip'
 import { BadgePulse } from '@/components/ui/badge-pulse'
+import { SmartTooltip } from '@/components/ui/smart-tooltip'
+import { CoachMark } from '@/components/ui/coach-mark'
 import { Dialog } from '@/components/ui/dialog'
 import { useAppStore } from '@/store/app-store'
 import {
@@ -242,6 +244,12 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
       {/* Search */}
       <div className="px-4 pb-2">
         <form onSubmit={handleSearch}>
+          <SmartTooltip
+            hintId="search-tip"
+            title="Full-text search"
+            body="Search across article titles, content, and AI summaries. Press '/' to focus instantly."
+            side="bottom"
+          >
           <div className="relative">
             <Search className="absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
             <Input
@@ -271,6 +279,7 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
               </button>
             )}
           </div>
+          </SmartTooltip>
         </form>
       </div>
 
@@ -538,21 +547,38 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
                 </span>
                 <div className="flex gap-0.5">
                   {rssFeeds.length > 0 && (
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      className="h-6 px-2 text-xs"
-                      onClick={onManageFeeds}
-                      title="Bulk edit, organize, and manage your feeds"
+                    <SmartTooltip
+                      hintId="feed-manager-tip"
+                      title="Feed Manager"
+                      body="Bulk-edit categories, delete feeds, and organize your subscriptions."
+                      side="bottom"
                     >
-                      <ListFilter className="h-3 w-3 mr-1" />
-                      Manage ({rssFeeds.length})
-                    </Button>
+                      <Button
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 px-2 text-xs"
+                        onClick={onManageFeeds}
+                      >
+                        <ListFilter className="h-3 w-3 mr-1" />
+                        Manage ({rssFeeds.length})
+                      </Button>
+                    </SmartTooltip>
                   )}
                   {isAdmin && (
-                    <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onAddFeed} title="Add feed">
-                      <Plus className="h-3 w-3" />
-                    </Button>
+                    <span className="relative inline-flex items-center">
+                      <Button variant="ghost" size="icon" className="h-6 w-6" onClick={onAddFeed} title="Add feed">
+                        <Plus className="h-3 w-3" />
+                      </Button>
+                      {rssFeeds.length === 0 && (
+                        <CoachMark
+                          hintId="add-feed-coach"
+                          title="Add your first feed"
+                          body="Paste any RSS/Atom URL or website URL — we'll auto-detect the feed."
+                          side="bottom"
+                          className="absolute -top-0.5 -right-0.5"
+                        />
+                      )}
+                    </span>
                   )}
                 </div>
               </div>
@@ -673,10 +699,18 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
 
       {/* Footer */}
       <div className="p-2 border-t border-border flex items-center gap-1">
-        <Button variant="ghost" className="flex-1 justify-start" onClick={onOpenSettings}>
-          <Settings className="h-4 w-4 mr-2" />
-          Settings
-        </Button>
+        <SmartTooltip
+          hintId="settings-tip"
+          title="Settings"
+          body="Configure your backend URL, AI provider, theme, and more."
+          side="top"
+          className="flex-1"
+        >
+          <Button variant="ghost" className="w-full justify-start" onClick={onOpenSettings}>
+            <Settings className="h-4 w-4 mr-2" />
+            Settings
+          </Button>
+        </SmartTooltip>
         <Tooltip content="Keyboard shortcuts">
           <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={() => setShortcutsOpen(true)}>
             <Keyboard className="h-4 w-4" />

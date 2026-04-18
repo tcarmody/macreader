@@ -20,6 +20,7 @@ import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Separator } from '@/components/ui/separator'
 import { Tooltip } from '@/components/ui/tooltip'
+import { SmartTooltip } from '@/components/ui/smart-tooltip'
 import { useToast } from '@/components/ui/toast'
 import {
   DropdownMenu,
@@ -277,15 +278,22 @@ export function ArticleDetail() {
           )}
         </Button>
 
-        <Button
-          variant="ghost"
-          size="sm"
-          onClick={handleToggleBookmark}
-          className={cn(article.is_bookmarked && "text-amber-500")}
+        <SmartTooltip
+          hintId="bookmark-tip"
+          title="Save for later"
+          body="Bookmarked articles appear under the Bookmarked filter and in your Library."
+          side="bottom"
         >
-          <BookMarked className={cn("h-4 w-4 mr-1", article.is_bookmarked && "fill-amber-500")} />
-          {article.is_bookmarked ? 'Saved' : 'Save'}
-        </Button>
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={handleToggleBookmark}
+            className={cn(article.is_bookmarked && "text-amber-500")}
+          >
+            <BookMarked className={cn("h-4 w-4 mr-1", article.is_bookmarked && "fill-amber-500")} />
+            {article.is_bookmarked ? 'Saved' : 'Save'}
+          </Button>
+        </SmartTooltip>
 
         <Separator orientation="vertical" className="h-6" />
 
@@ -554,10 +562,17 @@ export function ArticleDetail() {
                       <p className="text-lg font-medium mb-1">No summary yet</p>
                       <p className="text-sm">Generate an AI summary to see key insights and highlights</p>
                     </div>
-                    <Button onClick={handleSummarize} disabled={!!article.summary_full}>
-                      <Sparkles className="h-4 w-4 mr-2" />
-                      Generate Summary
-                    </Button>
+                    <SmartTooltip
+                      hintId="summarize-tip"
+                      title="AI Summarization"
+                      body="Generates key points, a one-sentence brief, and a full summary using Claude or GPT."
+                      side="top"
+                    >
+                      <Button onClick={handleSummarize} disabled={!!article.summary_full}>
+                        <Sparkles className="h-4 w-4 mr-2" />
+                        Generate Summary
+                      </Button>
+                    </SmartTooltip>
                   </div>
                 )}
               </div>

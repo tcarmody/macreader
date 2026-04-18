@@ -39,6 +39,10 @@ interface AppState {
   // First-Time Toast Tracking
   shownToasts: Set<string>
 
+  // Contextual Hint Tracking (SmartTooltip / CoachMark)
+  hintViewCounts: Record<string, number>
+  dismissedHints: Set<string>
+
   // API Configuration
   apiConfig: ApiKeyConfig
 
@@ -62,6 +66,9 @@ interface AppState {
   markFeatureUsed: (feature: keyof AppState['featureUsage']) => void
   markToastShown: (toastId: string) => void
   hasShownToast: (toastId: string) => boolean
+  recordHintView: (hintId: string) => void
+  dismissHint: (hintId: string) => void
+  isHintActive: (hintId: string, maxViews?: number) => boolean
 }
 
 export const useAppStore = create<AppState>()(
@@ -100,6 +107,10 @@ export const useAppStore = create<AppState>()(
 
       // Initial Toast Tracking
       shownToasts: new Set<string>(),
+
+      // Initial Hint Tracking
+      hintViewCounts: {},
+      dismissedHints: new Set<string>(),
 
       // Initial API Configuration
       apiConfig: {
@@ -156,6 +167,19 @@ export const useAppStore = create<AppState>()(
         shownToasts: new Set([...state.shownToasts, toastId]),
       })),
       hasShownToast: (toastId) => get().shownToasts.has(toastId),
+      recordHintView: (hintId) => set((state) => ({
+        hintViewCounts: {
+          ...state.hintViewCounts,
+          [hintId]: (state.hintViewCounts[hintId] ?? 0) + 1,
+        },
+      })),
+      dismissHint: (hintId) => set((state) => ({
+        dismissedHints: new Set([...state.dismissedHints, hintId]),
+      })),
+      isHintActive: (hintId, maxViews = 5) => {
+        const s = get()
+        return !s.dismissedHints.has(hintId) && (s.hintViewCounts[hintId] ?? 0) < maxViews
+      },
     }),
     {
       name: 'datapoints-app-storage',
@@ -171,18 +195,25 @@ export const useAppStore = create<AppState>()(
         hideDuplicates: state.hideDuplicates,
         searchIncludeSummaries: state.searchIncludeSummaries,
         featureUsage: state.featureUsage,
-        // Convert Set to Array for JSON serialization
+        // Convert Sets to Arrays for JSON serialization
         shownToasts: [...state.shownToasts],
+        hintViewCounts: state.hintViewCounts,
+        dismissedHints: [...state.dismissedHints],
         apiConfig: state.apiConfig,
       }),
       // Convert Array back to Set on rehydration
       merge: (persistedState, currentState) => ({
         ...currentState,
         ...(persistedState as object),
-        // Ensure shownToasts is always a Set
         shownToasts: new Set(
           Array.isArray((persistedState as { shownToasts?: string[] })?.shownToasts)
             ? (persistedState as { shownToasts: string[] }).shownToasts
+            : []
+        ),
+        hintViewCounts: (persistedState as { hintViewCounts?: Record<string, number> })?.hintViewCounts ?? {},
+        dismissedHints: new Set(
+          Array.isArray((persistedState as { dismissedHints?: string[] })?.dismissedHints)
+            ? (persistedState as { dismissedHints: string[] }).dismissedHints
             : []
         ),
       }),
