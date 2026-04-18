@@ -6,6 +6,7 @@ interface UseKeyboardShortcutsOptions {
   onOpenSettings?: () => void
   onOpenAddFeed?: () => void
   onOpenFeedManager?: () => void
+  onOpenHelp?: () => void
 }
 
 export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) {
@@ -122,4 +123,9 @@ export function useKeyboardShortcuts(options: UseKeyboardShortcutsOptions = {}) 
   useHotkeys('mod+shift+f', () => {
     options.onOpenFeedManager?.()
   }, { preventDefault: true }, [options.onOpenFeedManager])
+
+  // ? - open help
+  useHotkeys('shift+/', () => {
+    options.onOpenHelp?.()
+  }, { preventDefault: true }, [options.onOpenHelp])
 }

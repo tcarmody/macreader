@@ -13,6 +13,7 @@ import { SettingsDialog } from '@/components/SettingsDialog'
 import { AddFeedDialog } from '@/components/AddFeedDialog'
 import { FeedManagerDialog } from '@/components/FeedManagerDialog'
 import { LoginScreen } from '@/components/LoginScreen'
+import { HelpPanel } from '@/components/HelpPanel'
 import { useAppStore, applyTheme, applyDesignStyle } from '@/store/app-store'
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts'
 import { useAuthStatus } from '@/hooks/use-queries'
@@ -47,6 +48,7 @@ function AppContent() {
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [addFeedOpen, setAddFeedOpen] = useState(false)
   const [feedManagerOpen, setFeedManagerOpen] = useState(false)
+  const [helpOpen, setHelpOpen] = useState(false)
 
   // Handle OAuth token from URL (workaround for third-party cookie blocking)
   useEffect(() => {
@@ -96,6 +98,7 @@ function AppContent() {
     onOpenSettings: () => setSettingsOpen(true),
     onOpenAddFeed: () => setAddFeedOpen(true),
     onOpenFeedManager: () => setFeedManagerOpen(true),
+    onOpenHelp: () => setHelpOpen(true),
   })
 
   if (needsSetup) {
@@ -231,6 +234,7 @@ function AppContent() {
         onOpenSettings={() => setSettingsOpen(true)}
         onAddFeed={() => setAddFeedOpen(true)}
         onManageFeeds={() => setFeedManagerOpen(true)}
+        onOpenHelp={() => setHelpOpen(true)}
       />
 
       {/* Main Content */}
@@ -249,6 +253,9 @@ function AppContent() {
           <LibraryItemDetail />
         </>
       )}
+
+      {/* Help Panel */}
+      <HelpPanel isOpen={helpOpen} onClose={() => setHelpOpen(false)} />
 
       {/* Dialogs */}
       <SettingsDialog isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />

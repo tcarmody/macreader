@@ -24,6 +24,7 @@ import {
   Pin,
   X,
   Keyboard,
+  HelpCircle,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -47,9 +48,10 @@ interface SidebarProps {
   onOpenSettings: () => void
   onAddFeed: () => void
   onManageFeeds: () => void
+  onOpenHelp: () => void
 }
 
-export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarProps) {
+export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds, onOpenHelp }: SidebarProps) {
   const {
     selectedFilter,
     setSelectedFilter,
@@ -716,6 +718,11 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
             <Keyboard className="h-4 w-4" />
           </Button>
         </Tooltip>
+        <Tooltip content="Help Center (?)">
+          <Button variant="ghost" size="icon" className="h-9 w-9 shrink-0" onClick={onOpenHelp}>
+            <HelpCircle className="h-4 w-4" />
+          </Button>
+        </Tooltip>
       </div>
 
       <Dialog isOpen={shortcutsOpen} onClose={() => setShortcutsOpen(false)} title="Keyboard Shortcuts">
@@ -731,6 +738,7 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds }: SidebarPro
             ['Clear search', 'Esc'],
             ['Settings', '⌘ ,'],
             ['Add new feed', '⌘ N'],
+            ['Open help', '?'],
           ].map(([label, key]) => (
             <div key={label} className="flex justify-between items-center">
               <span className="text-muted-foreground">{label}</span>
