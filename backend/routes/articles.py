@@ -559,6 +559,37 @@ async def find_related_links(
     return {"success": True, "message": "Finding related links..."}
 
 
+@router.post("/{article_id}/promote")
+async def promote_to_composer(
+    article_id: int,
+    db: Annotated[Database, Depends(get_db)],
+) -> dict:
+    """Promote an article to the Composer research workbench."""
+    from .. import composer_client
+
+    if not composer_client.is_configured():
+        raise HTTPException(
+            status_code=503,
+            detail="Composer integration is not configured",
+        )
+
+    article = require_article(db.get_article(article_id))
+
+    try:
+        result = await composer_client.promote_article(article)
+    except composer_client.ComposerError as exc:
+        raise HTTPException(status_code=502, detail=str(exc))
+
+    db.articles.mark_promoted_to_composer(article_id)
+
+    return {
+        "success": True,
+        "composer_id": result.composer_id,
+        "composer_url": result.composer_url,
+        "already_existed": result.already_existed,
+    }
+
+
 @router.post("/{article_id}/extract-source")
 async def extract_source_url(
     article_id: int,

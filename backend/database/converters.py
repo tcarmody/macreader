@@ -98,6 +98,7 @@ def row_to_article(row: sqlite3.Row) -> DBArticle:
         related_links=safe_get("related_links"),
         extracted_keywords=safe_get("extracted_keywords"),
         related_links_error=safe_get("related_links_error"),
+        promoted_to_composer=parse_datetime(safe_get("promoted_to_composer")),
         brief=safe_get("brief"),
         has_chat=safe_get_bool("has_chat"),
     )

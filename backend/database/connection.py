@@ -166,6 +166,9 @@ class DatabaseConnection:
             self._migrate_add_column(connection, "articles", "extracted_keywords", "TEXT")
             self._migrate_add_column(connection, "articles", "related_links_error", "TEXT")
 
+            # Composer integration: timestamp when article was promoted to Composer
+            self._migrate_add_column(connection, "articles", "promoted_to_composer", "TIMESTAMP")
+
             # Create notification_rules table for smart notifications
             connection.executescript("""
                 CREATE TABLE IF NOT EXISTS notification_rules (

@@ -22,7 +22,7 @@ class ArticleRepository:
         a.published_at, a.created_at, a.source_url, a.content_type, a.file_name,
         a.file_path, a.reading_time_minutes, a.word_count, a.featured_image,
         a.has_code_blocks, a.site_name, a.user_id, a.feed_name, a.related_links,
-        a.extracted_keywords, a.related_links_error
+        a.extracted_keywords, a.related_links_error, a.promoted_to_composer
     """.strip()
 
     def __init__(self, db: DatabaseConnection):
@@ -222,6 +222,17 @@ class ArticleRepository:
             conn.execute(
                 "UPDATE articles SET source_url = ? WHERE id = ?",
                 (source_url, article_id)
+            )
+
+    def mark_promoted_to_composer(
+        self, article_id: int, when: datetime | None = None
+    ) -> None:
+        """Stamp article as promoted to Composer."""
+        ts = (when or datetime.now()).isoformat()
+        with self._db.conn() as conn:
+            conn.execute(
+                "UPDATE articles SET promoted_to_composer = ? WHERE id = ?",
+                (ts, article_id),
             )
 
     def update_summary(

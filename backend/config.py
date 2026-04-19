@@ -60,6 +60,11 @@ class Config:
     EXA_API_KEY: str = os.getenv("EXA_API_KEY", "")
     ENABLE_RELATED_LINKS: bool = _parse_bool(os.getenv("ENABLE_RELATED_LINKS"), default=True)
 
+    # Composer integration: promote articles to the Composer research workbench
+    # Leave blank to disable the feature entirely.
+    COMPOSER_URL: str = os.getenv("COMPOSER_URL", "")
+    COMPOSER_INGEST_KEY: str = os.getenv("COMPOSER_INGEST_KEY", "")
+
     # Legacy alias for backwards compatibility
     API_KEY: str = ANTHROPIC_API_KEY
 

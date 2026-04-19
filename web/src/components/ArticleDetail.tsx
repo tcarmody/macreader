@@ -12,6 +12,7 @@ import {
   ClipboardPaste,
   X,
   Plus,
+  Send,
 } from 'lucide-react'
 import { cn, formatFullDate, getDomain, smartQuotes } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -37,6 +38,7 @@ import {
   useExtractFromHtml,
   useSummarizeArticle,
   useFindRelatedLinks,
+  usePromoteToComposer,
   useChatHistory,
 } from '@/hooks/use-queries'
 import { ArticleChat } from './ArticleChat'
@@ -53,6 +55,7 @@ export function ArticleDetail() {
   const extractFromHtml = useExtractFromHtml()
   const summarize = useSummarizeArticle()
   const findRelated = useFindRelatedLinks()
+  const promoteToComposer = usePromoteToComposer()
   const { data: chatHistory } = useChatHistory(selectedArticleId)
   const { showToast } = useToast()
 
@@ -201,6 +204,22 @@ export function ArticleDetail() {
     findRelated.mutate(article.id)
   }
 
+  const handlePromoteToComposer = () => {
+    promoteToComposer.mutate(article.id, {
+      onSuccess: (res) => {
+        showToast(
+          res.already_existed
+            ? 'Already in Composer'
+            : 'Sent to Composer',
+          'success'
+        )
+      },
+      onError: (error) => {
+        showToast(`Send to Composer failed: ${error.message}`, 'warning')
+      },
+    })
+  }
+
   const handleShare = async () => {
     if (navigator.share) {
       await navigator.share({
@@ -327,6 +346,32 @@ export function ArticleDetail() {
         </DropdownMenu>
 
         <div className="ml-auto flex items-center gap-0.5">
+          <Tooltip
+            content={
+              article.promoted_to_composer
+                ? 'Already in Composer'
+                : 'Send to Composer'
+            }
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+              onClick={handlePromoteToComposer}
+              disabled={
+                promoteToComposer.isPending ||
+                !!article.promoted_to_composer
+              }
+            >
+              {promoteToComposer.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : article.promoted_to_composer ? (
+                <Check className="h-4 w-4 text-green-600" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+            </Button>
+          </Tooltip>
           <Tooltip content="Share">
             <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={handleShare}>
               <Share2 className="h-4 w-4" />

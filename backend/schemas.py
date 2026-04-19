@@ -140,6 +140,9 @@ class ArticleDetailResponse(BaseModel):
     related_links: list[RelatedLink] | None = None
     related_links_error: str | None = None
 
+    # Timestamp when promoted to Composer (None = not promoted)
+    promoted_to_composer: str | None = None
+
     @classmethod
     def from_db(cls, article: DBArticle) -> "ArticleDetailResponse":
         # Parse related links from JSON
@@ -176,6 +179,7 @@ class ArticleDetailResponse(BaseModel):
             feed_name=article.feed_name,
             related_links=related_links,
             related_links_error=article.related_links_error,
+            promoted_to_composer=serialize_datetime(article.promoted_to_composer),
         )
 
 

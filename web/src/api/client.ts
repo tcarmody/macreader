@@ -286,6 +286,19 @@ export async function findRelatedLinks(
   return fetchApi(`/articles/${articleId}/related`, { method: 'POST' })
 }
 
+export interface PromoteResponse {
+  success: boolean
+  composer_id: string
+  composer_url: string
+  already_existed: boolean
+}
+
+export async function promoteArticleToComposer(
+  articleId: number
+): Promise<PromoteResponse> {
+  return fetchApi(`/articles/${articleId}/promote`, { method: 'POST' })
+}
+
 // Search
 export async function searchArticles(query: string, includeSummaries: boolean = true): Promise<Article[]> {
   const params = new URLSearchParams({ q: query })

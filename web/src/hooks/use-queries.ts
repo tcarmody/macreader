@@ -363,6 +363,16 @@ export function useSummarizeArticle() {
   })
 }
 
+export function usePromoteToComposer() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: api.promoteArticleToComposer,
+    onSuccess: (_, articleId) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.article(articleId) })
+    },
+  })
+}
+
 export function useFindRelatedLinks() {
   const { startPolling } = useSummarizationPolling()
   return useMutation({
