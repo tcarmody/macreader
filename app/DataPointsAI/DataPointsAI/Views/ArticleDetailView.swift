@@ -25,6 +25,9 @@ struct ArticleDetailView: View {
     @State private var loginURL: URL?
     @State private var loginSiteTitle: String = ""
     @State private var hasChatHistory: Bool = false
+    @State private var isPromoting: Bool = false
+    @State private var promoteError: String?
+    @State private var locallyPromotedAt: [Int: Date] = [:]
 
     var body: some View {
         Group {
@@ -49,6 +52,7 @@ struct ArticleDetailView: View {
             contentHeight = 0
             activeTab = .article
             hasChatHistory = false
+            promoteError = nil
         }
         .onChange(of: appState.selectedArticleDetail?.relatedLinks?.count) { _, newCount in
             // Auto-switch to Related tab when links arrive, if user is still on Article tab
@@ -677,6 +681,8 @@ struct ArticleDetailView: View {
             .disabled(appState.isLoadingRelated)
             .help("Find related articles using neural search")
 
+            composerButton(article: article)
+
             Spacer()
 
             // Share menu with options
@@ -713,6 +719,55 @@ struct ArticleDetailView: View {
             }
             .buttonStyle(.bordered)
             .fixedSize()
+        }
+        .overlay(alignment: .bottomLeading) {
+            if let msg = promoteError {
+                Label(msg, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .padding(.top, 36)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func composerButton(article: ArticleDetail) -> some View {
+        let alreadyPromoted = article.promotedToComposer != nil
+            || locallyPromotedAt[article.id] != nil
+        Button {
+            promoteToComposer(article: article)
+        } label: {
+            if isPromoting {
+                HStack(spacing: 6) {
+                    ProgressView().scaleEffect(0.7)
+                    Text("Sending…")
+                }
+            } else if alreadyPromoted {
+                Label("In Composer", systemImage: "checkmark.circle.fill")
+            } else {
+                Label("Send to Composer", systemImage: "paperplane")
+            }
+        }
+        .buttonStyle(.borderedProminent)
+        .tint(alreadyPromoted ? .green : .accentColor)
+        .disabled(isPromoting || alreadyPromoted)
+        .help(alreadyPromoted
+              ? "This article is already in the Composer research workbench"
+              : "Send this article to the Composer research workbench")
+    }
+
+    private func promoteToComposer(article: ArticleDetail) {
+        guard !isPromoting else { return }
+        isPromoting = true
+        promoteError = nil
+        Task {
+            defer { isPromoting = false }
+            do {
+                _ = try await appState.apiClient.promoteToComposer(articleId: article.id)
+                locallyPromotedAt[article.id] = Date()
+            } catch {
+                promoteError = "Composer: \(error.localizedDescription)"
+            }
         }
     }
 

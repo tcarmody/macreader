@@ -107,6 +107,10 @@ final class APIClient {
         let _: EmptyResponse = try await post(path: "/articles/\(articleId)/related")
     }
 
+    func promoteToComposer(articleId: Int) async throws -> PromoteToComposerResponse {
+        return try await post(path: "/articles/\(articleId)/promote")
+    }
+
     // MARK: - Bulk Article Operations
 
     func bulkMarkRead(articleIds: [Int], isRead: Bool = true) async throws {

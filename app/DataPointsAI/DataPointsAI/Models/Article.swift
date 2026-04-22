@@ -161,6 +161,9 @@ struct ArticleDetail: Identifiable, Codable, Sendable {
     let relatedLinks: [RelatedLink]?
     let relatedLinksError: String?
 
+    // ISO8601 timestamp of when this article was sent to Composer; nil if not promoted.
+    var promotedToComposer: String? = nil
+
     enum CodingKeys: String, CodingKey {
         case id
         case feedId = "feed_id"
@@ -183,6 +186,7 @@ struct ArticleDetail: Identifiable, Codable, Sendable {
         case siteName = "site_name"
         case relatedLinks = "related_links"
         case relatedLinksError = "related_links_error"
+        case promotedToComposer = "promoted_to_composer"
     }
 
     /// The best URL to open - prefers source URL over aggregator URL

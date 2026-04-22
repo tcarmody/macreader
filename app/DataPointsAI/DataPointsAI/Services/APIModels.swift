@@ -166,6 +166,20 @@ extension APIClient {
         let success: Bool
         let count: Int
     }
+
+    struct PromoteToComposerResponse: Codable, Sendable {
+        let success: Bool
+        let composerId: String
+        let composerUrl: String
+        let alreadyExisted: Bool
+
+        enum CodingKeys: String, CodingKey {
+            case success
+            case composerId = "composer_id"
+            case composerUrl = "composer_url"
+            case alreadyExisted = "already_existed"
+        }
+    }
 }
 
 // MARK: - Feed Requests/Responses
