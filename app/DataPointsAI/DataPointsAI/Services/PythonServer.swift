@@ -138,7 +138,9 @@ class PythonServer: ObservableObject {
             DispatchQueue.global(qos: .userInitiated).async {
                 let process = Process()
                 process.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
-                process.arguments = ["-ti", ":\(portNumber)"]
+                // -sTCP:LISTEN ensures we only match the listening server,
+                // not client processes (including this app) with open connections.
+                process.arguments = ["-ti", ":\(portNumber)", "-sTCP:LISTEN"]
 
                 let pipe = Pipe()
                 process.standardOutput = pipe
@@ -165,7 +167,10 @@ class PythonServer: ObservableObject {
             DispatchQueue.global(qos: .userInitiated).async {
                 let findProcess = Process()
                 findProcess.executableURL = URL(fileURLWithPath: "/usr/sbin/lsof")
-                findProcess.arguments = ["-ti", ":\(portNumber)"]
+                // -sTCP:LISTEN is critical: without it, lsof also returns any
+                // client PIDs with open connections to this port — including
+                // this app itself — causing kill -9 to terminate the app.
+                findProcess.arguments = ["-ti", ":\(portNumber)", "-sTCP:LISTEN"]
 
                 let pipe = Pipe()
                 findProcess.standardOutput = pipe
