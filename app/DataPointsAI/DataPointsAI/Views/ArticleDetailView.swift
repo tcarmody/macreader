@@ -60,6 +60,23 @@ struct ArticleDetailView: View {
                 withAnimation(.easeInOut(duration: 0.15)) { activeTab = .related }
             }
         }
+        .onChange(of: appState.pendingDetailTab) { _, newTab in
+            // Consume pending-tab requests from the article-row context menu.
+            // Mirror the tab-button side effects so jumping to AI/Related from
+            // the list kicks off the same background loads a click would.
+            guard let tab = newTab, let article = appState.selectedArticleDetail else { return }
+            let hasSummary = article.summaryFull != nil
+            let hasRelated = article.relatedLinks?.isEmpty == false
+            withAnimation(.easeInOut(duration: 0.15)) {
+                if tab == .ai && !hasSummary && !isSummarizing {
+                    startSummarization(articleId: article.id)
+                } else if tab == .related && !hasRelated && !appState.isLoadingRelated {
+                    Task { await appState.loadRelatedLinks(for: article.id) }
+                }
+                activeTab = tab
+            }
+            appState.pendingDetailTab = nil
+        }
         .toolbar {
             toolbarContent
         }

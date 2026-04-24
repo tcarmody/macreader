@@ -211,6 +211,43 @@ struct ArticleRow: View {
             ShareLink(item: article.url) {
                 Label("Share", systemImage: "square.and.arrow.up")
             }
+
+            Divider()
+
+            // AI actions
+            let hasSummary = article.summaryShort != nil
+            Button {
+                appState.triggerSummarization(articleId: article.id)
+            } label: {
+                Label(
+                    hasSummary ? "Regenerate Summary" : "Summarize",
+                    systemImage: hasSummary ? "arrow.clockwise" : "sparkles"
+                )
+            }
+
+            Button {
+                Task {
+                    await appState.openArticle(article, tab: .chat)
+                }
+            } label: {
+                Label("Chat with Article", systemImage: "bubble.left.and.bubble.right")
+            }
+
+            Button {
+                Task {
+                    await appState.openArticle(article, tab: .related)
+                }
+            } label: {
+                Label("Find Related Articles", systemImage: "link.circle")
+            }
+
+            Button {
+                Task {
+                    try? await appState.promoteArticleToComposer(articleId: article.id)
+                }
+            } label: {
+                Label("Send to Composer", systemImage: "paperplane")
+            }
         }
 
         // Mark Above/Below as Read
@@ -229,17 +266,9 @@ struct ArticleRow: View {
         }
 
         // Selection management
-        if hasSelection {
+        if !isInSelection {
             Divider()
 
-            Button {
-                appState.selectedArticleIds.removeAll()
-            } label: {
-                Label("Clear Selection", systemImage: "xmark.circle")
-            }
-        }
-
-        if !isInSelection {
             Button {
                 appState.selectedArticleIds.insert(article.id)
             } label: {

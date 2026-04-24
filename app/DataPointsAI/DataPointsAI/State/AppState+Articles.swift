@@ -204,6 +204,37 @@ extension AppState {
         isLoadingRelated = false
     }
 
+    /// Select an article, load its detail, and switch the detail view to a
+    /// specific tab. Used by the article-row context menu to jump straight to
+    /// Chat / Related / AI tabs. Tab-specific side effects (kicking off a
+    /// summary, fetching related links) are handled by ArticleDetailView when
+    /// it observes `pendingDetailTab`.
+    func openArticle(_ article: Article, tab: DetailTab) async {
+        selectedArticle = article
+        selectedArticleIds = [article.id]
+        await loadArticleDetail(for: article)
+        pendingDetailTab = tab
+    }
+
+    /// Fire-and-forget summarization request. For regenerate flow, the row
+    /// badge / detail view will update on next poll — we don't block or show a
+    /// progress indicator in the list.
+    func triggerSummarization(articleId: Int) {
+        Task {
+            try? await apiClient.summarizeArticle(articleId: articleId)
+        }
+    }
+
+    /// Send an article to the Composer research workbench. Updates the local
+    /// article cache so the "In Composer" state is reflected immediately.
+    func promoteArticleToComposer(articleId: Int) async throws {
+        _ = try await apiClient.promoteToComposer(articleId: articleId)
+        let now = ISO8601DateFormatter().string(from: Date())
+        if selectedArticleDetail?.id == articleId {
+            selectedArticleDetail?.promotedToComposer = now
+        }
+    }
+
     // MARK: - Bulk Article Actions
 
     func bulkMarkRead(articleIds: [Int], isRead: Bool = true) async throws {

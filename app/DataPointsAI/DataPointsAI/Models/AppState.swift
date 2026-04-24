@@ -60,6 +60,11 @@ class AppState: ObservableObject {
     @Published var isLoadingRelated: Bool = false
     @Published var relatedLinksError: String?
 
+    // Pending detail-view tab switch, consumed by ArticleDetailView after the
+    // article loads. Used by the article-row context menu to open an article
+    // directly on a specific tab (e.g. Chat, Related, AI Summary).
+    @Published var pendingDetailTab: DetailTab?
+
     // Pagination state
     @Published var isLoadingMore: Bool = false
     @Published var hasMoreArticles: Bool = true
