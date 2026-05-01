@@ -547,7 +547,7 @@ struct RSSReaderApp: App {
         switch appState.selectedFilter {
         case .all, .unread:
             try await appState.markAllRead()
-        case .today, .bookmarked, .summarized, .unsummarized, .topic, .savedSearch:
+        case .today, .bookmarked, .featured, .summarized, .unsummarized, .topic, .savedSearch:
             let ids = appState.filteredArticles.map { $0.id }
             try await appState.bulkMarkRead(articleIds: ids)
         case .feed(let feedId):

@@ -57,6 +57,12 @@ class DBArticle:
     # Chat existence flag (populated by list queries with EXISTS subquery)
     has_chat: bool = False
 
+    # Featured (admin-curated, globally visible)
+    is_featured: bool = False
+    featured_at: datetime | None = None
+    featured_by_user_id: int | None = None
+    featured_note: str | None = None
+
 
 @dataclass
 class DBUser:

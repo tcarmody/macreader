@@ -59,6 +59,9 @@ struct MainView: View {
         .sheet(isPresented: $appState.showFeedManager) {
             FeedManagerView()
         }
+        .sheet(item: $appState.featureFlowArticle) { article in
+            FeatureArticleSheet(article: article)
+        }
         .alert("Error", isPresented: Binding(
             get: { appState.error != nil },
             set: { if !$0 { appState.error = nil } }

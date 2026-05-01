@@ -47,6 +47,11 @@ struct Article: Identifiable, Codable, Hashable, Sendable {
     let relatedLinkCount: Int?
     let hasChat: Bool?
 
+    // Featured (admin-curated, globally visible)
+    var isFeatured: Bool
+    var featuredAt: Date?
+    var featuredNote: String?
+
     enum CodingKeys: String, CodingKey {
         case id
         case feedId = "feed_id"
@@ -63,6 +68,71 @@ struct Article: Identifiable, Codable, Hashable, Sendable {
         case keyPoints = "key_points"
         case relatedLinkCount = "related_link_count"
         case hasChat = "has_chat"
+        case isFeatured = "is_featured"
+        case featuredAt = "featured_at"
+        case featuredNote = "featured_note"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int.self, forKey: .id)
+        feedId = try c.decode(Int.self, forKey: .feedId)
+        url = try c.decode(URL.self, forKey: .url)
+        sourceUrl = try c.decodeIfPresent(URL.self, forKey: .sourceUrl)
+        title = try c.decode(String.self, forKey: .title)
+        summaryShort = try c.decodeIfPresent(String.self, forKey: .summaryShort)
+        isRead = try c.decode(Bool.self, forKey: .isRead)
+        isBookmarked = try c.decode(Bool.self, forKey: .isBookmarked)
+        publishedAt = try c.decodeIfPresent(Date.self, forKey: .publishedAt)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        readingTimeMinutes = try c.decodeIfPresent(Int.self, forKey: .readingTimeMinutes)
+        author = try c.decodeIfPresent(String.self, forKey: .author)
+        keyPoints = try c.decodeIfPresent([String].self, forKey: .keyPoints)
+        relatedLinkCount = try c.decodeIfPresent(Int.self, forKey: .relatedLinkCount)
+        hasChat = try c.decodeIfPresent(Bool.self, forKey: .hasChat)
+        isFeatured = try c.decodeIfPresent(Bool.self, forKey: .isFeatured) ?? false
+        featuredAt = try c.decodeIfPresent(Date.self, forKey: .featuredAt)
+        featuredNote = try c.decodeIfPresent(String.self, forKey: .featuredNote)
+    }
+
+    init(
+        id: Int,
+        feedId: Int,
+        url: URL,
+        sourceUrl: URL?,
+        title: String,
+        summaryShort: String?,
+        isRead: Bool,
+        isBookmarked: Bool,
+        publishedAt: Date?,
+        createdAt: Date,
+        readingTimeMinutes: Int?,
+        author: String?,
+        keyPoints: [String]?,
+        relatedLinkCount: Int?,
+        hasChat: Bool?,
+        isFeatured: Bool = false,
+        featuredAt: Date? = nil,
+        featuredNote: String? = nil
+    ) {
+        self.id = id
+        self.feedId = feedId
+        self.url = url
+        self.sourceUrl = sourceUrl
+        self.title = title
+        self.summaryShort = summaryShort
+        self.isRead = isRead
+        self.isBookmarked = isBookmarked
+        self.publishedAt = publishedAt
+        self.createdAt = createdAt
+        self.readingTimeMinutes = readingTimeMinutes
+        self.author = author
+        self.keyPoints = keyPoints
+        self.relatedLinkCount = relatedLinkCount
+        self.hasChat = hasChat
+        self.isFeatured = isFeatured
+        self.featuredAt = featuredAt
+        self.featuredNote = featuredNote
     }
 
     /// The best URL to open - prefers source URL over aggregator URL
@@ -164,6 +234,11 @@ struct ArticleDetail: Identifiable, Codable, Sendable {
     // ISO8601 timestamp of when this article was sent to Composer; nil if not promoted.
     var promotedToComposer: String? = nil
 
+    // Featured (admin-curated, globally visible)
+    var isFeatured: Bool
+    var featuredAt: Date?
+    var featuredNote: String?
+
     enum CodingKeys: String, CodingKey {
         case id
         case feedId = "feed_id"
@@ -187,6 +262,92 @@ struct ArticleDetail: Identifiable, Codable, Sendable {
         case relatedLinks = "related_links"
         case relatedLinksError = "related_links_error"
         case promotedToComposer = "promoted_to_composer"
+        case isFeatured = "is_featured"
+        case featuredAt = "featured_at"
+        case featuredNote = "featured_note"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int.self, forKey: .id)
+        feedId = try c.decode(Int.self, forKey: .feedId)
+        url = try c.decode(URL.self, forKey: .url)
+        sourceUrl = try c.decodeIfPresent(URL.self, forKey: .sourceUrl)
+        title = try c.decode(String.self, forKey: .title)
+        content = try c.decodeIfPresent(String.self, forKey: .content)
+        summaryShort = try c.decodeIfPresent(String.self, forKey: .summaryShort)
+        summaryFull = try c.decodeIfPresent(String.self, forKey: .summaryFull)
+        keyPoints = try c.decodeIfPresent([String].self, forKey: .keyPoints)
+        isRead = try c.decode(Bool.self, forKey: .isRead)
+        isBookmarked = try c.decode(Bool.self, forKey: .isBookmarked)
+        publishedAt = try c.decodeIfPresent(Date.self, forKey: .publishedAt)
+        createdAt = try c.decode(Date.self, forKey: .createdAt)
+        author = try c.decodeIfPresent(String.self, forKey: .author)
+        readingTimeMinutes = try c.decodeIfPresent(Int.self, forKey: .readingTimeMinutes)
+        wordCountValue = try c.decodeIfPresent(Int.self, forKey: .wordCountValue)
+        featuredImage = try c.decodeIfPresent(String.self, forKey: .featuredImage)
+        hasCodeBlocks = try c.decodeIfPresent(Bool.self, forKey: .hasCodeBlocks)
+        siteName = try c.decodeIfPresent(String.self, forKey: .siteName)
+        relatedLinks = try c.decodeIfPresent([RelatedLink].self, forKey: .relatedLinks)
+        relatedLinksError = try c.decodeIfPresent(String.self, forKey: .relatedLinksError)
+        promotedToComposer = try c.decodeIfPresent(String.self, forKey: .promotedToComposer)
+        isFeatured = try c.decodeIfPresent(Bool.self, forKey: .isFeatured) ?? false
+        featuredAt = try c.decodeIfPresent(Date.self, forKey: .featuredAt)
+        featuredNote = try c.decodeIfPresent(String.self, forKey: .featuredNote)
+    }
+
+    init(
+        id: Int,
+        feedId: Int,
+        url: URL,
+        sourceUrl: URL?,
+        title: String,
+        content: String?,
+        summaryShort: String?,
+        summaryFull: String?,
+        keyPoints: [String]?,
+        isRead: Bool,
+        isBookmarked: Bool,
+        publishedAt: Date?,
+        createdAt: Date,
+        author: String?,
+        readingTimeMinutes: Int?,
+        wordCountValue: Int?,
+        featuredImage: String?,
+        hasCodeBlocks: Bool?,
+        siteName: String?,
+        relatedLinks: [RelatedLink]?,
+        relatedLinksError: String?,
+        promotedToComposer: String? = nil,
+        isFeatured: Bool = false,
+        featuredAt: Date? = nil,
+        featuredNote: String? = nil
+    ) {
+        self.id = id
+        self.feedId = feedId
+        self.url = url
+        self.sourceUrl = sourceUrl
+        self.title = title
+        self.content = content
+        self.summaryShort = summaryShort
+        self.summaryFull = summaryFull
+        self.keyPoints = keyPoints
+        self.isRead = isRead
+        self.isBookmarked = isBookmarked
+        self.publishedAt = publishedAt
+        self.createdAt = createdAt
+        self.author = author
+        self.readingTimeMinutes = readingTimeMinutes
+        self.wordCountValue = wordCountValue
+        self.featuredImage = featuredImage
+        self.hasCodeBlocks = hasCodeBlocks
+        self.siteName = siteName
+        self.relatedLinks = relatedLinks
+        self.relatedLinksError = relatedLinksError
+        self.promotedToComposer = promotedToComposer
+        self.isFeatured = isFeatured
+        self.featuredAt = featuredAt
+        self.featuredNote = featuredNote
     }
 
     /// The best URL to open - prefers source URL over aggregator URL

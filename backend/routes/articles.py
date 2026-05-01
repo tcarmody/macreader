@@ -7,7 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 
-from ..auth import verify_api_key, get_current_user
+from ..auth import verify_api_key, get_current_user, require_admin
 from ..config import state, get_db
 from ..database import Database
 from ..exceptions import require_article, require_feed
@@ -22,6 +22,7 @@ from ..schemas import (
     ExtractFromHTMLRequest,
     BriefRequest,
     BriefResponse,
+    FeatureArticleRequest,
 )
 from ..tasks import summarize_article
 from ..source_extractor import SourceExtractor
@@ -68,6 +69,7 @@ async def list_articles(
     feed_id: int | None = None,
     unread_only: bool = False,
     bookmarked_only: bool = False,
+    featured_only: bool = False,
     summarized_only: bool | None = None,
     hide_duplicates: bool = False,
     sort_by: str = Query(default="newest", pattern="^(newest|oldest|unread_first|title_asc|title_desc)$"),
@@ -88,6 +90,7 @@ async def list_articles(
         feed_id=feed_id,
         unread_only=unread_only,
         bookmarked_only=bookmarked_only,
+        featured_only=featured_only,
         summarized_only=summarized_only,
         sort_by=sort_by,
         limit=limit,
@@ -331,6 +334,35 @@ async def toggle_bookmark(
     require_article(db.get_article(article_id))
     new_status = db.toggle_bookmark(user_id, article_id)
     return {"success": True, "is_bookmarked": new_status}
+
+
+@router.post("/{article_id}/feature")
+async def feature_article(
+    article_id: int,
+    body: FeatureArticleRequest,
+    db: Annotated[Database, Depends(get_db)],
+    admin_id: Annotated[int, Depends(require_admin)],
+) -> ArticleResponse:
+    """Mark an article as Featured (admin only). Idempotent: re-featuring updates the note."""
+    require_article(db.get_article(article_id))
+    note = body.note.strip() if body.note else None
+    if not db.feature_article(article_id, admin_id, note or None):
+        raise HTTPException(status_code=404, detail="Article not found")
+    article = db.get_article_with_state(article_id, admin_id)
+    return ArticleResponse.from_db(article)
+
+
+@router.delete("/{article_id}/feature")
+async def unfeature_article(
+    article_id: int,
+    db: Annotated[Database, Depends(get_db)],
+    admin_id: Annotated[int, Depends(require_admin)],
+) -> ArticleResponse:
+    """Remove an article from Featured (admin only)."""
+    require_article(db.get_article(article_id))
+    db.unfeature_article(article_id)
+    article = db.get_article_with_state(article_id, admin_id)
+    return ArticleResponse.from_db(article)
 
 
 @router.post("/{article_id}/fetch-content")

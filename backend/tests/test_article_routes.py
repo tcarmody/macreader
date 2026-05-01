@@ -255,3 +255,124 @@ class TestGroupedArticles:
         """Should reject invalid group_by value."""
         response = client.get("/articles/grouped?group_by=invalid")
         assert response.status_code == 422
+
+
+class TestFeatureArticle:
+    """Tests for POST/DELETE /articles/{article_id}/feature endpoints and featured_only filter."""
+
+    def test_feature_article(self, client_with_data):
+        """Featuring an article sets is_featured=true and stores the editorial note."""
+        client, data = client_with_data
+        article_id = data["article_ids"][0]
+        response = client.post(
+            f"/articles/{article_id}/feature",
+            json={"note": "Editor's pick of the week."},
+        )
+        assert response.status_code == 200
+        body = response.json()
+        assert body["id"] == article_id
+        assert body["is_featured"] is True
+        assert body["featured_note"] == "Editor's pick of the week."
+        assert body["featured_at"] is not None
+
+    def test_feature_article_not_found(self, client):
+        """Featuring a missing article returns 404."""
+        response = client.post("/articles/99999/feature", json={"note": None})
+        assert response.status_code == 404
+
+    def test_refeaturing_updates_note_only(self, client_with_data):
+        """Re-featuring an already-featured article updates the note without duplicating."""
+        client, data = client_with_data
+        article_id = data["article_ids"][0]
+        client.post(f"/articles/{article_id}/feature", json={"note": "first"})
+        response = client.post(
+            f"/articles/{article_id}/feature", json={"note": "second"}
+        )
+        assert response.status_code == 200
+        assert response.json()["featured_note"] == "second"
+
+        # Total featured count should still be 1
+        stats = client.get("/stats").json()
+        assert stats["featured_articles"] == 1
+
+    def test_unfeature_article(self, client_with_data):
+        """Unfeaturing clears is_featured and the editorial note."""
+        client, data = client_with_data
+        article_id = data["article_ids"][0]
+        client.post(f"/articles/{article_id}/feature", json={"note": "pinned"})
+        response = client.delete(f"/articles/{article_id}/feature")
+        assert response.status_code == 200
+        body = response.json()
+        assert body["is_featured"] is False
+        assert body["featured_note"] is None
+        assert body["featured_at"] is None
+
+    def test_featured_only_filter(self, client_with_data):
+        """featured_only=true returns only featured articles."""
+        client, data = client_with_data
+        first, second = data["article_ids"]
+        client.post(f"/articles/{first}/feature", json={"note": "yes"})
+
+        response = client.get("/articles?featured_only=true")
+        assert response.status_code == 200
+        ids = [a["id"] for a in response.json()]
+        assert ids == [first]
+        assert second not in ids
+
+    def test_feature_cap_evicts_oldest(self, client, test_db):
+        """Adding a 33rd featured article evicts the oldest by featured_at."""
+        import time
+
+        # Build a feed and 33 articles
+        feed_id = test_db.add_feed("https://cap.example/feed.xml", "Cap Feed")
+        article_ids = []
+        for i in range(33):
+            aid = test_db.add_article(
+                feed_id=feed_id,
+                url=f"https://cap.example/a{i}",
+                title=f"Article {i}",
+                content="filler content " * 10,
+            )
+            article_ids.append(aid)
+
+        # Feature the first 32, sleeping briefly so featured_at is strictly ordered
+        for aid in article_ids[:32]:
+            response = client.post(f"/articles/{aid}/feature", json={"note": None})
+            assert response.status_code == 200
+            time.sleep(0.002)
+
+        assert client.get("/stats").json()["featured_articles"] == 32
+
+        # Featuring the 33rd should evict the oldest (article_ids[0])
+        response = client.post(
+            f"/articles/{article_ids[32]}/feature", json={"note": None}
+        )
+        assert response.status_code == 200
+
+        # Total stays at 32
+        assert client.get("/stats").json()["featured_articles"] == 32
+
+        # The newest is in, the oldest is out
+        featured = client.get("/articles?featured_only=true&limit=200").json()
+        featured_ids = {a["id"] for a in featured}
+        assert article_ids[32] in featured_ids
+        assert article_ids[0] not in featured_ids
+
+    def test_feature_note_validation_too_long(self, client_with_data):
+        """Notes longer than 500 chars are rejected."""
+        client, data = client_with_data
+        article_id = data["article_ids"][0]
+        response = client.post(
+            f"/articles/{article_id}/feature", json={"note": "x" * 501}
+        )
+        assert response.status_code == 422
+
+    def test_feature_note_blank_stored_as_null(self, client_with_data):
+        """A blank/whitespace note is stored as null."""
+        client, data = client_with_data
+        article_id = data["article_ids"][0]
+        response = client.post(
+            f"/articles/{article_id}/feature", json={"note": "   "}
+        )
+        assert response.status_code == 200
+        assert response.json()["featured_note"] is None

@@ -163,5 +163,6 @@ async def get_stats(
     return {
         "total_feeds": len(feeds),
         "total_unread": total_unread,
+        "featured_articles": db.count_featured_articles(),
         "refresh_in_progress": state.refresh_in_progress
     }

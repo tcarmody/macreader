@@ -152,6 +152,11 @@ extension APIClient {
         }
     }
 
+    /// Request body for POST /articles/{id}/feature. Optional editorial note (≤500 chars).
+    struct FeatureArticleRequest: Encodable {
+        let note: String?
+    }
+
     struct BulkMarkReadRequest: Encodable {
         let articleIds: [Int]
         let isRead: Bool

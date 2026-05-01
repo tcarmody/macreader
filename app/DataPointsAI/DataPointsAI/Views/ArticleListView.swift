@@ -257,7 +257,7 @@ struct ArticleListView: View {
             try await appState.markAllRead()
         case .unread:
             try await appState.markAllRead()
-        case .today, .bookmarked, .summarized, .unsummarized, .topic, .savedSearch:
+        case .today, .bookmarked, .featured, .summarized, .unsummarized, .topic, .savedSearch:
             // Mark all visible articles in this filter as read
             let ids = appState.filteredArticles.map { $0.id }
             try await appState.bulkMarkRead(articleIds: ids)
@@ -322,6 +322,8 @@ struct EmptyArticlesView: View {
             NothingTodayIllustration()
         case .bookmarked:
             NoBookmarksIllustration()
+        case .featured:
+            SparklesIllustration()
         case .summarized, .unsummarized, .topic:
             SparklesIllustration()
         case .feed, .savedSearch:
@@ -339,6 +341,8 @@ struct EmptyArticlesView: View {
             return "Nothing New Today"
         case .bookmarked:
             return "No Saved Articles"
+        case .featured:
+            return "No Featured Articles"
         case .summarized:
             return "No Summarized Articles"
         case .unsummarized:
@@ -364,6 +368,8 @@ struct EmptyArticlesView: View {
             return "No articles published today yet."
         case .bookmarked:
             return "Bookmark articles to save them for later."
+        case .featured:
+            return "Editor-curated stories will appear here."
         case .summarized:
             return "Articles with AI summaries will appear here."
         case .unsummarized:

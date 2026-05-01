@@ -169,6 +169,15 @@ class DatabaseConnection:
             # Composer integration: timestamp when article was promoted to Composer
             self._migrate_add_column(connection, "articles", "promoted_to_composer", "TIMESTAMP")
 
+            # Featured (admin-curated, globally visible). Capped at 32 by application logic.
+            self._migrate_add_column(connection, "articles", "is_featured", "BOOLEAN DEFAULT FALSE")
+            self._migrate_add_column(connection, "articles", "featured_at", "TIMESTAMP")
+            self._migrate_add_column(connection, "articles", "featured_by_user_id", "INTEGER REFERENCES users(id) ON DELETE SET NULL")
+            self._migrate_add_column(connection, "articles", "featured_note", "TEXT")
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_articles_featured ON articles(is_featured, featured_at DESC)"
+            )
+
             # Create notification_rules table for smart notifications
             connection.executescript("""
                 CREATE TABLE IF NOT EXISTS notification_rules (

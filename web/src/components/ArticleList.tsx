@@ -17,6 +17,7 @@ import {
   Copy,
   FileText,
   SlidersHorizontal,
+  Star,
 } from 'lucide-react'
 import { cn, formatDate, stripHtml, smartQuotes } from '@/lib/utils'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -184,6 +185,7 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
         unread: 'Unread',
         today: 'Today',
         bookmarked: 'Bookmarked',
+        featured: 'Featured',
         summarized: 'Summarized',
       }[selectedFilter]
     }
@@ -551,6 +553,12 @@ function ArticleListItem({ article, isSelected, onSelect, storyGroup, searchQuer
             ) : article.title}
           </h3>
 
+          {article.is_featured && article.featured_note && (
+            <p className="mt-1.5 pl-2 border-l-2 border-amber-400/70 text-xs italic text-amber-700 dark:text-amber-300/90 line-clamp-2">
+              {smartQuotes(article.featured_note)}
+            </p>
+          )}
+
           {summary && (
             <p className={cn(
               "text-xs text-muted-foreground mt-1",
@@ -575,6 +583,9 @@ function ArticleListItem({ article, isSelected, onSelect, storyGroup, searchQuer
                 >
                   {storyGroup.count} sources
                 </span>
+              )}
+              {article.is_featured && (
+                <Star className="h-3 w-3 text-amber-400 fill-amber-400" />
               )}
               {article.is_bookmarked && (
                 <BookMarked className="h-3 w-3 text-amber-500" />

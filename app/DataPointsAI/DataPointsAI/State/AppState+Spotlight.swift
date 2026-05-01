@@ -35,7 +35,10 @@ extension AppState {
                     author: detail.author,
                     keyPoints: detail.keyPoints,
                     relatedLinkCount: nil,
-                    hasChat: nil
+                    hasChat: nil,
+                    isFeatured: detail.isFeatured,
+                    featuredAt: detail.featuredAt,
+                    featuredNote: detail.featuredNote
                 )
                 selectedArticle = article
                 selectedArticleDetail = detail

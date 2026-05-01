@@ -22,7 +22,8 @@ class ArticleRepository:
         a.published_at, a.created_at, a.source_url, a.content_type, a.file_name,
         a.file_path, a.reading_time_minutes, a.word_count, a.featured_image,
         a.has_code_blocks, a.site_name, a.user_id, a.feed_name, a.related_links,
-        a.extracted_keywords, a.related_links_error, a.promoted_to_composer
+        a.extracted_keywords, a.related_links_error, a.promoted_to_composer,
+        a.is_featured, a.featured_at, a.featured_by_user_id, a.featured_note
     """.strip()
 
     def __init__(self, db: DatabaseConnection):
@@ -102,7 +103,11 @@ class ArticleRepository:
         "unread_first": "COALESCE(uas.is_read, 0) ASC, a.published_at DESC NULLS LAST, a.created_at DESC",
         "title_asc": "a.title ASC",
         "title_desc": "a.title DESC",
+        "featured": "a.featured_at DESC NULLS LAST",
     }
+
+    # Maximum number of articles that can be Featured at once. Older entries are evicted.
+    FEATURED_MAX = 32
 
     def get_many(
         self,
@@ -110,6 +115,7 @@ class ArticleRepository:
         feed_id: int | None = None,
         unread_only: bool = False,
         bookmarked_only: bool = False,
+        featured_only: bool = False,
         summarized_only: bool | None = None,
         sort_by: str = "newest",
         limit: int = 50,
@@ -158,6 +164,9 @@ class ArticleRepository:
             query += " AND COALESCE(uas.is_read, 0) = 0"
         if bookmarked_only:
             query += " AND COALESCE(uas.is_bookmarked, 0) = 1"
+        if featured_only:
+            query += " AND COALESCE(a.is_featured, 0) = 1"
+            sort_by = "featured"
         if summarized_only is True:
             query += " AND a.summary_full IS NOT NULL"
         elif summarized_only is False:
@@ -471,6 +480,95 @@ class ArticleRepository:
                 grouped[date_key] = []
             grouped[date_key].append(article)
         return grouped
+
+    def feature(
+        self,
+        article_id: int,
+        user_id: int,
+        note: str | None = None,
+    ) -> bool:
+        """
+        Mark an article as featured. If already featured, refresh the note + timestamp.
+
+        Enforces a hard cap of FEATURED_MAX: when adding a new featured article would
+        exceed the cap, the oldest featured entries are unfeatured (lowest featured_at
+        first) until the count is back at the limit.
+
+        Returns True if the article exists and was (re-)featured, False if not found.
+        """
+        now = datetime.now().isoformat()
+        with self._db.conn() as conn:
+            existing = conn.execute(
+                "SELECT id, COALESCE(is_featured, 0) AS is_featured FROM articles WHERE id = ?",
+                (article_id,),
+            ).fetchone()
+            if not existing:
+                return False
+
+            already_featured = bool(existing["is_featured"])
+            conn.execute(
+                """UPDATE articles
+                   SET is_featured = 1,
+                       featured_at = ?,
+                       featured_by_user_id = ?,
+                       featured_note = ?
+                   WHERE id = ?""",
+                (now, user_id, note, article_id),
+            )
+
+            if already_featured:
+                return True
+
+            # Evict oldest featured entries if we've exceeded the cap. We exclude the
+            # article we just featured to make sure it's never the one removed.
+            overflow_rows = conn.execute(
+                """SELECT id FROM articles
+                   WHERE COALESCE(is_featured, 0) = 1 AND id != ?
+                   ORDER BY featured_at ASC NULLS FIRST
+                   LIMIT MAX(0,
+                       (SELECT COUNT(*) FROM articles WHERE COALESCE(is_featured, 0) = 1) - ?
+                   )""",
+                (article_id, self.FEATURED_MAX),
+            ).fetchall()
+            if overflow_rows:
+                ids = [row["id"] for row in overflow_rows]
+                placeholders = ",".join("?" * len(ids))
+                conn.execute(
+                    f"""UPDATE articles
+                        SET is_featured = 0,
+                            featured_at = NULL,
+                            featured_by_user_id = NULL,
+                            featured_note = NULL
+                        WHERE id IN ({placeholders})""",
+                    ids,
+                )
+            return True
+
+    def unfeature(self, article_id: int) -> bool:
+        """Unfeature an article. Returns True if the article exists, False otherwise."""
+        with self._db.conn() as conn:
+            existing = conn.execute(
+                "SELECT id FROM articles WHERE id = ?", (article_id,)
+            ).fetchone()
+            if not existing:
+                return False
+            conn.execute(
+                """UPDATE articles
+                   SET is_featured = 0,
+                       featured_at = NULL,
+                       featured_by_user_id = NULL,
+                       featured_note = NULL
+                   WHERE id = ?""",
+                (article_id,),
+            )
+            return True
+
+    def count_featured(self) -> int:
+        with self._db.conn() as conn:
+            row = conn.execute(
+                "SELECT COUNT(*) AS cnt FROM articles WHERE COALESCE(is_featured, 0) = 1"
+            ).fetchone()
+            return int(row["cnt"]) if row else 0
 
     def get_grouped_by_feed(
         self,

@@ -199,6 +199,7 @@ export async function getArticles(params: {
   feed_id?: number
   unread_only?: boolean
   bookmarked_only?: boolean
+  featured_only?: boolean
   summarized_only?: boolean
   hide_duplicates?: boolean
   sort_by?: string
@@ -209,6 +210,7 @@ export async function getArticles(params: {
   if (params.feed_id) searchParams.append('feed_id', params.feed_id.toString())
   if (params.unread_only) searchParams.append('unread_only', 'true')
   if (params.bookmarked_only) searchParams.append('bookmarked_only', 'true')
+  if (params.featured_only) searchParams.append('featured_only', 'true')
   if (params.summarized_only) searchParams.append('summarized_only', 'true')
   if (params.hide_duplicates) searchParams.append('hide_duplicates', 'true')
   if (params.sort_by) searchParams.append('sort_by', params.sort_by)
@@ -239,6 +241,22 @@ export async function toggleArticleBookmark(
   articleId: number
 ): Promise<{ success: boolean; is_bookmarked: boolean }> {
   return fetchApi(`/articles/${articleId}/bookmark`, { method: 'POST' })
+}
+
+export async function featureArticle(
+  articleId: number,
+  note: string | null
+): Promise<ArticleDetail> {
+  return fetchApi(`/articles/${articleId}/feature`, {
+    method: 'POST',
+    body: JSON.stringify({ note }),
+  })
+}
+
+export async function unfeatureArticle(
+  articleId: number
+): Promise<ArticleDetail> {
+  return fetchApi(`/articles/${articleId}/feature`, { method: 'DELETE' })
 }
 
 export async function markAllRead(): Promise<{ success: boolean; count: number }> {

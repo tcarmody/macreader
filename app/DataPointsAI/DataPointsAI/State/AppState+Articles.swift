@@ -20,6 +20,8 @@ extension AppState {
             return allArticles.filter { ($0.publishedAt ?? $0.createdAt) >= startOfToday }
         case .bookmarked:
             return try await apiClient.getArticles(bookmarkedOnly: true, hideDuplicates: hideDupes, limit: limit, offset: offset)
+        case .featured:
+            return try await apiClient.getArticles(featuredOnly: true, hideDuplicates: hideDupes, limit: limit, offset: offset)
         case .summarized:
             return try await apiClient.getArticles(summarizedOnly: true, hideDuplicates: hideDupes, limit: limit, offset: offset)
         case .unsummarized:
@@ -121,6 +123,38 @@ extension AppState {
         }
         if selectedArticleDetail?.id == articleId {
             selectedArticleDetail?.isBookmarked = result.isBookmarked
+        }
+    }
+
+    /// Open the Feature dialog for the given article (or use the currently-loaded list version).
+    func beginFeatureFlow(for article: Article) {
+        featureFlowArticle = articles.first(where: { $0.id == article.id }) ?? article
+    }
+
+    func featureArticle(articleId: Int, note: String?) async throws {
+        let detail = try await apiClient.featureArticle(articleId: articleId, note: note)
+        applyFeaturedState(from: detail)
+    }
+
+    func unfeatureArticle(articleId: Int) async throws {
+        let detail = try await apiClient.unfeatureArticle(articleId: articleId)
+        applyFeaturedState(from: detail)
+    }
+
+    private func applyFeaturedState(from detail: ArticleDetail) {
+        if let index = articles.firstIndex(where: { $0.id == detail.id }) {
+            articles[index].isFeatured = detail.isFeatured
+            articles[index].featuredAt = detail.featuredAt
+            articles[index].featuredNote = detail.featuredNote
+        }
+        if selectedArticleDetail?.id == detail.id {
+            selectedArticleDetail?.isFeatured = detail.isFeatured
+            selectedArticleDetail?.featuredAt = detail.featuredAt
+            selectedArticleDetail?.featuredNote = detail.featuredNote
+        }
+        // The cap may have evicted other articles. Refetch list cheaply when on Featured.
+        if case .featured = selectedFilter {
+            Task { await reloadArticles() }
         }
     }
 

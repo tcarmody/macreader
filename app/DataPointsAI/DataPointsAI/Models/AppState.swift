@@ -94,6 +94,9 @@ class AppState: ObservableObject {
     @Published var showNewsletterSetup: Bool = false
     @Published var sidebarVisible: Bool = true
 
+    // Feature flow (admin marking an article as Featured)
+    @Published var featureFlowArticle: Article?
+
     // MARK: - Dependencies
 
     let apiClient: APIClient
@@ -120,6 +123,8 @@ class AppState: ObservableObject {
             return "Today"
         case .bookmarked:
             return "Saved"
+        case .featured:
+            return "Featured"
         case .summarized:
             return "Summarized"
         case .unsummarized:
@@ -178,6 +183,8 @@ class AppState: ObservableObject {
             result = result.filter { ($0.publishedAt ?? $0.createdAt) >= startOfToday }
         case .bookmarked:
             result = result.filter { $0.isBookmarked }
+        case .featured:
+            result = result.filter { $0.isFeatured }
         case .summarized:
             result = result.filter { $0.summaryShort != nil }
         case .unsummarized:
@@ -208,6 +215,10 @@ class AppState: ObservableObject {
         let calendar = Calendar.current
         let startOfToday = calendar.startOfDay(for: Date())
         return articles.filter { ($0.publishedAt ?? $0.createdAt) >= startOfToday }.count
+    }
+
+    var featuredArticleCount: Int {
+        articles.filter { $0.isFeatured }.count
     }
 
     /// RSS feeds grouped by category (excludes newsletter feeds)

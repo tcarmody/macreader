@@ -208,6 +208,8 @@ export function useArticles(filter: FilterType, sortBy: SortBy = 'newest', hideD
         params.unread_only = true
       } else if (filter === 'bookmarked') {
         params.bookmarked_only = true
+      } else if (filter === 'featured') {
+        params.featured_only = true
       } else if (filter === 'summarized') {
         params.summarized_only = true
       } else if (typeof filter === 'object' && filter.type === 'feed') {
@@ -303,6 +305,31 @@ export function useToggleBookmark() {
     onSuccess: (_, articleId) => {
       queryClient.invalidateQueries({ queryKey: ['articles'] })
       queryClient.invalidateQueries({ queryKey: queryKeys.article(articleId) })
+    },
+  })
+}
+
+export function useFeatureArticle() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ articleId, note }: { articleId: number; note: string | null }) =>
+      api.featureArticle(articleId, note),
+    onSuccess: (_, { articleId }) => {
+      queryClient.invalidateQueries({ queryKey: ['articles'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.article(articleId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.stats })
+    },
+  })
+}
+
+export function useUnfeatureArticle() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: api.unfeatureArticle,
+    onSuccess: (_, articleId) => {
+      queryClient.invalidateQueries({ queryKey: ['articles'] })
+      queryClient.invalidateQueries({ queryKey: queryKeys.article(articleId) })
+      queryClient.invalidateQueries({ queryKey: queryKeys.stats })
     },
   })
 }

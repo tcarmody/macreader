@@ -106,6 +106,7 @@ enum ArticleFilter: Hashable, Codable {
     case unread
     case today
     case bookmarked
+    case featured
     case summarized
     case unsummarized
     case feed(Int)
@@ -125,6 +126,7 @@ enum ArticleFilter: Hashable, Codable {
         case "unread": self = .unread
         case "today": self = .today
         case "bookmarked": self = .bookmarked
+        case "featured": self = .featured
         case "summarized": self = .summarized
         case "unsummarized": self = .unsummarized
         case "feed":
@@ -149,6 +151,7 @@ enum ArticleFilter: Hashable, Codable {
         case .unread: try container.encode("unread", forKey: .type)
         case .today: try container.encode("today", forKey: .type)
         case .bookmarked: try container.encode("bookmarked", forKey: .type)
+        case .featured: try container.encode("featured", forKey: .type)
         case .summarized: try container.encode("summarized", forKey: .type)
         case .unsummarized: try container.encode("unsummarized", forKey: .type)
         case .feed(let feedId):
@@ -171,6 +174,7 @@ enum ArticleFilter: Hashable, Codable {
         case .unread: return "Unread"
         case .today: return "Today"
         case .bookmarked: return "Saved"
+        case .featured: return "Featured"
         case .summarized: return "Summarized"
         case .unsummarized: return "Unsummarized"
         case .feed: return "Feed"
@@ -184,7 +188,8 @@ enum ArticleFilter: Hashable, Codable {
         case .all: return "tray.full"
         case .unread: return "circle.fill"
         case .today: return "sun.max.fill"
-        case .bookmarked: return "star.fill"
+        case .bookmarked: return "bookmark.fill"
+        case .featured: return "star.fill"
         case .summarized: return "sparkles"
         case .unsummarized: return "sparkles.rectangle.stack"
         case .feed: return "dot.radiowaves.up.forward"

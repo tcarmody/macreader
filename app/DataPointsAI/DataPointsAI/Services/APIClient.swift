@@ -24,6 +24,7 @@ final class APIClient {
         feedId: Int? = nil,
         unreadOnly: Bool = false,
         bookmarkedOnly: Bool = false,
+        featuredOnly: Bool = false,
         summarizedOnly: Bool? = nil,
         hideDuplicates: Bool = false,
         limit: Int = 100,
@@ -39,6 +40,9 @@ final class APIClient {
         }
         if bookmarkedOnly {
             queryItems.append(URLQueryItem(name: "bookmarked_only", value: "true"))
+        }
+        if featuredOnly {
+            queryItems.append(URLQueryItem(name: "featured_only", value: "true"))
         }
         if let summarizedOnly = summarizedOnly {
             queryItems.append(URLQueryItem(name: "summarized_only", value: String(summarizedOnly)))
@@ -97,6 +101,17 @@ final class APIClient {
 
     func toggleBookmark(articleId: Int) async throws -> BookmarkResponse {
         return try await post(path: "/articles/\(articleId)/bookmark")
+    }
+
+    func featureArticle(articleId: Int, note: String?) async throws -> ArticleDetail {
+        return try await post(
+            path: "/articles/\(articleId)/feature",
+            body: FeatureArticleRequest(note: note)
+        )
+    }
+
+    func unfeatureArticle(articleId: Int) async throws -> ArticleDetail {
+        return try await delete(path: "/articles/\(articleId)/feature")
     }
 
     func summarizeArticle(articleId: Int) async throws {

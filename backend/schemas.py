@@ -77,6 +77,11 @@ class ArticleResponse(BaseModel):
     related_link_count: int = 0
     has_chat: bool = False
 
+    # Featured (admin-curated, globally visible)
+    is_featured: bool = False
+    featured_at: str | None = None
+    featured_note: str | None = None
+
     @classmethod
     def from_db(cls, article: DBArticle) -> "ArticleResponse":
         # Parse related_links JSON string to get count
@@ -106,6 +111,9 @@ class ArticleResponse(BaseModel):
             key_points=article.key_points,
             related_link_count=related_count,
             has_chat=getattr(article, 'has_chat', False),
+            is_featured=getattr(article, 'is_featured', False),
+            featured_at=serialize_datetime(getattr(article, 'featured_at', None)),
+            featured_note=getattr(article, 'featured_note', None),
         )
 
 
@@ -142,6 +150,11 @@ class ArticleDetailResponse(BaseModel):
 
     # Timestamp when promoted to Composer (None = not promoted)
     promoted_to_composer: str | None = None
+
+    # Featured (admin-curated, globally visible)
+    is_featured: bool = False
+    featured_at: str | None = None
+    featured_note: str | None = None
 
     @classmethod
     def from_db(cls, article: DBArticle) -> "ArticleDetailResponse":
@@ -180,7 +193,27 @@ class ArticleDetailResponse(BaseModel):
             related_links=related_links,
             related_links_error=article.related_links_error,
             promoted_to_composer=serialize_datetime(article.promoted_to_composer),
+            is_featured=getattr(article, 'is_featured', False),
+            featured_at=serialize_datetime(getattr(article, 'featured_at', None)),
+            featured_note=getattr(article, 'featured_note', None),
         )
+
+
+class FeatureArticleRequest(BaseModel):
+    """Request to feature an article. Optional editorial note shown with the story."""
+    note: str | None = None
+
+    @field_validator("note")
+    @classmethod
+    def trim_and_validate_note(cls, v: str | None) -> str | None:
+        if v is None:
+            return None
+        v = v.strip()
+        if not v:
+            return None
+        if len(v) > 500:
+            raise ValueError("Featured note must be 500 characters or fewer")
+        return v
 
 
 class ArticleGroupResponse(BaseModel):

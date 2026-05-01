@@ -335,6 +335,34 @@ struct ArticleDetailView: View {
                 .foregroundStyle(.primary)
                 .textSelection(.enabled)
 
+            if article.isFeatured, let note = article.featuredNote, !note.isEmpty {
+                HStack(alignment: .top, spacing: 10) {
+                    Image(systemName: "star.fill")
+                        .foregroundStyle(.yellow)
+                        .padding(.top, 2)
+                    VStack(alignment: .leading, spacing: 4) {
+                        Text("FEATURED")
+                            .font(.caption2.weight(.bold))
+                            .foregroundStyle(.yellow)
+                            .tracking(0.5)
+                        Text(note)
+                            .font(.callout.italic())
+                            .foregroundStyle(.primary)
+                            .textSelection(.enabled)
+                    }
+                }
+                .padding(12)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.yellow.opacity(0.08))
+                .overlay(
+                    Rectangle()
+                        .fill(Color.yellow)
+                        .frame(width: 3),
+                    alignment: .leading
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 6))
+            }
+
             HStack(spacing: 8) {
                 Image(systemName: "clock")
                     .foregroundStyle(.secondary)
@@ -352,9 +380,13 @@ struct ArticleDetailView: View {
 
                 Spacer()
 
-                if article.isBookmarked {
+                if article.isFeatured {
                     Image(systemName: "star.fill")
                         .foregroundStyle(.yellow)
+                }
+                if article.isBookmarked {
+                    Image(systemName: "bookmark.fill")
+                        .foregroundStyle(.orange)
                 }
             }
             .font(.subheadline)

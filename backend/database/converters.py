@@ -101,6 +101,10 @@ def row_to_article(row: sqlite3.Row) -> DBArticle:
         promoted_to_composer=parse_datetime(safe_get("promoted_to_composer")),
         brief=safe_get("brief"),
         has_chat=safe_get_bool("has_chat"),
+        is_featured=safe_get_bool("is_featured"),
+        featured_at=parse_datetime(safe_get("featured_at")),
+        featured_by_user_id=safe_get_int("featured_by_user_id"),
+        featured_note=safe_get("featured_note"),
     )
 
 

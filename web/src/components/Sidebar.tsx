@@ -5,6 +5,7 @@ import {
   Clock,
   Inbox,
   Sparkles,
+  Star,
   Library,
   Settings,
   Plus,
@@ -165,6 +166,7 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds, onOpenHelp }
     { filter: 'all', label: 'All Articles', icon: Inbox, count: stats?.total_articles },
     { filter: 'unread', label: 'Unread', icon: Newspaper, count: stats?.unread_articles },
     { filter: 'today', label: 'Today', icon: Clock },
+    { filter: 'featured', label: 'Featured', icon: Star, count: stats?.featured_articles },
     { filter: 'bookmarked', label: 'Bookmarked', icon: BookMarked, count: stats?.bookmarked_articles },
     { filter: 'summarized', label: 'Summarized', icon: Sparkles, count: stats?.summarized_articles },
   ]

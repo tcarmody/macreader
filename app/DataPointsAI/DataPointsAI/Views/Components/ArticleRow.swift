@@ -74,10 +74,16 @@ struct ArticleRow: View {
                         Spacer()
 
                         // State indicators
+                        if article.isFeatured {
+                            Image(systemName: "star.fill")
+                                .font(.caption2)
+                                .foregroundStyle(.yellow)
+                                .help(article.featuredNote.flatMap { $0.isEmpty ? nil : "Featured: \($0)" } ?? "Featured")
+                        }
                         if article.isBookmarked {
                             Image(systemName: "bookmark.fill")
                                 .font(.caption2)
-                                .foregroundStyle(.yellow)
+                                .foregroundStyle(.orange)
                         }
                         let hasAny = article.summaryShort != nil || article.hasChat == true || (article.relatedLinkCount ?? 0) > 0
                         if hasAny {
@@ -191,8 +197,28 @@ struct ArticleRow: View {
             } label: {
                 Label(
                     article.isBookmarked ? "Remove Bookmark" : "Bookmark",
-                    systemImage: article.isBookmarked ? "star.slash" : "star"
+                    systemImage: article.isBookmarked ? "bookmark.slash" : "bookmark"
                 )
+            }
+
+            // Feature - admin-only on web; macOS app is treated as admin.
+            Button {
+                appState.beginFeatureFlow(for: article)
+            } label: {
+                Label(
+                    article.isFeatured ? "Edit Featured…" : "Feature…",
+                    systemImage: article.isFeatured ? "star.fill" : "star"
+                )
+            }
+
+            if article.isFeatured {
+                Button {
+                    Task {
+                        try? await appState.unfeatureArticle(articleId: article.id)
+                    }
+                } label: {
+                    Label("Unfeature", systemImage: "star.slash")
+                }
             }
         }
 

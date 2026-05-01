@@ -25,6 +25,9 @@ export interface Article {
   created_at: string
   related_link_count: number
   has_chat: boolean
+  is_featured: boolean
+  featured_at: string | null
+  featured_note: string | null
 }
 
 export interface RelatedLink {
@@ -118,6 +121,7 @@ export interface StatsResponse {
   unread_articles: number
   bookmarked_articles: number
   summarized_articles: number
+  featured_articles: number
 }
 
 export interface SavedSearch {
@@ -135,6 +139,7 @@ export type FilterType =
   | 'unread'
   | 'today'
   | 'bookmarked'
+  | 'featured'
   | 'summarized'
   | { type: 'feed'; feedId: number }
   | { type: 'category'; category: string }

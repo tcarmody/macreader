@@ -13,6 +13,7 @@ import {
   X,
   Plus,
   Send,
+  Star,
 } from 'lucide-react'
 import { cn, formatFullDate, getDomain, smartQuotes } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -32,8 +33,11 @@ import {
 import { useAppStore } from '@/store/app-store'
 import {
   useArticle,
+  useAuthStatus,
   useMarkArticleRead,
   useToggleBookmark,
+  useFeatureArticle,
+  useUnfeatureArticle,
   useFetchContent,
   useExtractFromHtml,
   useSummarizeArticle,
@@ -49,8 +53,12 @@ type DetailTab = 'article' | 'ai' | 'related' | 'chat'
 export function ArticleDetail() {
   const { selectedArticleId, hasShownToast, markToastShown, markFeatureUsed } = useAppStore()
   const { data: article, isLoading } = useArticle(selectedArticleId)
+  const { data: authStatus } = useAuthStatus()
+  const isAdmin = authStatus?.is_admin ?? false
   const markRead = useMarkArticleRead()
   const toggleBookmark = useToggleBookmark()
+  const featureArticle = useFeatureArticle()
+  const unfeatureArticle = useUnfeatureArticle()
   const fetchContent = useFetchContent()
   const extractFromHtml = useExtractFromHtml()
   const summarize = useSummarizeArticle()
@@ -58,6 +66,8 @@ export function ArticleDetail() {
   const promoteToComposer = usePromoteToComposer()
   const { data: chatHistory } = useChatHistory(selectedArticleId)
   const { showToast } = useToast()
+  const [showFeatureDialog, setShowFeatureDialog] = useState(false)
+  const [featureNoteDraft, setFeatureNoteDraft] = useState('')
 
   const [activeTab, setActiveTab] = useState<DetailTab>('article')
   const [hasTriggeredRelated, setHasTriggeredRelated] = useState(false)
@@ -170,6 +180,41 @@ export function ArticleDetail() {
 
   const handleToggleBookmark = () => {
     toggleBookmark.mutate(article.id)
+  }
+
+  const handleOpenFeatureDialog = () => {
+    setFeatureNoteDraft(article.featured_note ?? '')
+    setShowFeatureDialog(true)
+  }
+
+  const handleSaveFeature = () => {
+    featureArticle.mutate(
+      { articleId: article.id, note: featureNoteDraft.trim() || null },
+      {
+        onSuccess: () => {
+          setShowFeatureDialog(false)
+          showToast(
+            article.is_featured ? 'Featured note updated' : 'Featured for everyone',
+            'success'
+          )
+        },
+        onError: (error) => {
+          showToast(`Couldn't feature: ${error.message}`, 'warning')
+        },
+      }
+    )
+  }
+
+  const handleUnfeature = () => {
+    unfeatureArticle.mutate(article.id, {
+      onSuccess: () => {
+        setShowFeatureDialog(false)
+        showToast('Removed from Featured', 'success')
+      },
+      onError: (error) => {
+        showToast(`Couldn't unfeature: ${error.message}`, 'warning')
+      },
+    })
   }
 
   const handleFetchContent = () => {
@@ -314,6 +359,26 @@ export function ArticleDetail() {
           </Button>
         </SmartTooltip>
 
+        {isAdmin && (
+          <Tooltip
+            content={
+              article.is_featured
+                ? 'Edit the editorial note or unfeature'
+                : 'Feature this story for everyone'
+            }
+          >
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={handleOpenFeatureDialog}
+              className={cn(article.is_featured && "text-amber-500")}
+            >
+              <Star className={cn("h-4 w-4 mr-1", article.is_featured && "fill-amber-400")} />
+              {article.is_featured ? 'Featured' : 'Feature…'}
+            </Button>
+          </Tooltip>
+        )}
+
         <Separator orientation="vertical" className="h-6" />
 
         <DropdownMenu>
@@ -447,6 +512,18 @@ export function ArticleDetail() {
                     Original source: {getDomain(article.source_url)}
                     <ExternalLink className="h-3 w-3" />
                   </a>
+                </div>
+              )}
+
+              {article.is_featured && article.featured_note && (
+                <div className="mt-5 px-4 py-3 border-l-2 border-amber-400 bg-amber-50 dark:bg-amber-950/20 rounded-r">
+                  <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide font-semibold text-amber-700 dark:text-amber-300 mb-1">
+                    <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
+                    Featured
+                  </div>
+                  <p className="text-sm italic text-amber-900 dark:text-amber-100 leading-relaxed">
+                    {smartQuotes(article.featured_note)}
+                  </p>
                 </div>
               )}
             </header>
@@ -774,6 +851,85 @@ export function ArticleDetail() {
                   'Extract Content'
                 )}
               </Button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Feature Article Dialog */}
+      {showFeatureDialog && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center">
+          <div
+            className="absolute inset-0 bg-black/50"
+            onClick={() => setShowFeatureDialog(false)}
+          />
+          <div className="relative bg-background border border-border rounded-lg shadow-lg w-full max-w-md mx-4">
+            <div className="flex items-center justify-between p-4 border-b border-border">
+              <div>
+                <h2 className="text-lg font-semibold flex items-center gap-2">
+                  <Star className="h-4 w-4 text-amber-400 fill-amber-400" />
+                  {article.is_featured ? 'Edit Featured note' : 'Feature this story'}
+                </h2>
+                <p className="text-sm text-muted-foreground mt-1">
+                  Featured stories are visible to everyone with an account. Up to 32 at a time — older ones fall off automatically.
+                </p>
+              </div>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowFeatureDialog(false)}
+              >
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+            <div className="p-4 space-y-2">
+              <label className="text-sm font-medium" htmlFor="feature-note">
+                Editorial note <span className="text-muted-foreground font-normal">(optional)</span>
+              </label>
+              <textarea
+                id="feature-note"
+                value={featureNoteDraft}
+                onChange={(e) => setFeatureNoteDraft(e.target.value)}
+                maxLength={500}
+                rows={4}
+                placeholder="Why is this worth featuring? Shown alongside the headline."
+                className="w-full p-2 text-sm border border-input rounded-md bg-background focus:outline-none focus:ring-2 focus:ring-ring resize-none"
+              />
+              <div className="text-xs text-muted-foreground text-right">
+                {featureNoteDraft.length}/500
+              </div>
+            </div>
+            <div className="flex items-center justify-between gap-2 p-4 border-t border-border">
+              {article.is_featured ? (
+                <Button
+                  variant="ghost"
+                  className="text-destructive hover:text-destructive"
+                  onClick={handleUnfeature}
+                  disabled={unfeatureArticle.isPending}
+                >
+                  {unfeatureArticle.isPending ? (
+                    <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                  ) : null}
+                  Unfeature
+                </Button>
+              ) : <span />}
+              <div className="flex items-center gap-2">
+                <Button variant="outline" onClick={() => setShowFeatureDialog(false)}>
+                  Cancel
+                </Button>
+                <Button onClick={handleSaveFeature} disabled={featureArticle.isPending}>
+                  {featureArticle.isPending ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Saving…
+                    </>
+                  ) : article.is_featured ? (
+                    'Save'
+                  ) : (
+                    'Feature'
+                  )}
+                </Button>
+              </div>
             </div>
           </div>
         </div>

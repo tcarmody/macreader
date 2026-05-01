@@ -238,15 +238,33 @@ class Database:
         feed_id: int | None = None,
         unread_only: bool = False,
         bookmarked_only: bool = False,
+        featured_only: bool = False,
         summarized_only: bool | None = None,
         sort_by: str = "newest",
         limit: int = 50,
         offset: int = 0
     ) -> list[DBArticle]:
         return self.articles.get_many(
-            user_id, feed_id, unread_only, bookmarked_only,
-            summarized_only, sort_by, limit, offset
+            user_id=user_id,
+            feed_id=feed_id,
+            unread_only=unread_only,
+            bookmarked_only=bookmarked_only,
+            featured_only=featured_only,
+            summarized_only=summarized_only,
+            sort_by=sort_by,
+            limit=limit,
+            offset=offset,
         )
+
+    def feature_article(self, article_id: int, user_id: int, note: str | None = None) -> bool:
+        """Mark an article as featured (admin only). Enforces 32-cap; returns False if not found."""
+        return self.articles.feature(article_id, user_id, note)
+
+    def unfeature_article(self, article_id: int) -> bool:
+        return self.articles.unfeature(article_id)
+
+    def count_featured_articles(self) -> int:
+        return self.articles.count_featured()
 
     def get_article(self, article_id: int) -> DBArticle | None:
         return self.articles.get(article_id)
