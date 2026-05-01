@@ -20,6 +20,7 @@ import {
   Star,
 } from 'lucide-react'
 import { cn, formatDate, stripHtml, smartQuotes } from '@/lib/utils'
+import { autoLinkText } from '@/lib/auto-link'
 import { ScrollArea } from '@/components/ui/scroll-area'
 import { Skeleton } from '@/components/ui/skeleton'
 import { Badge } from '@/components/ui/badge'
@@ -555,7 +556,7 @@ function ArticleListItem({ article, isSelected, onSelect, storyGroup, searchQuer
 
           {article.is_featured && article.featured_note && (
             <p className="mt-1.5 pl-2 border-l-2 border-amber-400/70 text-xs italic text-amber-700 dark:text-amber-300/90 line-clamp-2">
-              {smartQuotes(article.featured_note)}
+              {autoLinkText(smartQuotes(article.featured_note))}
             </p>
           )}
 

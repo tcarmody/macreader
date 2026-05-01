@@ -16,6 +16,7 @@ import {
   Star,
 } from 'lucide-react'
 import { cn, formatFullDate, getDomain, smartQuotes } from '@/lib/utils'
+import { autoLinkText } from '@/lib/auto-link'
 import { Button } from '@/components/ui/button'
 import { Badge } from '@/components/ui/badge'
 import { ScrollArea } from '@/components/ui/scroll-area'
@@ -522,7 +523,7 @@ export function ArticleDetail() {
                     Featured
                   </div>
                   <p className="text-sm italic text-amber-900 dark:text-amber-100 leading-relaxed">
-                    {smartQuotes(article.featured_note)}
+                    {autoLinkText(smartQuotes(article.featured_note))}
                   </p>
                 </div>
               )}

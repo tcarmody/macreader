@@ -345,7 +345,7 @@ struct ArticleDetailView: View {
                             .font(.caption2.weight(.bold))
                             .foregroundStyle(.yellow)
                             .tracking(0.5)
-                        Text(note)
+                        Text(note.autoLinked())
                             .font(.callout.italic())
                             .foregroundStyle(.primary)
                             .textSelection(.enabled)
