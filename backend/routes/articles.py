@@ -24,7 +24,7 @@ from ..schemas import (
     BriefResponse,
     FeatureArticleRequest,
 )
-from ..tasks import summarize_article
+from ..tasks import summarize_article, enrich_featured_article_task
 from ..source_extractor import SourceExtractor
 
 router = APIRouter(
@@ -341,13 +341,19 @@ async def feature_article(
     article_id: int,
     body: FeatureArticleRequest,
     db: Annotated[Database, Depends(get_db)],
+    background_tasks: BackgroundTasks,
     admin_id: Annotated[int, Depends(require_admin)],
 ) -> ArticleResponse:
-    """Mark an article as Featured (admin only). Idempotent: re-featuring updates the note."""
+    """Mark an article as Featured (admin only). Idempotent: re-featuring updates the note.
+
+    Kicks off background enrichment (summarize, related links, brief) so featured
+    stories always have the full set of optional metadata available to readers.
+    """
     require_article(db.get_article(article_id))
     note = body.note.strip() if body.note else None
     if not db.feature_article(article_id, admin_id, note or None):
         raise HTTPException(status_code=404, detail="Article not found")
+    background_tasks.add_task(enrich_featured_article_task, article_id)
     article = db.get_article_with_state(article_id, admin_id)
     return ArticleResponse.from_db(article)
 

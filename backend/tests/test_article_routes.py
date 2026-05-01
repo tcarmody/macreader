@@ -376,3 +376,14 @@ class TestFeatureArticle:
         )
         assert response.status_code == 200
         assert response.json()["featured_note"] is None
+
+    @pytest.mark.asyncio
+    async def test_enrich_task_noop_when_services_disabled(self, client_with_data):
+        """Featured-enrichment task is a clean no-op when summarizer/exa/briefs aren't configured."""
+        from backend.tasks import enrich_featured_article_task
+
+        _client, data = client_with_data
+        article_id = data["article_ids"][0]
+        # Test fixture leaves summarizer/exa/brief_generator unset; task should return cleanly
+        await enrich_featured_article_task(article_id)
+        await enrich_featured_article_task(99999)  # missing article also fine

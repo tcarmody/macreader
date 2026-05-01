@@ -216,6 +216,69 @@ def fetch_related_links_task(article_id: int):
             print(f"Failed to store error in database: {db_error}")
 
 
+async def enrich_featured_article_task(article_id: int) -> None:
+    """Run all available optional enrichments for a Featured article.
+
+    Idempotent — each step skips work that's already done. Steps run sequentially
+    so the brief can use a fresh summary and the related-links query can use the
+    extracted keywords. Each step swallows its own errors so a downstream failure
+    doesn't block earlier successes.
+    """
+    import asyncio
+
+    if not state.db:
+        return
+    article = state.db.get_article(article_id)
+    if not article:
+        return
+
+    # 1. Summarize (handles content fetching internally if needed)
+    if not article.summary_full and state.summarizer and article.content:
+        url_for_summary = article.source_url or article.url
+        try:
+            await asyncio.to_thread(
+                summarize_article,
+                article_id,
+                article.content,
+                url_for_summary,
+                article.title,
+            )
+        except Exception as e:
+            print(f"[featured-enrich {article_id}] summarize failed: {e}")
+        article = state.db.get_article(article_id) or article
+
+    # 2. Related links via Exa
+    if state.exa_service and not article.related_links:
+        try:
+            await asyncio.to_thread(fetch_related_links_task, article_id)
+        except Exception as e:
+            print(f"[featured-enrich {article_id}] related links failed: {e}")
+        article = state.db.get_article(article_id) or article
+
+    # 3. Sentence-length neutral brief (used as the list-preview blurb)
+    if state.brief_generator and not state.db.briefs.get(article_id, "sentence", "neutral"):
+        source_text = article.summary_full or article.content or ""
+        if len(source_text.strip()) >= 50:
+            try:
+                from .services.brief_generator import BriefLength, BriefTone
+                brief = await state.brief_generator.generate(
+                    article_id=article_id,
+                    title=article.title or "",
+                    content=source_text,
+                    length=BriefLength.SENTENCE,
+                    tone=BriefTone.NEUTRAL,
+                )
+                state.db.briefs.upsert(
+                    article_id=article_id,
+                    length=brief.length.value,
+                    tone=brief.tone.value,
+                    content=brief.content,
+                    model_used=brief.model_used,
+                )
+            except Exception as e:
+                print(f"[featured-enrich {article_id}] brief failed: {e}")
+
+
 async def refresh_all_feeds():
     """Background task to refresh all feeds."""
     if not state.db or not state.feed_parser:
