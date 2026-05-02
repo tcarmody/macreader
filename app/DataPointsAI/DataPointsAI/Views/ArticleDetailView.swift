@@ -103,6 +103,14 @@ struct ArticleDetailView: View {
 
     @ViewBuilder
     private func articleContentView(article: ArticleDetail) -> some View {
+        let fontSize = appState.readerModeEnabled
+            ? appState.settings.readerModeFontSize
+            : appState.settings.articleFontSize
+        let lineSpacing = appState.readerModeEnabled
+            ? appState.settings.readerModeLineSpacing
+            : appState.settings.articleLineSpacing
+        let appTypeface = appState.settings.appTypeface
+
         VStack(spacing: 0) {
             // Reading progress bar
             GeometryReader { geo in
@@ -114,7 +122,15 @@ struct ArticleDetailView: View {
             .frame(height: 3)
             .background(Color.accentColor.opacity(0.15))
 
-            // Tab strip (sticky, outside scroll view)
+            // Always-visible article header (above tabs)
+            VStack(spacing: 0) {
+                articleHeader(article: article, fontSize: fontSize, lineSpacing: lineSpacing, appTypeface: appTypeface)
+                    .padding()
+                    .frame(maxWidth: appState.readerModeEnabled ? readerModeMaxWidth : .infinity)
+            }
+            .frame(maxWidth: .infinity)
+
+            // Tab strip (sticky, below header)
             detailTabStrip(article: article)
 
             ScrollViewReader { proxy in
@@ -272,10 +288,6 @@ struct ArticleDetailView: View {
         switch activeTab {
         case .article:
             VStack(alignment: .leading, spacing: 16) {
-                articleHeader(article: article, fontSize: fontSize, lineSpacing: lineSpacing, appTypeface: appTypeface)
-                Divider()
-                articleToolbar(article: article)
-                Divider().padding(.vertical, 8)
                 actionsSection(article: article)
                 contentSection(article: article, fontSize: fontSize, lineSpacing: lineSpacing, appTypeface: appTypeface, contentTypeface: contentTypeface)
             }
@@ -335,34 +347,6 @@ struct ArticleDetailView: View {
                 .foregroundStyle(.primary)
                 .textSelection(.enabled)
 
-            if article.isFeatured, let note = article.featuredNote, !note.isEmpty {
-                HStack(alignment: .top, spacing: 10) {
-                    Image(systemName: "star.fill")
-                        .foregroundStyle(.yellow)
-                        .padding(.top, 2)
-                    VStack(alignment: .leading, spacing: 4) {
-                        Text("FEATURED")
-                            .font(.caption2.weight(.bold))
-                            .foregroundStyle(.yellow)
-                            .tracking(0.5)
-                        Text(note.autoLinked())
-                            .font(.callout.italic())
-                            .foregroundStyle(.primary)
-                            .textSelection(.enabled)
-                    }
-                }
-                .padding(12)
-                .frame(maxWidth: .infinity, alignment: .leading)
-                .background(Color.yellow.opacity(0.08))
-                .overlay(
-                    Rectangle()
-                        .fill(Color.yellow)
-                        .frame(width: 3),
-                    alignment: .leading
-                )
-                .clipShape(RoundedRectangle(cornerRadius: 6))
-            }
-
             HStack(spacing: 8) {
                 Image(systemName: "clock")
                     .foregroundStyle(.secondary)
@@ -390,6 +374,36 @@ struct ArticleDetailView: View {
                 }
             }
             .font(.subheadline)
+
+            if article.isFeatured, let note = article.featuredNote, !note.isEmpty {
+                VStack(alignment: .leading, spacing: 4) {
+                    HStack(spacing: 6) {
+                        Image(systemName: "star.fill")
+                            .font(.footnote)
+                            .foregroundStyle(Color.purple.opacity(0.8))
+                        Text("FEATURED")
+                            .font(.footnote.weight(.semibold))
+                            .foregroundStyle(Color.purple.opacity(0.85))
+                            .tracking(0.6)
+                    }
+                    Text(note.autoLinked())
+                        .font(.callout)
+                        .foregroundStyle(.primary)
+                        .textSelection(.enabled)
+                }
+                .padding(.leading, 12)
+                .padding(.trailing, 12)
+                .padding(.vertical, 10)
+                .frame(maxWidth: .infinity, alignment: .leading)
+                .background(Color.purple.opacity(0.06))
+                .overlay(
+                    Rectangle()
+                        .fill(Color.purple.opacity(0.6))
+                        .frame(width: 2),
+                    alignment: .leading
+                )
+                .clipShape(RoundedRectangle(cornerRadius: 4))
+            }
         }
         .padding(20)
         .frame(maxWidth: .infinity, alignment: .leading)
@@ -416,102 +430,6 @@ struct ArticleDetailView: View {
                     lineWidth: 1
                 )
         )
-    }
-
-    // MARK: - Toolbar Section
-
-    @ViewBuilder
-    private func articleToolbar(article: ArticleDetail) -> some View {
-        HStack(spacing: 16) {
-            // Read toggle
-            Button {
-                Task {
-                    try? await appState.markRead(articleId: article.id, isRead: !article.isRead)
-                }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: article.isRead ? "checkmark" : "circle")
-                        .font(.system(size: 14))
-                    Text("Read")
-                        .font(.system(size: 13))
-                }
-                .foregroundColor(article.isRead ? .primary : .secondary)
-            }
-            .buttonStyle(.plain)
-            .help(article.isRead ? "Mark as unread" : "Mark as read")
-
-            // Save/Bookmark toggle
-            Button {
-                Task {
-                    try? await appState.toggleBookmark(articleId: article.id)
-                }
-            } label: {
-                HStack(spacing: 6) {
-                    Image(systemName: article.isBookmarked ? "bookmark.fill" : "bookmark")
-                        .font(.system(size: 14))
-                    Text("Save")
-                        .font(.system(size: 13))
-                }
-                .foregroundColor(article.isBookmarked ? .primary : .secondary)
-            }
-            .buttonStyle(.plain)
-            .help(article.isBookmarked ? "Remove from saved" : "Save article")
-
-            Rectangle()
-                .fill(Color.secondary.opacity(0.3))
-                .frame(width: 1, height: 20)
-
-            Spacer()
-
-            // Share button
-            Menu {
-                ShareLink(item: article.originalUrl) {
-                    Label("Share Link", systemImage: "link")
-                }
-
-                if let summary = article.summaryShort ?? article.summaryFull, !summary.isEmpty {
-                    ShareLink(item: shareTextWithSummary(article: article, summary: summary)) {
-                        Label("Share with Summary", systemImage: "text.quote")
-                    }
-
-                    Divider()
-
-                    Button {
-                        copySummaryToClipboard(article: article, summary: summary)
-                    } label: {
-                        Label("Copy Summary", systemImage: "doc.on.doc")
-                    }
-                }
-
-                Divider()
-
-                Button {
-                    copyLinkToClipboard(article: article)
-                } label: {
-                    Label("Copy Link", systemImage: "link")
-                }
-            } label: {
-                Image(systemName: "square.and.arrow.up")
-                    .font(.system(size: 14))
-                    .foregroundColor(.secondary)
-            }
-            .buttonStyle(.plain)
-            .help("Share article")
-
-            // Open in browser button
-            Button {
-                NSWorkspace.shared.open(article.originalUrl)
-            } label: {
-                Image(systemName: "arrow.up.forward.square")
-                    .font(.system(size: 14))
-                    .foregroundColor(.secondary)
-            }
-            .buttonStyle(.plain)
-            .help("Open in browser")
-        }
-        .padding(.horizontal, 20)
-        .padding(.vertical, 12)
-        .background(Color(NSColor.controlBackgroundColor).opacity(0.5))
     }
 
     // MARK: - Summary Section
@@ -701,18 +619,6 @@ struct ArticleDetailView: View {
             }
 
             Button {
-                Task {
-                    try? await appState.toggleBookmark(articleId: article.id)
-                }
-            } label: {
-                Label(
-                    article.isBookmarked ? "Saved" : "Save",
-                    systemImage: article.isBookmarked ? "star.fill" : "star"
-                )
-            }
-            .buttonStyle(.borderedProminent)
-
-            Button {
                 NSWorkspace.shared.open(article.originalUrl)
             } label: {
                 Label("Read Original", systemImage: "safari")
@@ -768,6 +674,45 @@ struct ArticleDetailView: View {
             }
             .buttonStyle(.bordered)
             .fixedSize()
+
+            // Divider between commands and state toggles
+            Rectangle()
+                .fill(Color.secondary.opacity(0.3))
+                .frame(width: 1, height: 20)
+
+            // Read toggle
+            Button {
+                Task {
+                    try? await appState.markRead(articleId: article.id, isRead: !article.isRead)
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: article.isRead ? "checkmark" : "circle")
+                        .font(.system(size: 14))
+                    Text("Read")
+                        .font(.system(size: 13))
+                }
+                .foregroundColor(article.isRead ? .primary : .secondary)
+            }
+            .buttonStyle(.plain)
+            .help(article.isRead ? "Mark as unread" : "Mark as read")
+
+            // Save/Bookmark toggle
+            Button {
+                Task {
+                    try? await appState.toggleBookmark(articleId: article.id)
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: article.isBookmarked ? "bookmark.fill" : "bookmark")
+                        .font(.system(size: 14))
+                    Text("Save")
+                        .font(.system(size: 13))
+                }
+                .foregroundColor(article.isBookmarked ? .primary : .secondary)
+            }
+            .buttonStyle(.plain)
+            .help(article.isBookmarked ? "Remove from saved" : "Save article")
         }
         .overlay(alignment: .bottomLeading) {
             if let msg = promoteError {

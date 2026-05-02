@@ -320,136 +320,181 @@ export function ArticleDetail() {
     },
   ]
 
-  return (
-    <div className="flex-1 flex flex-col bg-background">
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 p-4 border-b border-border">
+  const articleHeader = (
+    <header className="max-w-3xl mx-auto px-8 pt-6 pb-4">
+      <h1 className="text-3xl font-bold mb-3 leading-tight">
+        {article.title}
+      </h1>
+
+      <div className="flex items-center gap-3 text-sm text-muted-foreground">
+        <Badge variant="secondary">{article.feed_name}</Badge>
+        {article.author && <span>by {article.author}</span>}
+        <span>·</span>
+        <time>{formatFullDate(article.published_at)}</time>
+      </div>
+
+      {article.source_url && article.source_url !== article.url && (
+        <div className="mt-2">
+          <a
+            href={article.source_url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-sm text-primary hover:underline inline-flex items-center gap-1"
+          >
+            Original source: {getDomain(article.source_url)}
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
+      )}
+
+      {article.is_featured && article.featured_note && (
+        <div className="mt-4 px-4 py-3 border-l-2 border-purple-400/60 dark:border-purple-400/50 bg-purple-50/60 dark:bg-purple-950/20 rounded-r">
+          <div className="flex items-center gap-1.5 text-xs uppercase tracking-wide font-semibold text-purple-600 dark:text-purple-400 mb-1.5">
+            <Star className="h-3.5 w-3.5 text-purple-500/80 dark:text-purple-400/80" />
+            Featured
+          </div>
+          <p className="text-sm text-foreground leading-relaxed">
+            {autoLinkText(smartQuotes(article.featured_note))}
+          </p>
+        </div>
+      )}
+    </header>
+  )
+
+  const articleToolbar = (
+    <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+      <Button
+        variant="ghost"
+        size="sm"
+        onClick={handleToggleRead}
+        className={cn(article.is_read && "text-muted-foreground")}
+      >
+        {article.is_read ? (
+          <>
+            <Check className="h-4 w-4 mr-1" />
+            Read
+          </>
+        ) : (
+          <>
+            <Circle className="h-4 w-4 mr-1" />
+            Unread
+          </>
+        )}
+      </Button>
+
+      <SmartTooltip
+        hintId="bookmark-tip"
+        title="Save for later"
+        body="Bookmarked articles appear under the Saved filter and in your Library."
+        side="bottom"
+      >
         <Button
           variant="ghost"
           size="sm"
-          onClick={handleToggleRead}
-          className={cn(article.is_read && "text-muted-foreground")}
+          onClick={handleToggleBookmark}
+          className={cn(article.is_bookmarked && "text-amber-500")}
         >
-          {article.is_read ? (
-            <>
-              <Check className="h-4 w-4 mr-1" />
-              Read
-            </>
-          ) : (
-            <>
-              <Circle className="h-4 w-4 mr-1" />
-              Unread
-            </>
-          )}
+          <BookMarked className={cn("h-4 w-4 mr-1", article.is_bookmarked && "fill-amber-500")} />
+          {article.is_bookmarked ? 'Saved' : 'Save'}
         </Button>
+      </SmartTooltip>
 
-        <SmartTooltip
-          hintId="bookmark-tip"
-          title="Save for later"
-          body="Bookmarked articles appear under the Bookmarked filter and in your Library."
-          side="bottom"
+      {isAdmin && (
+        <Tooltip
+          content={
+            article.is_featured
+              ? 'Edit the editorial note or unfeature'
+              : 'Feature this story for everyone'
+          }
         >
           <Button
             variant="ghost"
             size="sm"
-            onClick={handleToggleBookmark}
-            className={cn(article.is_bookmarked && "text-amber-500")}
+            onClick={handleOpenFeatureDialog}
+            className={cn(article.is_featured && "text-amber-500")}
           >
-            <BookMarked className={cn("h-4 w-4 mr-1", article.is_bookmarked && "fill-amber-500")} />
-            {article.is_bookmarked ? 'Saved' : 'Save'}
+            <Star className={cn("h-4 w-4 mr-1", article.is_featured && "fill-amber-400")} />
+            {article.is_featured ? 'Featured' : 'Feature…'}
           </Button>
-        </SmartTooltip>
+        </Tooltip>
+      )}
 
-        {isAdmin && (
-          <Tooltip
-            content={
-              article.is_featured
-                ? 'Edit the editorial note or unfeature'
-                : 'Feature this story for everyone'
-            }
-          >
-            <Button
-              variant="ghost"
-              size="sm"
-              onClick={handleOpenFeatureDialog}
-              className={cn(article.is_featured && "text-amber-500")}
-            >
-              <Star className={cn("h-4 w-4 mr-1", article.is_featured && "fill-amber-400")} />
-              {article.is_featured ? 'Featured' : 'Feature…'}
-            </Button>
-          </Tooltip>
-        )}
+      <Separator orientation="vertical" className="h-6" />
 
-        <Separator orientation="vertical" className="h-6" />
-
-        <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Tooltip content={hasContent ? 'Refetch full content' : 'Fetch full content'}>
-              <Button
-                variant="ghost"
-                size="icon"
-                className="h-7 w-7 text-muted-foreground hover:text-foreground"
-                disabled={fetchContent.isPending || extractFromHtml.isPending}
-              >
-                {fetchContent.isPending || extractFromHtml.isPending ? (
-                  <Loader2 className="h-4 w-4 animate-spin" />
-                ) : (
-                  <Download className="h-4 w-4" />
-                )}
-              </Button>
-            </Tooltip>
-          </DropdownMenuTrigger>
-          <DropdownMenuContent align="start">
-            <DropdownMenuItem onClick={handleFetchContent}>
-              <Download className="h-4 w-4 mr-2" />
-              Fetch Content
-            </DropdownMenuItem>
-            <DropdownMenuItem onClick={() => setShowPasteDialog(true)}>
-              <ClipboardPaste className="h-4 w-4 mr-2" />
-              Paste from Browser
-            </DropdownMenuItem>
-          </DropdownMenuContent>
-        </DropdownMenu>
-
-        <div className="ml-auto flex items-center gap-0.5">
-          <Tooltip
-            content={
-              article.promoted_to_composer
-                ? 'Already in Composer'
-                : 'Send to Composer'
-            }
-          >
+      <DropdownMenu>
+        <DropdownMenuTrigger asChild>
+          <Tooltip content={hasContent ? 'Refetch full content' : 'Fetch full content'}>
             <Button
               variant="ghost"
               size="icon"
               className="h-7 w-7 text-muted-foreground hover:text-foreground"
-              onClick={handlePromoteToComposer}
-              disabled={
-                promoteToComposer.isPending ||
-                !!article.promoted_to_composer
-              }
+              disabled={fetchContent.isPending || extractFromHtml.isPending}
             >
-              {promoteToComposer.isPending ? (
+              {fetchContent.isPending || extractFromHtml.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
-              ) : article.promoted_to_composer ? (
-                <Check className="h-4 w-4 text-green-600" />
               ) : (
-                <Send className="h-4 w-4" />
+                <Download className="h-4 w-4" />
               )}
             </Button>
           </Tooltip>
-          <Tooltip content="Share">
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={handleShare}>
-              <Share2 className="h-4 w-4" />
-            </Button>
-          </Tooltip>
-          <Tooltip content="Open in browser">
-            <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={handleOpenExternal}>
-              <ExternalLink className="h-4 w-4" />
-            </Button>
-          </Tooltip>
-        </div>
+        </DropdownMenuTrigger>
+        <DropdownMenuContent align="start">
+          <DropdownMenuItem onClick={handleFetchContent}>
+            <Download className="h-4 w-4 mr-2" />
+            Fetch Content
+          </DropdownMenuItem>
+          <DropdownMenuItem onClick={() => setShowPasteDialog(true)}>
+            <ClipboardPaste className="h-4 w-4 mr-2" />
+            Paste from Browser
+          </DropdownMenuItem>
+        </DropdownMenuContent>
+      </DropdownMenu>
+
+      <div className="ml-auto flex items-center gap-0.5">
+        <Tooltip
+          content={
+            article.promoted_to_composer
+              ? 'Already in Composer'
+              : 'Send to Composer'
+          }
+        >
+          <Button
+            variant="ghost"
+            size="icon"
+            className="h-7 w-7 text-muted-foreground hover:text-foreground"
+            onClick={handlePromoteToComposer}
+            disabled={
+              promoteToComposer.isPending ||
+              !!article.promoted_to_composer
+            }
+          >
+            {promoteToComposer.isPending ? (
+              <Loader2 className="h-4 w-4 animate-spin" />
+            ) : article.promoted_to_composer ? (
+              <Check className="h-4 w-4 text-green-600" />
+            ) : (
+              <Send className="h-4 w-4" />
+            )}
+          </Button>
+        </Tooltip>
+        <Tooltip content="Share">
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={handleShare}>
+            <Share2 className="h-4 w-4" />
+          </Button>
+        </Tooltip>
+        <Tooltip content="Open in browser">
+          <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={handleOpenExternal}>
+            <ExternalLink className="h-4 w-4" />
+          </Button>
+        </Tooltip>
       </div>
+    </div>
+  )
+
+  return (
+    <div className="flex-1 flex flex-col bg-background">
+      {/* Always-visible article header */}
+      {articleHeader}
 
       {/* Tab Strip */}
       <div className="flex items-stretch border-b border-border bg-background shrink-0">
@@ -489,46 +534,9 @@ export function ArticleDetail() {
       <ScrollArea className="h-full">
         {/* Article Tab */}
         {activeTab === 'article' && (
-          <article className="max-w-3xl mx-auto p-8">
-            <header className="mb-8">
-              <h1 className="text-3xl font-bold mb-4 leading-tight">
-                {article.title}
-              </h1>
-
-              <div className="flex items-center gap-3 text-sm text-muted-foreground">
-                <Badge variant="secondary">{article.feed_name}</Badge>
-                {article.author && <span>by {article.author}</span>}
-                <span>·</span>
-                <time>{formatFullDate(article.published_at)}</time>
-              </div>
-
-              {article.source_url && article.source_url !== article.url && (
-                <div className="mt-2">
-                  <a
-                    href={article.source_url}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    className="text-sm text-primary hover:underline inline-flex items-center gap-1"
-                  >
-                    Original source: {getDomain(article.source_url)}
-                    <ExternalLink className="h-3 w-3" />
-                  </a>
-                </div>
-              )}
-
-              {article.is_featured && article.featured_note && (
-                <div className="mt-5 px-4 py-3 border-l-2 border-amber-400 bg-amber-50 dark:bg-amber-950/20 rounded-r">
-                  <div className="flex items-center gap-1.5 text-[11px] uppercase tracking-wide font-semibold text-amber-700 dark:text-amber-300 mb-1">
-                    <Star className="h-3 w-3 fill-amber-400 text-amber-400" />
-                    Featured
-                  </div>
-                  <p className="text-sm italic text-amber-900 dark:text-amber-100 leading-relaxed">
-                    {autoLinkText(smartQuotes(article.featured_note))}
-                  </p>
-                </div>
-              )}
-            </header>
-
+          <>
+            {articleToolbar}
+            <article className="max-w-3xl mx-auto px-8 pt-6 pb-8">
             {hasContent ? (
               <div
                 className="article-content prose prose-slate dark:prose-invert max-w-none"
@@ -600,6 +608,7 @@ export function ArticleDetail() {
               </div>
             </footer>
           </article>
+          </>
         )}
 
         {/* AI Summary Tab */}
