@@ -638,43 +638,6 @@ struct ArticleDetailView: View {
 
             composerButton(article: article)
 
-            Spacer()
-
-            // Share menu with options
-            Menu {
-                // Share URL only
-                ShareLink(item: article.originalUrl) {
-                    Label("Share Link", systemImage: "link")
-                }
-
-                // Share with summary (if available)
-                if let summary = article.summaryShort ?? article.summaryFull, !summary.isEmpty {
-                    ShareLink(item: shareTextWithSummary(article: article, summary: summary)) {
-                        Label("Share with Summary", systemImage: "text.quote")
-                    }
-
-                    Divider()
-
-                    Button {
-                        copySummaryToClipboard(article: article, summary: summary)
-                    } label: {
-                        Label("Copy Summary", systemImage: "doc.on.doc")
-                    }
-                }
-
-                Divider()
-
-                Button {
-                    copyLinkToClipboard(article: article)
-                } label: {
-                    Label("Copy Link", systemImage: "link")
-                }
-            } label: {
-                Label("Share", systemImage: "square.and.arrow.up")
-            }
-            .buttonStyle(.bordered)
-            .fixedSize()
-
             // Divider between commands and state toggles
             Rectangle()
                 .fill(Color.secondary.opacity(0.3))
@@ -713,6 +676,44 @@ struct ArticleDetailView: View {
             }
             .buttonStyle(.plain)
             .help(article.isBookmarked ? "Remove from saved" : "Save article")
+
+            Spacer()
+
+            // Share menu with options
+            Menu {
+                // Share URL only
+                ShareLink(item: article.originalUrl) {
+                    Label("Share Link", systemImage: "link")
+                }
+
+                // Share with summary (if available)
+                if let summary = article.summaryShort ?? article.summaryFull, !summary.isEmpty {
+                    ShareLink(item: shareTextWithSummary(article: article, summary: summary)) {
+                        Label("Share with Summary", systemImage: "text.quote")
+                    }
+
+                    Divider()
+
+                    Button {
+                        copySummaryToClipboard(article: article, summary: summary)
+                    } label: {
+                        Label("Copy Summary", systemImage: "doc.on.doc")
+                    }
+                }
+
+                Divider()
+
+                Button {
+                    copyLinkToClipboard(article: article)
+                } label: {
+                    Label("Copy Link", systemImage: "link")
+                }
+            } label: {
+                Label("Share", systemImage: "square.and.arrow.up")
+            }
+            .buttonStyle(.bordered)
+            .fixedSize()
+            .padding(.trailing, 12)
         }
         .overlay(alignment: .bottomLeading) {
             if let msg = promoteError {
@@ -743,7 +744,6 @@ struct ArticleDetailView: View {
             }
         }
         .buttonStyle(.borderedProminent)
-        .tint(alreadyPromoted ? .green : .accentColor)
         .disabled(isPromoting || alreadyPromoted)
         .help(alreadyPromoted
               ? "This article is already in the Composer research workbench"
