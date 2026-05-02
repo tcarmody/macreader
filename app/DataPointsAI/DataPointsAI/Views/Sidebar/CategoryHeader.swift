@@ -32,7 +32,7 @@ struct CategoryHeader: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color.purple)
+                        .background(Color.blue)
                         .clipShape(Capsule())
                 }
             }

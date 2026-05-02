@@ -13,16 +13,9 @@ struct FeedListView: View {
 
     var body: some View {
         List(selection: $appState.selectedFilter) {
-            // Library section
-            Section {
-                LibrarySidebarRow(isSelected: appState.showLibrary, count: appState.libraryItemCount)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        appState.selectLibrary()
-                    }
-            }
-
             Section("Filters") {
+                FilterRow(filter: .featured, count: appState.featuredArticleCount)
+
                 FilterRow(filter: .all, count: nil)
                     .contextMenu {
                         Button {
@@ -34,7 +27,7 @@ struct FeedListView: View {
                         }
                     }
 
-                FilterRow(filter: .unread, count: appState.totalUnreadCount)
+                FilterRow(filter: .unread, count: appState.totalUnreadCount, usesUnreadBadge: true)
                     .contextMenu {
                         Button {
                             Task {
@@ -45,15 +38,11 @@ struct FeedListView: View {
                         }
                     }
 
-                FilterRow(filter: .today, count: appState.todayArticleCount)
-
-                FilterRow(filter: .featured, count: appState.featuredArticleCount)
+                FilterRow(filter: .today, count: appState.todayArticleCount, usesUnreadBadge: true)
 
                 FilterRow(filter: .bookmarked, count: nil)
 
                 FilterRow(filter: .summarized, count: nil)
-
-                FilterRow(filter: .unsummarized, count: nil)
             }
 
             // Saved Searches section
@@ -155,26 +144,7 @@ struct FeedListView: View {
                 .collapsible(false)
             }
 
-            // Newsletters section
-            if !appState.newsletterFeeds.isEmpty {
-                Section {
-                    if !appState.collapsedCategories.contains("Newsletters") {
-                        ForEach(appState.newsletterFeeds) { feed in
-                            newsletterFeedRow(for: feed)
-                        }
-                    }
-                } header: {
-                    NewsletterHeader(
-                        feedCount: appState.newsletterFeeds.count,
-                        unreadCount: appState.newsletterUnreadCount,
-                        isCollapsed: appState.collapsedCategories.contains("Newsletters"),
-                        onToggle: { appState.toggleCategoryCollapsed("Newsletters") }
-                    )
-                }
-                .collapsible(false)
-            }
-
-            // Group feeds by category
+            // Group feeds by category (folders)
             ForEach(appState.feedsByCategory, id: \.category) { group in
                 if let category = group.category {
                     // Categorized feeds section
@@ -218,6 +188,34 @@ struct FeedListView: View {
                             }
                     }
                 }
+            }
+
+            // Newsletters (content type) — placed below feeds
+            if !appState.newsletterFeeds.isEmpty {
+                Section {
+                    if !appState.collapsedCategories.contains("Newsletters") {
+                        ForEach(appState.newsletterFeeds) { feed in
+                            newsletterFeedRow(for: feed)
+                        }
+                    }
+                } header: {
+                    NewsletterHeader(
+                        feedCount: appState.newsletterFeeds.count,
+                        unreadCount: appState.newsletterUnreadCount,
+                        isCollapsed: appState.collapsedCategories.contains("Newsletters"),
+                        onToggle: { appState.toggleCategoryCollapsed("Newsletters") }
+                    )
+                }
+                .collapsible(false)
+            }
+
+            // Library (content type) — bottom of sidebar
+            Section {
+                LibrarySidebarRow(isSelected: appState.showLibrary, count: appState.libraryItemCount)
+                    .contentShape(Rectangle())
+                    .onTapGesture {
+                        appState.selectLibrary()
+                    }
             }
 
         }

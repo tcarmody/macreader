@@ -221,10 +221,13 @@ class AppState: ObservableObject {
         articles.filter { $0.isFeatured }.count
     }
 
-    /// RSS feeds grouped by category (excludes newsletter feeds)
+    /// RSS feeds grouped by category (excludes newsletter feeds and local backing feeds)
     var feedsByCategory: [(category: String?, feeds: [Feed])] {
-        // Exclude newsletter feeds from the RSS section
-        let rssFeeds = feeds.filter { !$0.url.absoluteString.hasPrefix("newsletter://") }
+        // Exclude newsletter and local backing feeds (e.g. Library) from the RSS section
+        let rssFeeds = feeds.filter {
+            let url = $0.url.absoluteString
+            return !url.hasPrefix("newsletter://") && !url.hasPrefix("local://")
+        }
         let grouped = Dictionary(grouping: rssFeeds) { $0.category }
 
         let sortedKeys = grouped.keys.sorted { key1, key2 in
@@ -250,8 +253,12 @@ class AppState: ObservableObject {
     }
 
     var categories: [String] {
-        // Exclude "Newsletters" category from RSS categories
-        Set(feeds.compactMap { $0.category })
+        // Exclude "Newsletters" category and any category that only contains local backing feeds
+        let rssFeeds = feeds.filter {
+            let url = $0.url.absoluteString
+            return !url.hasPrefix("newsletter://") && !url.hasPrefix("local://")
+        }
+        return Set(rssFeeds.compactMap { $0.category })
             .filter { $0 != "Newsletters" }
             .sorted()
     }

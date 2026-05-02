@@ -30,7 +30,7 @@ struct NewsletterHeader: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color.orange)
+                        .background(Color.blue)
                         .clipShape(Capsule())
                 }
             }

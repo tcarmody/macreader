@@ -9,33 +9,6 @@ struct ServerStatusIndicator: View {
 
     var body: some View {
         VStack(spacing: 6) {
-            // Stats row - unread count and today's articles
-            statsRow
-
-            Divider()
-                .padding(.horizontal, -12)
-
-            // Feed health summary (if there are issues)
-            if feedsWithIssuesCount > 0 {
-                Button {
-                    showHealthDashboard = true
-                } label: {
-                    HStack(spacing: 4) {
-                        Image(systemName: "exclamationmark.triangle.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.yellow)
-                        Text("\(feedsWithIssuesCount) feed\(feedsWithIssuesCount == 1 ? "" : "s") need\(feedsWithIssuesCount == 1 ? "s" : "") attention")
-                            .font(.caption2)
-                            .foregroundStyle(.secondary)
-                        Spacer()
-                        Image(systemName: "chevron.right")
-                            .font(.caption2)
-                            .foregroundStyle(.tertiary)
-                    }
-                }
-                .buttonStyle(.plain)
-            }
-
             // Sync status with animation
             syncStatusRow
 
@@ -98,43 +71,6 @@ struct ServerStatusIndicator: View {
         }
     }
 
-    // MARK: - Stats Row
-
-    @ViewBuilder
-    private var statsRow: some View {
-        HStack(spacing: 12) {
-            // Unread count
-            StatBadge(
-                icon: "envelope.badge",
-                value: appState.totalUnreadCount,
-                label: "unread",
-                color: appState.totalUnreadCount > 0 ? .blue : .secondary
-            )
-
-            // Today's articles
-            StatBadge(
-                icon: "sun.max",
-                value: appState.todayArticleCount,
-                label: "today",
-                color: appState.todayArticleCount > 0 ? .orange : .secondary
-            )
-
-            // Summarized count
-            StatBadge(
-                icon: "sparkles",
-                value: summarizedCount,
-                label: "summarized",
-                color: summarizedCount > 0 ? .purple : .secondary
-            )
-
-            Spacer()
-        }
-    }
-
-    private var summarizedCount: Int {
-        appState.articles.filter { $0.summaryShort != nil }.count
-    }
-
     // MARK: - Sync Status Row
 
     @ViewBuilder
@@ -185,17 +121,6 @@ struct ServerStatusIndicator: View {
         .animation(.easeInOut(duration: 0.2), value: appState.isSyncing)
     }
 
-    private var feedsWithIssuesCount: Int {
-        appState.feeds.filter { feed in
-            switch feed.healthStatus {
-            case .error, .stale:
-                return true
-            default:
-                return false
-            }
-        }.count
-    }
-
     private func lastRefreshText(for date: Date) -> String {
         let now = Date()
         let interval = now.timeIntervalSince(date)
@@ -228,25 +153,3 @@ struct ServerStatusIndicator: View {
     }
 }
 
-// MARK: - Stat Badge Component
-
-/// Compact stat badge for displaying counts with icons
-private struct StatBadge: View {
-    let icon: String
-    let value: Int
-    let label: String
-    let color: Color
-
-    var body: some View {
-        HStack(spacing: 3) {
-            Image(systemName: icon)
-                .font(.caption2)
-                .foregroundStyle(color)
-
-            Text("\(value)")
-                .font(.caption.monospacedDigit().bold())
-                .foregroundStyle(color)
-        }
-        .help("\(value) \(label)")
-    }
-}

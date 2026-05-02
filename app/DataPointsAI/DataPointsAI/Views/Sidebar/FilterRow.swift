@@ -4,6 +4,9 @@ import SwiftUI
 struct FilterRow: View {
     let filter: ArticleFilter
     let count: Int?
+    /// When true, the count is treated as an unread/attention number (blue badge).
+    /// When false (default), the count is treated as a neutral total (gray badge).
+    var usesUnreadBadge: Bool = false
 
     var body: some View {
         Label {
@@ -11,13 +14,23 @@ struct FilterRow: View {
                 Text(filter.displayName)
                 Spacer()
                 if let count = count, count > 0 {
-                    Text("\(count)")
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .padding(.horizontal, 8)
-                        .padding(.vertical, 2)
-                        .background(Color.secondary.opacity(0.2))
-                        .clipShape(Capsule())
+                    if usesUnreadBadge {
+                        Text("\(count)")
+                            .font(.caption)
+                            .foregroundStyle(.white)
+                            .padding(.horizontal, 6)
+                            .padding(.vertical, 2)
+                            .background(Color.blue)
+                            .clipShape(Capsule())
+                    } else {
+                        Text("\(count)")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                            .padding(.horizontal, 8)
+                            .padding(.vertical, 2)
+                            .background(Color.secondary.opacity(0.2))
+                            .clipShape(Capsule())
+                    }
                 }
             }
         } icon: {
