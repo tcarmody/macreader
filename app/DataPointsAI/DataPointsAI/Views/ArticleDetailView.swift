@@ -314,7 +314,8 @@ struct ArticleDetailView: View {
         case .chat:
             if article.summaryFull != nil {
                 ArticleChatSection(
-                    article: article,
+                    articleId: article.id,
+                    headerLabel: "Chat About This Article",
                     fontSize: fontSize,
                     lineSpacing: lineSpacing,
                     appTypeface: appTypeface,

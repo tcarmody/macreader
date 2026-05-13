@@ -62,6 +62,8 @@ struct LibraryItemDetailView: View {
     @State private var isPromoting: Bool = false
     @State private var promoteError: String?
     @State private var locallyPromotedAt: [Int: Date] = [:]
+    @State private var isChatExpanded: Bool = false
+    @State private var hasChatHistory: Bool = false
 
     var body: some View {
         Group {
@@ -91,8 +93,11 @@ struct LibraryItemDetailView: View {
             }
         }
         .onChange(of: item.id) { _, _ in
-            // Reset content expansion state when viewing a new item
+            // Reset state when viewing a new item
             showFullContent = false
+            isChatExpanded = false
+            hasChatHistory = false
+            promoteError = nil
         }
     }
 
@@ -109,24 +114,35 @@ struct LibraryItemDetailView: View {
             // Header
             itemHeader(item: item, fontSize: fontSize, appTypeface: appTypeface)
 
+            // Action bar (mirrors ArticleDetailView)
+            actionsSection(item: item)
+
             Divider()
 
-            // AI Summary section
+            // AI Summary
             summarySection(item: item, fontSize: fontSize, lineSpacing: lineSpacing, appTypeface: appTypeface)
 
             // Key Points
             keyPointsSection(item: item, fontSize: fontSize, lineSpacing: lineSpacing, appTypeface: appTypeface)
 
-            Divider()
+            // Original content
+            contentSection(item: item, fontSize: fontSize, lineSpacing: lineSpacing, contentTypeface: contentTypeface)
 
-            // Actions
-            actionsSection(item: item)
+            // Chat (requires summary)
+            if item.summaryFull != nil {
+                ArticleChatSection(
+                    articleId: item.id,
+                    headerLabel: "Chat About This Item",
+                    fontSize: fontSize,
+                    lineSpacing: lineSpacing,
+                    appTypeface: appTypeface,
+                    isExpanded: $isChatExpanded,
+                    hasChat: $hasChatHistory
+                )
+            }
 
             // Related links
             relatedLinksSection(item: item, fontSize: fontSize, lineSpacing: lineSpacing, appTypeface: appTypeface)
-
-            // Original content
-            contentSection(item: item, fontSize: fontSize, lineSpacing: lineSpacing, contentTypeface: contentTypeface)
         }
     }
 
@@ -322,8 +338,7 @@ struct LibraryItemDetailView: View {
 
     @ViewBuilder
     private func actionsSection(item: LibraryItemDetail) -> some View {
-        HStack(spacing: 16) {
-            // Open original (for URLs)
+        HStack(spacing: 12) {
             if item.type == .url {
                 Button {
                     NSWorkspace.shared.open(item.url)
@@ -334,59 +349,106 @@ struct LibraryItemDetailView: View {
             }
 
             Button {
-                Task {
-                    try? await appState.toggleLibraryItemBookmark(itemId: item.id)
-                }
-            } label: {
-                Label(
-                    item.isBookmarked ? "Saved" : "Save",
-                    systemImage: item.isBookmarked ? "star.fill" : "star"
-                )
-            }
-            .buttonStyle(.bordered)
-
-            // Context/Related Links button
-            Button {
                 if item.relatedLinks == nil || (item.relatedLinks?.isEmpty ?? true) {
                     Task {
                         await appState.loadRelatedLinksForLibraryItem(itemId: item.id)
                     }
                 }
             } label: {
-                HStack(spacing: 4) {
-                    if appState.isLoadingRelated {
-                        ProgressView()
-                            .scaleEffect(0.6)
-                    } else {
-                        Image(systemName: "link")
-                            .foregroundColor((item.relatedLinks?.isEmpty == false) ? .blue : nil)
-                    }
-                    Text((item.relatedLinks?.isEmpty == false) ? "Contextualized" : "Context")
-                }
+                Label("Find Related", systemImage: "link.badge.plus")
             }
-            .buttonStyle(.bordered)
+            .buttonStyle(.borderedProminent)
             .disabled(appState.isLoadingRelated || (item.relatedLinks?.isEmpty == false))
-            .help((item.relatedLinks?.isEmpty == false) ? "Related articles found" : "Find semantically related articles using neural search")
+            .help((item.relatedLinks?.isEmpty == false) ? "Related articles found" : "Find related articles using neural search")
 
             composerButton(item: item)
 
+            Rectangle()
+                .fill(Color.secondary.opacity(0.3))
+                .frame(width: 1, height: 20)
+
+            Button {
+                Task {
+                    try? await appState.markLibraryItemRead(itemId: item.id, isRead: !item.isRead)
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: item.isRead ? "checkmark" : "circle")
+                        .font(.system(size: 14))
+                    Text("Read")
+                        .font(.system(size: 13))
+                }
+                .foregroundColor(item.isRead ? .primary : .secondary)
+            }
+            .buttonStyle(.plain)
+            .help(item.isRead ? "Mark as unread" : "Mark as read")
+
+            Button {
+                Task {
+                    try? await appState.toggleLibraryItemBookmark(itemId: item.id)
+                }
+            } label: {
+                HStack(spacing: 6) {
+                    Image(systemName: item.isBookmarked ? "bookmark.fill" : "bookmark")
+                        .font(.system(size: 14))
+                    Text("Save")
+                        .font(.system(size: 13))
+                }
+                .foregroundColor(item.isBookmarked ? .primary : .secondary)
+            }
+            .buttonStyle(.plain)
+            .help(item.isBookmarked ? "Remove from saved" : "Save item")
+
             Spacer()
 
-            if item.type == .url {
-                ShareLink(item: item.url) {
-                    Label("Share", systemImage: "square.and.arrow.up")
+            Menu {
+                if item.type == .url {
+                    ShareLink(item: item.url) {
+                        Label("Share Link", systemImage: "link")
+                    }
                 }
-                .buttonStyle(.bordered)
-            }
 
+                if let summary = item.summaryFull ?? item.summaryShort, !summary.isEmpty {
+                    ShareLink(item: shareTextWithSummary(item: item, summary: summary)) {
+                        Label("Share with Summary", systemImage: "text.quote")
+                    }
+
+                    Divider()
+
+                    Button {
+                        copySummaryToClipboard(item: item, summary: summary)
+                    } label: {
+                        Label("Copy Summary", systemImage: "doc.on.doc")
+                    }
+                }
+
+                if item.type == .url {
+                    Divider()
+
+                    Button {
+                        copyLinkToClipboard(item: item)
+                    } label: {
+                        Label("Copy Link", systemImage: "link")
+                    }
+                }
+            } label: {
+                Label("Share", systemImage: "square.and.arrow.up")
+            }
+            .buttonStyle(.bordered)
+            .fixedSize()
+
+            // Library-only: items are user-owned uploads/saves
             Button(role: .destructive) {
                 Task {
                     try? await appState.deleteLibraryItem(itemId: item.id)
                 }
             } label: {
                 Label("Delete", systemImage: "trash")
+                    .labelStyle(.iconOnly)
             }
             .buttonStyle(.bordered)
+            .help("Delete from library")
+            .padding(.trailing, 12)
         }
         .overlay(alignment: .bottomLeading) {
             if let msg = promoteError {
@@ -396,6 +458,20 @@ struct LibraryItemDetailView: View {
                     .padding(.top, 36)
             }
         }
+    }
+
+    private func shareTextWithSummary(item: LibraryItemDetail, summary: String) -> String {
+        var text = item.displayName + "\n\n"
+        text += summary
+        if item.type == .url {
+            text += "\n\n" + item.url.absoluteString
+        }
+        return text
+    }
+
+    private func copyLinkToClipboard(item: LibraryItemDetail) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(item.url.absoluteString, forType: .string)
     }
 
     @ViewBuilder

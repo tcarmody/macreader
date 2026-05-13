@@ -13,6 +13,10 @@ import {
   Trash2,
   Send,
   Check,
+  Circle,
+  Share2,
+  Copy,
+  Quote,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDate, getDomain } from '@/lib/utils'
@@ -33,9 +37,19 @@ import {
   useSummarizeLibraryItem,
   useFindRelatedLinksForLibraryItem,
   usePromoteToComposer,
+  useToggleLibraryItemRead,
+  useToggleLibraryItemBookmark,
 } from '@/hooks/use-queries'
 import { Tooltip } from '@/components/ui/tooltip'
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from '@/components/ui/dropdown-menu'
 import { RelatedLinks } from './RelatedLinks'
+import { ArticleChat } from './ArticleChat'
 // StandaloneItem type imported for documentation but used via inference
 import type {} from '@/types'
 
@@ -268,11 +282,15 @@ export function LibraryItemDetail() {
   const summarize = useSummarizeLibraryItem()
   const findRelated = useFindRelatedLinksForLibraryItem()
   const promoteToComposer = usePromoteToComposer()
+  const toggleRead = useToggleLibraryItemRead()
+  const toggleBookmark = useToggleLibraryItemBookmark()
   const [hasTriggeredRelated, setHasTriggeredRelated] = useState(false)
+  const [isChatExpanded, setIsChatExpanded] = useState(false)
 
   // Reset triggered state when item changes
   useEffect(() => {
     setHasTriggeredRelated(false)
+    setIsChatExpanded(false)
   }, [selectedLibraryItemId])
 
   if (!selectedLibraryItemId) {
@@ -326,22 +344,108 @@ export function LibraryItemDetail() {
     })
   }
 
+  const handleToggleRead = () => {
+    toggleRead.mutate({ itemId: item.id, isRead: !item.is_read })
+  }
+
+  const handleToggleBookmark = () => {
+    toggleBookmark.mutate(item.id)
+  }
+
+  const handleShareLink = async () => {
+    if (!item.url) return
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: item.title, url: item.url })
+      } catch {
+        // user dismissed
+      }
+    } else {
+      await navigator.clipboard.writeText(item.url)
+      showToast('Link copied to clipboard', 'success')
+    }
+  }
+
+  const handleShareWithSummary = async () => {
+    const summary = item.summary_full ?? item.summary_short
+    if (!summary) return
+    let text = item.title + '\n\n' + summary
+    if (item.url) text += '\n\n' + item.url
+    if (navigator.share) {
+      try {
+        await navigator.share({ title: item.title, text })
+      } catch {
+        // user dismissed
+      }
+    } else {
+      await navigator.clipboard.writeText(text)
+      showToast('Summary copied to clipboard', 'success')
+    }
+  }
+
+  const handleCopySummary = async () => {
+    const summary = item.summary_full ?? item.summary_short
+    if (!summary) return
+    await navigator.clipboard.writeText(summary)
+    showToast('Summary copied to clipboard', 'success')
+  }
+
+  const handleCopyLink = async () => {
+    if (!item.url) return
+    await navigator.clipboard.writeText(item.url)
+    showToast('Link copied to clipboard', 'success')
+  }
+
+  const hasSummary = !!item.summary_full
+  const summaryForShare = item.summary_full ?? item.summary_short
+
   return (
     <div className="flex-1 flex flex-col bg-background">
-      {/* Toolbar */}
-      <div className="flex items-center gap-2 p-4 border-b border-border">
+      {/* Toolbar (mirrors ArticleDetail) */}
+      <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleToggleRead}
+          className={cn(item.is_read && 'text-muted-foreground')}
+        >
+          {item.is_read ? (
+            <>
+              <Check className="h-4 w-4 mr-1" />
+              Read
+            </>
+          ) : (
+            <>
+              <Circle className="h-4 w-4 mr-1" />
+              Unread
+            </>
+          )}
+        </Button>
+
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={handleToggleBookmark}
+          className={cn(item.is_bookmarked && 'text-amber-500')}
+        >
+          <BookMarked className={cn('h-4 w-4 mr-1', item.is_bookmarked && 'fill-amber-500')} />
+          {item.is_bookmarked ? 'Saved' : 'Save'}
+        </Button>
+
+        <Separator orientation="vertical" className="h-6" />
+
         <Button
           variant="ghost"
           size="sm"
           onClick={handleSummarize}
-          disabled={summarize.isPending || !!item.summary_full}
+          disabled={summarize.isPending || hasSummary}
         >
           {summarize.isPending ? (
             <Loader2 className="h-4 w-4 mr-1 animate-spin" />
           ) : (
-            <Sparkles className={cn("h-4 w-4 mr-1", item.summary_full && "text-purple-500")} />
+            <Sparkles className={cn('h-4 w-4 mr-1', hasSummary && 'text-purple-500')} />
           )}
-          {item.summary_full ? 'Summarized' : 'Summarize'}
+          {hasSummary ? 'Summarized' : 'Summarize'}
         </Button>
 
         <Button
@@ -353,44 +457,26 @@ export function LibraryItemDetail() {
           {findRelated.isPending ? (
             <Loader2 className="h-4 w-4 mr-1 animate-spin" />
           ) : (
-            <Link2 className={cn(
-              "h-4 w-4 mr-1",
-              item.related_links && item.related_links.length > 0 && "text-blue-500"
-            )} />
+            <Link2
+              className={cn(
+                'h-4 w-4 mr-1',
+                item.related_links && item.related_links.length > 0 && 'text-blue-500'
+              )}
+            />
           )}
-          {item.related_links && item.related_links.length > 0 ? 'Contextualized' : 'Context'}
+          {item.related_links && item.related_links.length > 0 ? 'Related' : 'Find Related'}
         </Button>
-
-        <Separator orientation="vertical" className="h-6" />
-
-        {item.url && (
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => window.open(item.url!, '_blank')}
-          >
-            <ExternalLink className="h-4 w-4 mr-1" />
-            Open
-          </Button>
-        )}
 
         <div className="ml-auto flex items-center gap-0.5">
           <Tooltip
-            content={
-              item.promoted_to_composer
-                ? 'Already in Composer'
-                : 'Send to Composer'
-            }
+            content={item.promoted_to_composer ? 'Already in Composer' : 'Send to Composer'}
           >
             <Button
               variant="ghost"
               size="icon"
               className="h-7 w-7 text-muted-foreground hover:text-foreground"
               onClick={handlePromoteToComposer}
-              disabled={
-                promoteToComposer.isPending ||
-                !!item.promoted_to_composer
-              }
+              disabled={promoteToComposer.isPending || !!item.promoted_to_composer}
             >
               {promoteToComposer.isPending ? (
                 <Loader2 className="h-4 w-4 animate-spin" />
@@ -401,14 +487,75 @@ export function LibraryItemDetail() {
               )}
             </Button>
           </Tooltip>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={handleDelete}
-            className="text-destructive hover:text-destructive"
-          >
-            <Trash2 className="h-4 w-4" />
-          </Button>
+
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Tooltip content="Share">
+                <Button
+                  variant="ghost"
+                  size="icon"
+                  className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                  disabled={!item.url && !summaryForShare}
+                >
+                  <Share2 className="h-4 w-4" />
+                </Button>
+              </Tooltip>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              {item.url && (
+                <DropdownMenuItem onClick={handleShareLink}>
+                  <Link className="h-4 w-4 mr-2" />
+                  Share Link
+                </DropdownMenuItem>
+              )}
+              {summaryForShare && (
+                <>
+                  <DropdownMenuItem onClick={handleShareWithSummary}>
+                    <Quote className="h-4 w-4 mr-2" />
+                    Share with Summary
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleCopySummary}>
+                    <Copy className="h-4 w-4 mr-2" />
+                    Copy Summary
+                  </DropdownMenuItem>
+                </>
+              )}
+              {item.url && (
+                <>
+                  <DropdownMenuSeparator />
+                  <DropdownMenuItem onClick={handleCopyLink}>
+                    <Link className="h-4 w-4 mr-2" />
+                    Copy Link
+                  </DropdownMenuItem>
+                </>
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {item.url && (
+            <Tooltip content="Open in browser">
+              <Button
+                variant="ghost"
+                size="icon"
+                className="h-7 w-7 text-muted-foreground hover:text-foreground"
+                onClick={() => window.open(item.url!, '_blank', 'noopener,noreferrer')}
+              >
+                <ExternalLink className="h-4 w-4" />
+              </Button>
+            </Tooltip>
+          )}
+
+          <Tooltip content="Delete from library">
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-destructive hover:text-destructive"
+              onClick={handleDelete}
+            >
+              <Trash2 className="h-4 w-4" />
+            </Button>
+          </Tooltip>
         </div>
       </div>
 
@@ -455,14 +602,6 @@ export function LibraryItemDetail() {
             </section>
           )}
 
-          {/* Related Links */}
-          <RelatedLinks
-            relatedLinks={item.related_links}
-            isLoading={findRelated.isPending}
-            error={item.related_links_error || findRelated.error?.message || null}
-            hasTriggered={hasTriggeredRelated}
-          />
-
           {/* Content */}
           {item.content ? (
             <div
@@ -474,6 +613,25 @@ export function LibraryItemDetail() {
               <p>No content available</p>
             </div>
           )}
+
+          {/* Chat (requires summary) */}
+          {hasSummary && (
+            <div className="mt-8">
+              <ArticleChat
+                articleId={item.id}
+                isExpanded={isChatExpanded}
+                onExpandedChange={setIsChatExpanded}
+              />
+            </div>
+          )}
+
+          {/* Related Links */}
+          <RelatedLinks
+            relatedLinks={item.related_links}
+            isLoading={findRelated.isPending}
+            error={item.related_links_error || findRelated.error?.message || null}
+            hasTriggered={hasTriggeredRelated}
+          />
         </article>
       </ScrollArea>
     </div>

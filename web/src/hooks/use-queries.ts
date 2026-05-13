@@ -517,6 +517,29 @@ export function useDeleteLibraryItem() {
   })
 }
 
+export function useToggleLibraryItemRead() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: ({ itemId, isRead }: { itemId: number; isRead: boolean }) =>
+      api.toggleLibraryItemRead(itemId, isRead),
+    onSuccess: (_, { itemId }) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.libraryItem(itemId) })
+      queryClient.invalidateQueries({ queryKey: ['library'] })
+    },
+  })
+}
+
+export function useToggleLibraryItemBookmark() {
+  const queryClient = useQueryClient()
+  return useMutation({
+    mutationFn: api.toggleLibraryItemBookmark,
+    onSuccess: (_, itemId) => {
+      queryClient.invalidateQueries({ queryKey: queryKeys.libraryItem(itemId) })
+      queryClient.invalidateQueries({ queryKey: ['library'] })
+    },
+  })
+}
+
 export function useSummarizeLibraryItem() {
   const { startPolling } = useSummarizationPolling()
   return useMutation({

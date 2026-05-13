@@ -1,8 +1,12 @@
 import SwiftUI
 
-/// Chat section for article Q&A and summary refinement
+/// Chat section for article Q&A and summary refinement.
+///
+/// Works for any row in the `articles` table — both feed articles and
+/// library items (which are articles with `user_id` set).
 struct ArticleChatSection: View {
-    let article: ArticleDetail
+    let articleId: Int
+    let headerLabel: String
     let fontSize: ArticleFontSize
     let lineSpacing: ArticleLineSpacing
     let appTypeface: AppTypeface
@@ -49,7 +53,7 @@ struct ArticleChatSection: View {
         .task {
             await loadChatHistory()
         }
-        .onChange(of: article.id) { _, _ in
+        .onChange(of: articleId) { _, _ in
             // Reset state when article changes
             isExpanded = false
             messages = []
@@ -81,7 +85,7 @@ struct ArticleChatSection: View {
             }
         } label: {
             HStack {
-                Label("Chat About This Article", systemImage: "message")
+                Label(headerLabel, systemImage: "message")
                     .font(appTypeface.font(size: fontSize.bodyFontSize, weight: .semibold))
                     .foregroundStyle(.blue)
 
@@ -331,7 +335,7 @@ struct ArticleChatSection: View {
         error = nil
 
         do {
-            let response = try await appState.apiClient.getChatHistory(articleId: article.id)
+            let response = try await appState.apiClient.getChatHistory(articleId: articleId)
             messages = response.messages
             hasChat = response.hasChat
         } catch {
@@ -353,12 +357,12 @@ struct ArticleChatSection: View {
 
         do {
             _ = try await appState.apiClient.sendChatMessage(
-                articleId: article.id,
+                articleId: articleId,
                 message: messageToSend
             )
 
             // Reload full history to get both user message and response
-            let historyResponse = try await appState.apiClient.getChatHistory(articleId: article.id)
+            let historyResponse = try await appState.apiClient.getChatHistory(articleId: articleId)
             messages = historyResponse.messages
             hasChat = true
         } catch {
@@ -372,7 +376,7 @@ struct ArticleChatSection: View {
 
     private func clearChat() async {
         do {
-            _ = try await appState.apiClient.clearChatHistory(articleId: article.id)
+            _ = try await appState.apiClient.clearChatHistory(articleId: articleId)
             messages = []
             hasChat = false
         } catch {
@@ -388,29 +392,8 @@ struct ArticleChatSection: View {
 
         var body: some View {
             ArticleChatSection(
-                article: ArticleDetail(
-                    id: 1,
-                    feedId: 1,
-                    url: URL(string: "https://example.com")!,
-                    sourceUrl: nil,
-                    title: "Test Article",
-                    content: "Some content",
-                    summaryShort: "Short summary",
-                    summaryFull: "Full summary of the article content.",
-                    keyPoints: ["Point 1", "Point 2"],
-                    isRead: false,
-                    isBookmarked: false,
-                    publishedAt: Date(),
-                    createdAt: Date(),
-                    author: nil,
-                    readingTimeMinutes: 5,
-                    wordCountValue: nil,
-                    featuredImage: nil,
-                    hasCodeBlocks: nil,
-                    siteName: nil,
-                    relatedLinks: nil,
-                    relatedLinksError: nil
-                ),
+                articleId: 1,
+                headerLabel: "Chat About This Article",
                 fontSize: .medium,
                 lineSpacing: .normal,
                 appTypeface: .system,

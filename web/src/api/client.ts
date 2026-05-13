@@ -410,9 +410,10 @@ export async function deleteLibraryItem(itemId: number): Promise<void> {
 }
 
 export async function toggleLibraryItemRead(
-  itemId: number
+  itemId: number,
+  isRead: boolean = true
 ): Promise<{ success: boolean; is_read: boolean }> {
-  return fetchApi(`/standalone/${itemId}/read`, { method: 'POST' })
+  return fetchApi(`/standalone/${itemId}/read?is_read=${isRead}`, { method: 'POST' })
 }
 
 export async function toggleLibraryItemBookmark(
