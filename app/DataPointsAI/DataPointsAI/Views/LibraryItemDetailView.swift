@@ -59,6 +59,9 @@ struct LibraryItemDetailView: View {
     @State private var summarizationElapsed: Int = 0
     @State private var summarizationTimer: Timer?
     @State private var showFullContent: Bool = false
+    @State private var isPromoting: Bool = false
+    @State private var promoteError: String?
+    @State private var locallyPromotedAt: [Int: Date] = [:]
 
     var body: some View {
         Group {
@@ -365,6 +368,8 @@ struct LibraryItemDetailView: View {
             .disabled(appState.isLoadingRelated || (item.relatedLinks?.isEmpty == false))
             .help((item.relatedLinks?.isEmpty == false) ? "Related articles found" : "Find semantically related articles using neural search")
 
+            composerButton(item: item)
+
             Spacer()
 
             if item.type == .url {
@@ -382,6 +387,54 @@ struct LibraryItemDetailView: View {
                 Label("Delete", systemImage: "trash")
             }
             .buttonStyle(.bordered)
+        }
+        .overlay(alignment: .bottomLeading) {
+            if let msg = promoteError {
+                Label(msg, systemImage: "exclamationmark.triangle.fill")
+                    .font(.caption)
+                    .foregroundStyle(.red)
+                    .padding(.top, 36)
+            }
+        }
+    }
+
+    @ViewBuilder
+    private func composerButton(item: LibraryItemDetail) -> some View {
+        let alreadyPromoted = item.promotedToComposer != nil
+            || locallyPromotedAt[item.id] != nil
+        Button {
+            promoteToComposer(item: item)
+        } label: {
+            if isPromoting {
+                HStack(spacing: 6) {
+                    ProgressView().scaleEffect(0.7)
+                    Text("Sending…")
+                }
+            } else if alreadyPromoted {
+                Label("In Composer", systemImage: "checkmark.circle.fill")
+            } else {
+                Label("Send to Composer", systemImage: "paperplane")
+            }
+        }
+        .buttonStyle(.bordered)
+        .disabled(isPromoting || alreadyPromoted)
+        .help(alreadyPromoted
+              ? "This item is already in the Composer research workbench"
+              : "Send this item to the Composer research workbench")
+    }
+
+    private func promoteToComposer(item: LibraryItemDetail) {
+        guard !isPromoting else { return }
+        isPromoting = true
+        promoteError = nil
+        Task {
+            defer { isPromoting = false }
+            do {
+                try await appState.promoteLibraryItemToComposer(itemId: item.id)
+                locallyPromotedAt[item.id] = Date()
+            } catch {
+                promoteError = "Composer: \(error.localizedDescription)"
+            }
         }
     }
 

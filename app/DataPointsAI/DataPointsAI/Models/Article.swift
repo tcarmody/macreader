@@ -641,6 +641,9 @@ struct LibraryItemDetail: Identifiable, Codable, Sendable {
     let relatedLinks: [RelatedLink]?
     let relatedLinksError: String?
 
+    // ISO8601 timestamp of when this item was sent to Composer; nil if not promoted.
+    var promotedToComposer: String?
+
     // True when the URL already existed in the database and was bookmarked rather than added fresh
     let alreadyExisted: Bool
 
@@ -659,6 +662,7 @@ struct LibraryItemDetail: Identifiable, Codable, Sendable {
         case createdAt = "created_at"
         case relatedLinks = "related_links"
         case relatedLinksError = "related_links_error"
+        case promotedToComposer = "promoted_to_composer"
         case alreadyExisted = "already_existed"
     }
 

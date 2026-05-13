@@ -444,6 +444,9 @@ class StandaloneItemDetailResponse(BaseModel):
     related_links: list[RelatedLink] | None = None
     related_links_error: str | None = None
 
+    # ISO timestamp of when this item was promoted to Composer; null if not promoted
+    promoted_to_composer: str | None = None
+
     # Set to True when the URL was already in the database and was bookmarked instead of added
     already_existed: bool = False
 
@@ -475,6 +478,7 @@ class StandaloneItemDetailResponse(BaseModel):
             created_at=serialize_datetime(article.created_at),
             related_links=related_links,
             related_links_error=article.related_links_error,
+            promoted_to_composer=serialize_datetime(article.promoted_to_composer),
             already_existed=already_existed,
         )
 

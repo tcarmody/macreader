@@ -11,6 +11,8 @@ import {
   Loader2,
   ExternalLink,
   Trash2,
+  Send,
+  Check,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { formatDate, getDomain } from '@/lib/utils'
@@ -30,7 +32,9 @@ import {
   useDeleteLibraryItem,
   useSummarizeLibraryItem,
   useFindRelatedLinksForLibraryItem,
+  usePromoteToComposer,
 } from '@/hooks/use-queries'
+import { Tooltip } from '@/components/ui/tooltip'
 import { RelatedLinks } from './RelatedLinks'
 // StandaloneItem type imported for documentation but used via inference
 import type {} from '@/types'
@@ -258,10 +262,12 @@ export function LibraryList() {
 
 export function LibraryItemDetail() {
   const { selectedLibraryItemId, setSelectedLibraryItemId } = useAppStore()
+  const { showToast } = useToast()
   const { data: item, isLoading } = useLibraryItem(selectedLibraryItemId)
   const deleteItem = useDeleteLibraryItem()
   const summarize = useSummarizeLibraryItem()
   const findRelated = useFindRelatedLinksForLibraryItem()
+  const promoteToComposer = usePromoteToComposer()
   const [hasTriggeredRelated, setHasTriggeredRelated] = useState(false)
 
   // Reset triggered state when item changes
@@ -304,6 +310,20 @@ export function LibraryItemDetail() {
   const handleFindRelated = () => {
     setHasTriggeredRelated(true)
     findRelated.mutate(item.id)
+  }
+
+  const handlePromoteToComposer = () => {
+    promoteToComposer.mutate(item.id, {
+      onSuccess: (res) => {
+        showToast(
+          res.already_existed ? 'Already in Composer' : 'Sent to Composer',
+          'success'
+        )
+      },
+      onError: (error) => {
+        showToast(`Send to Composer failed: ${error.message}`, 'warning')
+      },
+    })
   }
 
   return (
@@ -354,7 +374,33 @@ export function LibraryItemDetail() {
           </Button>
         )}
 
-        <div className="ml-auto">
+        <div className="ml-auto flex items-center gap-0.5">
+          <Tooltip
+            content={
+              item.promoted_to_composer
+                ? 'Already in Composer'
+                : 'Send to Composer'
+            }
+          >
+            <Button
+              variant="ghost"
+              size="icon"
+              className="h-7 w-7 text-muted-foreground hover:text-foreground"
+              onClick={handlePromoteToComposer}
+              disabled={
+                promoteToComposer.isPending ||
+                !!item.promoted_to_composer
+              }
+            >
+              {promoteToComposer.isPending ? (
+                <Loader2 className="h-4 w-4 animate-spin" />
+              ) : item.promoted_to_composer ? (
+                <Check className="h-4 w-4 text-green-600" />
+              ) : (
+                <Send className="h-4 w-4" />
+              )}
+            </Button>
+          </Tooltip>
           <Button
             variant="ghost"
             size="sm"

@@ -121,6 +121,16 @@ extension AppState {
         }
     }
 
+    /// Send a library item to the Composer research workbench. Updates the local
+    /// detail cache so the "In Composer" state is reflected immediately.
+    func promoteLibraryItemToComposer(itemId: Int) async throws {
+        _ = try await apiClient.promoteToComposer(articleId: itemId)
+        let now = ISO8601DateFormatter().string(from: Date())
+        if selectedLibraryItemDetail?.id == itemId {
+            selectedLibraryItemDetail?.promotedToComposer = now
+        }
+    }
+
     func loadRelatedLinksForLibraryItem(itemId: Int) async {
         isLoadingRelated = true
 
