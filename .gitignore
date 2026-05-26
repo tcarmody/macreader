@@ -43,6 +43,7 @@ env/
 *.xcuserdata/
 *.xcworkspace/xcuserdata/
 DerivedData/
+builds/
 *.moved-aside
 *.pbxuser
 !default.pbxuser
