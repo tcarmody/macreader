@@ -38,7 +38,7 @@ struct ArticleSummarySection: View {
                         .labelStyle(.iconOnly)
                 }
                 .buttonStyle(.borderless)
-                .help("Copy summary, source, and URL")
+                .helpLabel("Copy summary, source, and URL")
             }
 
             Text(summary.smartQuotes)

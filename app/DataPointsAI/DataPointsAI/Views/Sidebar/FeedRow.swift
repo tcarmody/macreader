@@ -16,7 +16,7 @@ struct FeedRow: View {
                     Image(systemName: feed.healthStatus.iconName)
                         .font(.caption2)
                         .foregroundStyle(healthStatusColor)
-                        .help(feed.healthStatus.description)
+                        .helpLabel(feed.healthStatus.description)
                 }
 
                 Spacer()

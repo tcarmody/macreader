@@ -453,7 +453,7 @@ struct ArticleDetailView: View {
                             .labelStyle(.iconOnly)
                     }
                     .buttonStyle(.borderless)
-                    .help("Copy summary, source, and URL")
+                    .helpLabel("Copy summary, source, and URL")
                 }
 
                 Text(summary)
@@ -587,7 +587,7 @@ struct ArticleDetailView: View {
                 .padding(.vertical, 6)
                 .background(.regularMaterial)
                 .cornerRadius(6)
-                .help(isFetchingAuthenticated ? "Loading page with your app session. This may take a few seconds to load all content." : "Fetching article content")
+                .helpLabel(isFetchingAuthenticated ? "Loading page with your app session. This may take a few seconds to load all content." : "Fetching article content")
             } else {
                 Menu {
                     Button {
@@ -616,7 +616,7 @@ struct ArticleDetailView: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .fixedSize()
-                .help("For paywalled sites: first use 'Log in to Site' to authenticate, then use 'Fetch with App Session'")
+                .helpLabel("For paywalled sites: first use 'Log in to Site' to authenticate, then use 'Fetch with App Session'")
             }
 
             Button {
@@ -635,7 +635,7 @@ struct ArticleDetailView: View {
             }
             .buttonStyle(.borderedProminent)
             .disabled(appState.isLoadingRelated)
-            .help("Find related articles using neural search")
+            .helpLabel("Find related articles using neural search")
 
             composerButton(article: article)
 
@@ -659,7 +659,7 @@ struct ArticleDetailView: View {
                 .foregroundColor(article.isRead ? .primary : .secondary)
             }
             .buttonStyle(.plain)
-            .help(article.isRead ? "Mark as unread" : "Mark as read")
+            .helpLabel(article.isRead ? "Mark as unread" : "Mark as read")
 
             // Save/Bookmark toggle
             Button {
@@ -676,7 +676,7 @@ struct ArticleDetailView: View {
                 .foregroundColor(article.isBookmarked ? .primary : .secondary)
             }
             .buttonStyle(.plain)
-            .help(article.isBookmarked ? "Remove from saved" : "Save article")
+            .helpLabel(article.isBookmarked ? "Remove from saved" : "Save article")
 
             Spacer()
 
@@ -746,7 +746,7 @@ struct ArticleDetailView: View {
         }
         .buttonStyle(.borderedProminent)
         .disabled(isPromoting || alreadyPromoted)
-        .help(alreadyPromoted
+        .helpLabel(alreadyPromoted
               ? "This article is already in the Composer research workbench"
               : "Send this article to the Composer research workbench")
     }
@@ -956,7 +956,7 @@ struct ArticleDetailView: View {
                     }
                 }
                 .disabled(isFetchingContent)
-                .help("Extract full article content from website")
+                .helpLabel("Extract full article content from website")
             }
 
             ToolbarItem {
@@ -968,7 +968,7 @@ struct ArticleDetailView: View {
                         systemImage: appState.readerModeEnabled ? "book.fill" : "book"
                     )
                 }
-                .help(appState.readerModeEnabled ? "Exit Reader Mode (f)" : "Enter Reader Mode (f)")
+                .helpLabel(appState.readerModeEnabled ? "Exit Reader Mode (f)" : "Enter Reader Mode (f)")
             }
         }
     }

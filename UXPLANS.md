@@ -62,22 +62,28 @@ SwiftUI binds the duplicate and the Settings scene's ⌘, breaks.
 
 ## 3. Add `accessibilityLabel` everywhere `.help` exists
 
-**Status:** pending
+**Status:** ✅ done (2026-05-26)
 
 **Why this matters:** MACUX.md §Accessibility says `.help` (sighted
-tooltip) and `accessibilityLabel` (VoiceOver) must both exist. Today
-there are **53 `.help` calls and 0 `accessibilityLabel` calls** in the
-entire Mac app. VoiceOver users currently hear nothing useful on
-icon-only toolbar buttons.
+tooltip) and `accessibilityLabel` (VoiceOver) must both exist. The
+codebase had **53 `.help` calls and 0 `accessibilityLabel` calls** —
+VoiceOver users heard nothing useful on icon-only toolbar buttons.
 
-**Where:** every icon-only `Button { Image(systemName: …) }`. Search:
+**What changed:**
+- Added [HelpLabel.swift](app/DataPointsAI/DataPointsAI/Views/HelpLabel.swift),
+  a tiny `View` extension exposing `.helpLabel(_:)` that sets both
+  `.help` and `.accessibilityLabel` to the same text. Two overloads
+  (LocalizedStringKey + StringProtocol) cover every existing call
+  site, including the dynamic ones (e.g. `.helpLabel(feed.url.absoluteString)`,
+  `.helpLabel(item.isRead ? "Mark as Unread" : "Mark as Read")`).
+- Globally swept all 53 `.help(` call sites to `.helpLabel(`. No
+  visual or interaction behavior changes — VoiceOver gains the
+  paired label everywhere.
 
-```bash
-grep -rn "\.help(" app/DataPointsAI/DataPointsAI/ --include="*.swift"
-```
+**Verified:** `xcodebuild -scheme DataPointsAI` reports `BUILD SUCCEEDED`.
 
-**Fix recipe:** for each `.help("X")` add a matching
-`.accessibilityLabel("X")`. Same copy. One PR can do all 53.
+**Future:** new icon-only controls should use `.helpLabel(...)` instead
+of `.help(...)`. Worth noting in MACUX.md §Accessibility's first bullet.
 
 ## 4. Replace hand-picked colors with system colors + symbol pairing
 

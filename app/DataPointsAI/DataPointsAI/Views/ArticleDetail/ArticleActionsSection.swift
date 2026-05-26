@@ -26,7 +26,7 @@ struct ArticleActionsSection: View {
                 .padding(.vertical, 6)
                 .background(.regularMaterial)
                 .cornerRadius(6)
-                .help(isFetchingAuthenticated ? "Loading page with your app session. This may take a few seconds to load all content." : "Fetching article content")
+                .helpLabel(isFetchingAuthenticated ? "Loading page with your app session. This may take a few seconds to load all content." : "Fetching article content")
             } else {
                 Menu {
                     Button {
@@ -55,7 +55,7 @@ struct ArticleActionsSection: View {
                 }
                 .buttonStyle(.borderedProminent)
                 .fixedSize()
-                .help("For paywalled sites: first use 'Log in to Site' to authenticate, then use 'Fetch with App Session'")
+                .helpLabel("For paywalled sites: first use 'Log in to Site' to authenticate, then use 'Fetch with App Session'")
             }
 
             Button {

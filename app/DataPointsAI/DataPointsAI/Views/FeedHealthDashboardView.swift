@@ -260,7 +260,7 @@ struct FeedHealthRow: View {
                             .font(.caption)
                             .foregroundStyle(.red)
                             .lineLimit(1)
-                            .help(msg)
+                            .helpLabel(msg)
                     }
                 }
             }

@@ -210,7 +210,7 @@ struct LibraryItemDetailView: View {
                             .labelStyle(.iconOnly)
                     }
                     .buttonStyle(.borderless)
-                    .help("Copy summary and source info")
+                    .helpLabel("Copy summary and source info")
                 }
 
                 Text(summary)
@@ -359,7 +359,7 @@ struct LibraryItemDetailView: View {
             }
             .buttonStyle(.borderedProminent)
             .disabled(appState.isLoadingRelated || (item.relatedLinks?.isEmpty == false))
-            .help((item.relatedLinks?.isEmpty == false) ? "Related articles found" : "Find related articles using neural search")
+            .helpLabel((item.relatedLinks?.isEmpty == false) ? "Related articles found" : "Find related articles using neural search")
 
             composerButton(item: item)
 
@@ -381,7 +381,7 @@ struct LibraryItemDetailView: View {
                 .foregroundColor(item.isRead ? .primary : .secondary)
             }
             .buttonStyle(.plain)
-            .help(item.isRead ? "Mark as unread" : "Mark as read")
+            .helpLabel(item.isRead ? "Mark as unread" : "Mark as read")
 
             Button {
                 Task {
@@ -397,7 +397,7 @@ struct LibraryItemDetailView: View {
                 .foregroundColor(item.isBookmarked ? .primary : .secondary)
             }
             .buttonStyle(.plain)
-            .help(item.isBookmarked ? "Remove from saved" : "Save item")
+            .helpLabel(item.isBookmarked ? "Remove from saved" : "Save item")
 
             Spacer()
 
@@ -447,7 +447,7 @@ struct LibraryItemDetailView: View {
                     .labelStyle(.iconOnly)
             }
             .buttonStyle(.bordered)
-            .help("Delete from library")
+            .helpLabel("Delete from library")
             .padding(.trailing, 12)
         }
         .overlay(alignment: .bottomLeading) {
@@ -494,7 +494,7 @@ struct LibraryItemDetailView: View {
         }
         .buttonStyle(.bordered)
         .disabled(isPromoting || alreadyPromoted)
-        .help(alreadyPromoted
+        .helpLabel(alreadyPromoted
               ? "This item is already in the Composer research workbench"
               : "Send this item to the Composer research workbench")
     }
@@ -657,7 +657,7 @@ struct LibraryItemDetailView: View {
                         systemImage: item.isRead ? "envelope.open" : "envelope.badge"
                     )
                 }
-                .help(item.isRead ? "Mark as Unread" : "Mark as Read")
+                .helpLabel(item.isRead ? "Mark as Unread" : "Mark as Read")
             }
 
             ToolbarItem {
@@ -671,7 +671,7 @@ struct LibraryItemDetailView: View {
                         systemImage: item.isBookmarked ? "star.fill" : "star"
                     )
                 }
-                .help(item.isBookmarked ? "Remove Bookmark" : "Bookmark")
+                .helpLabel(item.isBookmarked ? "Remove Bookmark" : "Bookmark")
             }
 
             ToolbarItem {
@@ -690,7 +690,7 @@ struct LibraryItemDetailView: View {
                     }
                 }
                 .disabled(isSummarizing)
-                .help(item.summaryFull != nil ? "Regenerate Summary" : "Generate Summary")
+                .helpLabel(item.summaryFull != nil ? "Regenerate Summary" : "Generate Summary")
             }
         }
     }

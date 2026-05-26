@@ -52,7 +52,7 @@ struct LibraryView: View {
                 } label: {
                     Image(systemName: filterType != nil ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
                 }
-                .help(filterType != nil ? "Filtering by \(LibraryContentType(rawValue: filterType!)?.label ?? "")" : "Filter by Type")
+                .helpLabel(filterType != nil ? "Filtering by \(LibraryContentType(rawValue: filterType!)?.label ?? "")" : "Filter by Type")
 
                 // Add to library button
                 Button {
@@ -60,7 +60,7 @@ struct LibraryView: View {
                 } label: {
                     Image(systemName: "plus")
                 }
-                .help("Add to Library")
+                .helpLabel("Add to Library")
             }
         }
     }

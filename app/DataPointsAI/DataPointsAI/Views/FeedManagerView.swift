@@ -83,7 +83,7 @@ struct FeedManagerView: View {
                 } label: {
                     Label("Add", systemImage: "plus")
                 }
-                .help("Add new feed")
+                .helpLabel("Add new feed")
 
                 // Delete Selected
                 Button {
@@ -92,7 +92,7 @@ struct FeedManagerView: View {
                     Label("Delete", systemImage: "trash")
                 }
                 .disabled(selectedFeedIds.isEmpty)
-                .help("Delete selected feeds")
+                .helpLabel("Delete selected feeds")
 
                 // Refresh Selected
                 Button {
@@ -101,7 +101,7 @@ struct FeedManagerView: View {
                     Label("Refresh", systemImage: "arrow.clockwise")
                 }
                 .disabled(selectedFeedIds.isEmpty)
-                .help("Refresh selected feeds")
+                .helpLabel("Refresh selected feeds")
 
                 Divider()
                     .frame(height: 20)
@@ -112,7 +112,7 @@ struct FeedManagerView: View {
                 } label: {
                     Label("Import", systemImage: "square.and.arrow.down")
                 }
-                .help("Import feeds from OPML file")
+                .helpLabel("Import feeds from OPML file")
 
                 // Export OPML
                 Button {
@@ -121,7 +121,7 @@ struct FeedManagerView: View {
                     Label("Export", systemImage: "square.and.arrow.up")
                 }
                 .disabled(isExporting)
-                .help("Export feeds to OPML file")
+                .helpLabel("Export feeds to OPML file")
 
                 Spacer()
 
@@ -256,7 +256,7 @@ struct FeedManagerView: View {
                     .foregroundStyle(.secondary)
                     .lineLimit(1)
                     .truncationMode(.middle)
-                    .help(feed.url.absoluteString)
+                    .helpLabel(feed.url.absoluteString)
             }
             .width(min: 100, ideal: 200)
 
@@ -269,7 +269,7 @@ struct FeedManagerView: View {
                         Image(systemName: "pencil")
                     }
                     .buttonStyle(.plain)
-                    .help("Edit feed name")
+                    .helpLabel("Edit feed name")
 
                     Button {
                         copyFeedURL(feed)
@@ -277,7 +277,7 @@ struct FeedManagerView: View {
                         Image(systemName: "doc.on.doc")
                     }
                     .buttonStyle(.plain)
-                    .help("Copy feed URL")
+                    .helpLabel("Copy feed URL")
 
                     Button {
                         refreshFeed(feed)
@@ -285,7 +285,7 @@ struct FeedManagerView: View {
                         Image(systemName: "arrow.clockwise")
                     }
                     .buttonStyle(.plain)
-                    .help("Refresh feed")
+                    .helpLabel("Refresh feed")
                 }
             }
             .width(80)
@@ -472,7 +472,7 @@ struct FeedHealthBadge: View {
                 .font(.caption)
                 .foregroundStyle(.secondary)
         }
-        .help(status.description)
+        .helpLabel(status.description)
     }
 
     private var statusColor: Color {
@@ -534,7 +534,7 @@ struct EditFeedSheet: View {
                         Image(systemName: "doc.on.doc")
                     }
                     .buttonStyle(.plain)
-                    .help("Copy URL")
+                    .helpLabel("Copy URL")
                 }
                 .padding(8)
                 .background(Color(nsColor: .controlBackgroundColor))

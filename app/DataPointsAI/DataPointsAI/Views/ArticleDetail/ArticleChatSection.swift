@@ -311,7 +311,7 @@ struct ArticleChatSection: View {
                         Image(systemName: "trash")
                     }
                     .buttonStyle(.bordered)
-                    .help("Clear chat history")
+                    .helpLabel("Clear chat history")
                 }
             }
 

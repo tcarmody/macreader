@@ -39,7 +39,7 @@ struct ArticleListView: View {
                     }
                 }
                 .pickerStyle(.segmented)
-                .help("Group articles by \(appState.groupByMode.label)")
+                .helpLabel("Group articles by \(appState.groupByMode.label)")
             }
 
             ToolbarItemGroup {
@@ -55,7 +55,7 @@ struct ArticleListView: View {
                     } label: {
                         Image(systemName: appState.searchIncludeSummaries ? "doc.text.magnifyingglass" : "doc.magnifyingglass")
                     }
-                    .help(appState.searchIncludeSummaries ? "Searching in AI summaries (click to exclude)" : "Not searching in summaries (click to include)")
+                    .helpLabel(appState.searchIncludeSummaries ? "Searching in AI summaries (click to exclude)" : "Not searching in summaries (click to include)")
 
                     let alreadySaved = appState.savedSearches.contains {
                         $0.query == appState.searchQuery && $0.includeSummaries == appState.searchIncludeSummaries
@@ -68,7 +68,7 @@ struct ArticleListView: View {
                         Image(systemName: alreadySaved ? "pin.fill" : "pin")
                     }
                     .disabled(alreadySaved)
-                    .help(alreadySaved ? "Search already pinned" : "Pin this search")
+                    .helpLabel(alreadySaved ? "Search already pinned" : "Pin this search")
                 }
 
                 // Sort menu
@@ -88,7 +88,7 @@ struct ArticleListView: View {
                 } label: {
                     Image(systemName: "arrow.up.arrow.down.circle")
                 }
-                .help("Sort: \(appState.sortOption.label)")
+                .helpLabel("Sort: \(appState.sortOption.label)")
 
                 // More actions menu
                 Menu {
@@ -120,7 +120,7 @@ struct ArticleListView: View {
                 } label: {
                     Image(systemName: "ellipsis.circle")
                 }
-                .help("More Actions")
+                .helpLabel("More Actions")
             }
         }
     }
@@ -234,7 +234,7 @@ struct ArticleListView: View {
         } label: {
             Image(systemName: allRead ? "envelope.badge" : "envelope.open")
         }
-        .help(allRead ? "Mark \(count) as Unread" : "Mark \(count) as Read")
+        .helpLabel(allRead ? "Mark \(count) as Unread" : "Mark \(count) as Read")
 
         Button {
             appState.selectedArticleIds.removeAll()
@@ -242,7 +242,7 @@ struct ArticleListView: View {
         } label: {
             Image(systemName: "xmark.circle")
         }
-        .help("Clear Selection (\(count))")
+        .helpLabel("Clear Selection (\(count))")
     }
 
     private func selectAllVisible() {

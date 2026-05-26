@@ -78,7 +78,7 @@ struct ArticleRow: View {
                             Image(systemName: "star.fill")
                                 .font(.caption2)
                                 .foregroundStyle(.yellow)
-                                .help(article.featuredNote.flatMap { $0.isEmpty ? nil : "Featured: \($0)" } ?? "Featured")
+                                .helpLabel(article.featuredNote.flatMap { $0.isEmpty ? nil : "Featured: \($0)" } ?? "Featured")
                         }
                         if article.isBookmarked {
                             Image(systemName: "bookmark.fill")
@@ -98,7 +98,7 @@ struct ArticleRow: View {
                                     Circle().fill(Color.blue.opacity(0.4)).frame(width: 5, height: 5)
                                 }
                             }
-                            .help([
+                            .helpLabel([
                                 article.summaryShort != nil ? "Summary" : nil,
                                 (article.relatedLinkCount ?? 0) > 0 ? "\(article.relatedLinkCount!) related" : nil,
                                 article.hasChat == true ? "Chat" : nil,

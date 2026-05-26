@@ -86,7 +86,7 @@ struct FeedListView: View {
                                     // and use context menu as primary delete surface
                                     EmptyView()
                                 )
-                                .help("Remove saved search")
+                                .helpLabel("Remove saved search")
                             }
                             .contextMenu {
                                 Button(role: .destructive) {
@@ -230,14 +230,14 @@ struct FeedListView: View {
                     }) {
                         Image(systemName: "trash")
                     }
-                    .help("Delete Selected Feeds")
+                    .helpLabel("Delete Selected Feeds")
 
                     Button(action: {
                         appState.selectedFeedIds.removeAll()
                     }) {
                         Image(systemName: "xmark.circle")
                     }
-                    .help("Clear Selection")
+                    .helpLabel("Clear Selection")
                 }
             }
 
@@ -271,7 +271,7 @@ struct FeedListView: View {
                 } label: {
                     Image(systemName: "plus")
                 }
-                .help("Add Feed")
+                .helpLabel("Add Feed")
             }
 
             ToolbarItem {
@@ -282,7 +282,7 @@ struct FeedListView: View {
                 }) {
                     Image(systemName: "arrow.clockwise")
                 }
-                .help("Refresh Feeds")
+                .helpLabel("Refresh Feeds")
                 .disabled(appState.isLoading)
             }
         }

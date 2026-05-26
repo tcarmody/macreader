@@ -39,7 +39,7 @@ struct ServerStatusIndicator: View {
                             .font(.caption)
                     }
                     .buttonStyle(.plain)
-                    .help("Retry connection")
+                    .helpLabel("Retry connection")
                 }
             }
         }

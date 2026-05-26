@@ -763,7 +763,7 @@ struct NewsletterSettingsView: View {
                             Label("Fetch All", systemImage: "arrow.down.circle.fill")
                         }
                         .disabled(isFetchingGmail)
-                        .help("Re-import all newsletters from Gmail (ignores previously fetched)")
+                        .helpLabel("Re-import all newsletters from Gmail (ignores previously fetched)")
 
                         if let result = gmailFetchResult {
                             Text(result)
