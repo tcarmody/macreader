@@ -198,16 +198,14 @@ struct ArticleDetailView: View {
 
     @ViewBuilder
     private func detailTabStrip(article: ArticleDetail) -> some View {
-        VStack(spacing: 0) {
-            HStack(spacing: 0) {
-                ForEach(DetailTab.allCases, id: \.self) { tab in
-                    detailTabButton(tab: tab, article: article)
-                }
-                Spacer()
+        // Tab strip stays edge-to-edge with no opaque backing — the
+        // window's natural background shows through, and on macOS 26
+        // the scroll-edge effect will appear as content slides under.
+        HStack(spacing: 0) {
+            ForEach(DetailTab.allCases, id: \.self) { tab in
+                detailTabButton(tab: tab, article: article)
             }
-            .background(Color(NSColor.windowBackgroundColor))
-
-            Divider()
+            Spacer()
         }
     }
 

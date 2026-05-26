@@ -233,18 +233,21 @@ in `.helpLabel(...)` for the longer tooltip / VoiceOver line.
 
 ## 8. Drop opaque background + manual divider under the article detail tab strip
 
-**Status:** pending
+**Status:** ✅ done (2026-05-26)
 
-**Why this matters:** MACUX.md §Liquid Glass blockers. We don't ship
-on macOS 26 yet, but the doc says "applies even before we move to
-macOS 26 — it costs nothing now and avoids cleanup later."
+**Why this matters:** MACUX.md §Liquid Glass blockers. The opaque
+`windowBackgroundColor` paint + manual `Divider()` under the tab
+strip in [ArticleDetailView](app/DataPointsAI/DataPointsAI/Views/ArticleDetailView.swift)
+would block macOS 26's automatic scroll-edge effect from rendering
+under the floating toolbar plane. Fixing now costs nothing and
+avoids cleanup at the macOS 26 bump.
 
-**Where:**
-- [ArticleDetailView.swift:209](app/DataPointsAI/DataPointsAI/Views/ArticleDetailView.swift#L209) — `Color(NSColor.windowBackgroundColor)` paint under the tab strip
-- [ArticleDetailView.swift:211](app/DataPointsAI/DataPointsAI/Views/ArticleDetailView.swift#L211) — manual `Divider()` under the tab strip
+**What changed:** removed both the
+`.background(Color(NSColor.windowBackgroundColor))` and the manual
+`Divider()` from `detailTabStrip(article:)`. The `VStack` wrapper
+was no longer doing anything so collapsed it to just the `HStack`.
 
-**Fix recipe:** delete both, let the natural window backing and
-SwiftUI's built-in scroll edge effect handle it.
+**Verified:** `xcodebuild -scheme DataPointsAI` reports `BUILD SUCCEEDED`.
 
 ---
 
