@@ -228,14 +228,14 @@ struct FeedListView: View {
                         feedsToDelete = Array(appState.selectedFeedIds)
                         showDeleteConfirmation = true
                     }) {
-                        Image(systemName: "trash")
+                        Label("Delete Selected Feeds", systemImage: "trash")
                     }
                     .helpLabel("Delete Selected Feeds")
 
                     Button(action: {
                         appState.selectedFeedIds.removeAll()
                     }) {
-                        Image(systemName: "xmark.circle")
+                        Label("Clear Selection", systemImage: "xmark.circle")
                     }
                     .helpLabel("Clear Selection")
                 }
@@ -269,7 +269,7 @@ struct FeedListView: View {
                         Label("Manage Feeds...", systemImage: "slider.horizontal.3")
                     }
                 } label: {
-                    Image(systemName: "plus")
+                    Label("Add Feed", systemImage: "plus")
                 }
                 .helpLabel("Add Feed")
             }
@@ -280,7 +280,7 @@ struct FeedListView: View {
                         try? await appState.refreshFeeds()
                     }
                 }) {
-                    Image(systemName: "arrow.clockwise")
+                    Label("Refresh Feeds", systemImage: "arrow.clockwise")
                 }
                 .helpLabel("Refresh Feeds")
                 .disabled(appState.isLoading)

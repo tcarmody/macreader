@@ -208,21 +208,28 @@ feed icon → `Color.accentColor`.
 
 ## 7. Replace `Image(systemName:)` toolbar buttons with `Label(_:systemImage:)`
 
-**Status:** pending
+**Status:** ✅ done (2026-05-26)
 
 **Why this matters:** MACUX.md §Toolbars: in `.primaryAction` /
 `.automatic` placement, SwiftUI renders icon + label when given a
-`Label`. Today buttons use bare `Image(systemName:)`, so the label
-text never appears — even when the user has enabled "Icon and Text"
-in Customize Toolbar.
+`Label`. Buttons used bare `Image(systemName:)`, so the label text
+never appeared — even when the user had Customize Toolbar set to
+"Icon and Text."
 
-**Where:**
-- [FeedListView.swift:231, :238, :272, :283](app/DataPointsAI/DataPointsAI/Views/FeedListView.swift#L231) — trash, clear, plus, refresh
-- [LibraryView.swift:53, :61](app/DataPointsAI/DataPointsAI/Views/LibraryView.swift#L53) — filter, add
-- [ArticleListView.swift:56, :67, :89](app/DataPointsAI/DataPointsAI/Views/ArticleListView.swift#L56) — search modifiers, sort, more menu
+**What changed:** every icon-only toolbar `Button { Image(...) }`
+became `Button { Label(text, systemImage: ...) }`. Sites covered:
 
-`ArticleDetailView` already uses `Label(…)` correctly — use that as
-the reference pattern.
+- [FeedListView.swift](app/DataPointsAI/DataPointsAI/Views/FeedListView.swift) —
+  trash, clear-selection, add, refresh
+- [LibraryView.swift](app/DataPointsAI/DataPointsAI/Views/LibraryView.swift) —
+  filter, add-to-library
+- [ArticleListView.swift](app/DataPointsAI/DataPointsAI/Views/ArticleListView.swift) —
+  search-in-summaries, pin-search, sort, more-actions
+
+Labels are concise (1-2 words) since the same text already appears
+in `.helpLabel(...)` for the longer tooltip / VoiceOver line.
+
+**Verified:** `xcodebuild -scheme DataPointsAI` reports `BUILD SUCCEEDED`.
 
 ## 8. Drop opaque background + manual divider under the article detail tab strip
 

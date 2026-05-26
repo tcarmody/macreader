@@ -53,7 +53,10 @@ struct ArticleListView: View {
                         appState.searchIncludeSummaries.toggle()
                         Task { await appState.search(query: appState.searchQuery) }
                     } label: {
-                        Image(systemName: appState.searchIncludeSummaries ? "doc.text.magnifyingglass" : "doc.magnifyingglass")
+                        Label(
+                            appState.searchIncludeSummaries ? "Search in summaries" : "Skip summaries",
+                            systemImage: appState.searchIncludeSummaries ? "doc.text.magnifyingglass" : "doc.magnifyingglass"
+                        )
                     }
                     .helpLabel(appState.searchIncludeSummaries ? "Searching in AI summaries (click to exclude)" : "Not searching in summaries (click to include)")
 
@@ -65,7 +68,7 @@ struct ArticleListView: View {
                             Task { await appState.saveCurrentSearch(name: appState.searchQuery) }
                         }
                     } label: {
-                        Image(systemName: alreadySaved ? "pin.fill" : "pin")
+                        Label("Pin Search", systemImage: alreadySaved ? "pin.fill" : "pin")
                     }
                     .disabled(alreadySaved)
                     .helpLabel(alreadySaved ? "Search already pinned" : "Pin this search")
@@ -86,7 +89,7 @@ struct ArticleListView: View {
                         }
                     }
                 } label: {
-                    Image(systemName: "arrow.up.arrow.down.circle")
+                    Label("Sort", systemImage: "arrow.up.arrow.down.circle")
                 }
                 .helpLabel("Sort: \(appState.sortOption.label)")
 
@@ -118,7 +121,7 @@ struct ArticleListView: View {
                     }
                     .keyboardShortcut("a", modifiers: [.command])
                 } label: {
-                    Image(systemName: "ellipsis.circle")
+                    Label("More Actions", systemImage: "ellipsis.circle")
                 }
                 .helpLabel("More Actions")
             }
