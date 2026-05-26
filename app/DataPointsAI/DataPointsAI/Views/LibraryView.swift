@@ -199,6 +199,16 @@ struct LibraryItemRow: View {
         }
         .padding(.vertical, appState.settings.listDensity == .compact ? 4 : 8)
         .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityRowLabel)
+    }
+
+    private var accessibilityRowLabel: String {
+        var parts: [String] = [item.displayName, item.type.label, item.timeAgo]
+        parts.append(item.isRead ? "Read" : "Unread")
+        if item.isBookmarked { parts.append("Bookmarked") }
+        if item.summaryShort != nil { parts.append("has summary") }
+        return parts.joined(separator: ", ")
     }
 }
 

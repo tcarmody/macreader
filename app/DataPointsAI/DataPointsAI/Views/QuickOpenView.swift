@@ -243,7 +243,7 @@ struct QuickOpenFeedRow: View {
     var body: some View {
         HStack(spacing: 12) {
             Image(systemName: "dot.radiowaves.up.forward")
-                .foregroundStyle(.blue)
+                .foregroundStyle(Color.accentColor)
                 .frame(width: 20)
 
             VStack(alignment: .leading, spacing: 2) {
@@ -273,6 +273,19 @@ struct QuickOpenFeedRow: View {
         .background(isSelected ? Color.accentColor.opacity(0.2) : Color.clear)
         .cornerRadius(6)
         .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityRowLabel)
+    }
+
+    private var accessibilityRowLabel: String {
+        var parts: [String] = ["Feed: \(feed.name)"]
+        if let category = feed.category {
+            parts.append("in \(category)")
+        }
+        if feed.unreadCount > 0 {
+            parts.append("\(feed.unreadCount) unread")
+        }
+        return parts.joined(separator: ", ")
     }
 }
 
@@ -329,6 +342,16 @@ struct QuickOpenArticleRow: View {
         .background(isSelected ? Color.accentColor.opacity(0.2) : Color.clear)
         .cornerRadius(6)
         .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityRowLabel)
+    }
+
+    private var accessibilityRowLabel: String {
+        var parts: [String] = [article.displayTitle]
+        if let name = feedName { parts.append("from \(name)") }
+        parts.append(article.isRead ? "Read" : "Unread")
+        if article.isBookmarked { parts.append("Bookmarked") }
+        return parts.joined(separator: ", ")
     }
 }
 

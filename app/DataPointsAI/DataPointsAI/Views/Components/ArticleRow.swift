@@ -136,9 +136,29 @@ struct ArticleRow: View {
         )
         .cornerRadius(6)
         .contentShape(Rectangle())
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityRowLabel)
         .contextMenu {
             articleContextMenu
         }
+    }
+
+    private var accessibilityRowLabel: String {
+        var parts: [String] = [article.displayTitle]
+        if let feedName = feedName(for: article.feedId) {
+            parts.append("from \(feedName)")
+        }
+        parts.append(article.timeAgo)
+        parts.append(article.isRead ? "Read" : "Unread")
+        if isMultiSelected { parts.append("Selected") }
+        if article.isFeatured { parts.append("Featured") }
+        if article.isBookmarked { parts.append("Bookmarked") }
+        if article.summaryShort != nil { parts.append("has summary") }
+        if let count = article.relatedLinkCount, count > 0 {
+            parts.append("\(count) related")
+        }
+        if article.hasChat == true { parts.append("has chat") }
+        return parts.joined(separator: ", ")
     }
 
     @ViewBuilder

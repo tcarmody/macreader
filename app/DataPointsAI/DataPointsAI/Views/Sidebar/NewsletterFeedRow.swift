@@ -29,5 +29,16 @@ struct NewsletterFeedRow: View {
         }
         .background(isSelected ? Color.accentColor.opacity(0.1) : Color.clear)
         .cornerRadius(4)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityRowLabel)
+    }
+
+    private var accessibilityRowLabel: String {
+        var parts: [String] = ["Newsletter: \(feed.name)"]
+        if feed.unreadCount > 0 {
+            parts.append("\(feed.unreadCount) unread")
+        }
+        if isSelected { parts.append("Selected") }
+        return parts.joined(separator: ", ")
     }
 }

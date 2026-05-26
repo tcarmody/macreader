@@ -37,5 +37,15 @@ struct FilterRow: View {
                 .foregroundStyle(filter == .unread ? Color.accentColor : Color.secondary)
         }
         .tag(filter)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(accessibilityRowLabel)
+    }
+
+    private var accessibilityRowLabel: String {
+        var parts: [String] = [filter.displayName]
+        if let count = count, count > 0 {
+            parts.append(usesUnreadBadge ? "\(count) unread" : "\(count)")
+        }
+        return parts.joined(separator: ", ")
     }
 }

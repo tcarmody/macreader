@@ -175,18 +175,36 @@ was 480pt and 2184 lines — explicitly flagged as ripe for splitting.
 
 ## 6. `accessibilityElement(children: .combine)` on composite rows
 
-**Status:** pending
+**Status:** ✅ done (2026-05-26)
 
-**Why this matters:** Each [ArticleRow](app/DataPointsAI/DataPointsAI/Views/Components/ArticleRow.swift),
-`FeedRow`, and `LibraryItemRow` is title + favicon + feed name + time +
-3 state dots + bookmark + featured star. VoiceOver currently walks
-every leaf separately. MACUX.md §Accessibility wants one combined
-element per row.
+**Why this matters:** Composite rows (title + favicon + feed name +
+time + state glyphs + bookmark + featured star) had VoiceOver walk
+every leaf separately. One combined element per row + a single
+descriptive label is the MACUX.md §Accessibility ask.
 
-**Fix recipe:** wrap the row's outermost `VStack`/`HStack` with
-`.accessibilityElement(children: .combine)` and provide an
-`.accessibilityLabel` that includes title + source + read state +
-flags.
+**What changed:** added `.accessibilityElement(children: .combine)` +
+a dynamically-computed `.accessibilityLabel` to the six composite
+row types:
+
+- [ArticleRow](app/DataPointsAI/DataPointsAI/Views/Components/ArticleRow.swift) —
+  "{title}, from {feed}, {timeAgo}, Read/Unread, [Selected,]
+  [Featured,] [Bookmarked,] [has summary,] [N related,] [has chat]"
+- [LibraryItemRow](app/DataPointsAI/DataPointsAI/Views/LibraryView.swift) —
+  "{name}, {type}, {timeAgo}, Read/Unread, [Bookmarked,]
+  [has summary]"
+- [FeedRow](app/DataPointsAI/DataPointsAI/Views/Sidebar/FeedRow.swift) —
+  "{name}, [N unread,] [health status,] [Selected]"
+- [NewsletterFeedRow](app/DataPointsAI/DataPointsAI/Views/Sidebar/NewsletterFeedRow.swift) —
+  "Newsletter: {name}, [N unread,] [Selected]"
+- [FilterRow](app/DataPointsAI/DataPointsAI/Views/Sidebar/FilterRow.swift) —
+  "{filter name}, [N (unread)]"
+- [QuickOpenFeedRow + QuickOpenArticleRow](app/DataPointsAI/DataPointsAI/Views/QuickOpenView.swift) —
+  feed/article with source, read state, bookmark flag
+
+Also picked up a stray `.foregroundStyle(.blue)` on the QuickOpen
+feed icon → `Color.accentColor`.
+
+**Verified:** `xcodebuild -scheme DataPointsAI` reports `BUILD SUCCEEDED`.
 
 ## 7. Replace `Image(systemName:)` toolbar buttons with `Label(_:systemImage:)`
 
