@@ -47,8 +47,7 @@ struct ArticleRelatedLinksSection: View {
             }
         }
         .padding()
-        .background(Color.blue.opacity(0.05))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
     }
 
     @ViewBuilder

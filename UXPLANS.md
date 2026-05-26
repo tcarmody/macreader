@@ -87,27 +87,67 @@ of `.help(...)`. Worth noting in MACUX.md §Accessibility's first bullet.
 
 ## 4. Replace hand-picked colors with system colors + symbol pairing
 
-**Status:** pending
+**Status:** ✅ done (2026-05-26)
 
 **Why this matters:** MACUX.md §Core postures says "system colors only."
-Hand-picked `Color.purple/blue/orange/yellow` defeat Dark Mode auto-
-resolution, Increase Contrast, accent personalization, and (eventually)
-Liquid Glass tinting.
+Hand-picked `Color.blue` for "this is selected/unread" ignores the user's
+accent personalization. Three identical-opacity colored dots in
+[ArticleRow](app/DataPointsAI/DataPointsAI/Views/Components/ArticleRow.swift)
+distinguished summary / related / chat **by color alone**, defeating
+color-blind and VoiceOver users.
 
-**Worst offenders:**
-- [ArticleDetailView.swift:178](app/DataPointsAI/DataPointsAI/Views/ArticleDetailView.swift#L178), [:239, :241, :243, :384, :387, :399, :402](app/DataPointsAI/DataPointsAI/Views/ArticleDetailView.swift#L239) — AI Summary chip + chat bubbles use `Color.purple` and `.foregroundStyle(.white)`. Replace with `.accentColor` or the `sparkles` symbol semantic color.
-- [ArticleRow.swift:41, :47](app/DataPointsAI/DataPointsAI/Views/Components/ArticleRow.swift#L41-L47) — unread/selected dot uses `Color.blue`. Should use `.tint` / `.accentColor`.
-- [ArticleRow.swift:80](app/DataPointsAI/DataPointsAI/Views/Components/ArticleRow.swift#L80) `.yellow` featured star, [:86](app/DataPointsAI/DataPointsAI/Views/Components/ArticleRow.swift#L86) `.orange` bookmark — system role colors (`.yellow` is fine if a system role, `.orange` is not).
-- [ArticleRow.swift:92-98](app/DataPointsAI/DataPointsAI/Views/Components/ArticleRow.swift#L92-L98) — activity dots (`Color.purple/blue.opacity`) distinguish summary/related/chat **by color alone**. Add a glyph or text pairing per MACUX.md §Accessibility.
-- [ArticleRow.swift:27](app/DataPointsAI/DataPointsAI/Views/Components/ArticleRow.swift#L27) — `NSColor.yellow.withAlphaComponent(0.5)` search highlight. Use `.findHighlightColor` or `.selectedTextBackgroundColor`.
-- [MainView.swift:412](app/DataPointsAI/DataPointsAI/Views/MainView.swift#L412) — `Color.black.opacity(0.3)` overlay backing. Replace with `.regularMaterial` / `.thinMaterial`.
-- [MainView.swift:516-517](app/DataPointsAI/DataPointsAI/Views/MainView.swift#L516-L517) — `OfflineBanner` uses `.orange.opacity(0.9)` + `.white`. Use a system warning role.
-- [LibraryView.swift](app/DataPointsAI/DataPointsAI/Views/LibraryView.swift), [LibraryItemDetailView.swift](app/DataPointsAI/DataPointsAI/Views/LibraryItemDetailView.swift), [ArticleListView.swift](app/DataPointsAI/DataPointsAI/Views/ArticleListView.swift), [QuickOpenView.swift](app/DataPointsAI/DataPointsAI/Views/QuickOpenView.swift), [SetupWizardView.swift](app/DataPointsAI/DataPointsAI/Views/SetupWizardView.swift), [SettingsView.swift:2118](app/DataPointsAI/DataPointsAI/Views/SettingsView.swift#L2118) — assorted `Color.blue/gray/indigo/brown/green.opacity(…)` background tints.
+**What changed:**
+- **State-color → accent:** every `Color.blue` used for "unread,"
+  "selected," or "active" became `Color.accentColor` so it follows the
+  user's System Settings accent. Sites: [ArticleRow](app/DataPointsAI/DataPointsAI/Views/Components/ArticleRow.swift)
+  unread/multi-select dots, [ArticleDetailStatusBar](app/DataPointsAI/DataPointsAI/Views/ArticleDetail/ArticleDetailStatusBar.swift)
+  read/unread indicator, [LibraryView](app/DataPointsAI/DataPointsAI/Views/LibraryView.swift)
+  type-icon and type badge, [LibraryItemDetailView](app/DataPointsAI/DataPointsAI/Views/LibraryItemDetailView.swift)
+  type badge, [QuickOpenView](app/DataPointsAI/DataPointsAI/Views/QuickOpenView.swift)
+  unread badge, [FilterRow](app/DataPointsAI/DataPointsAI/Views/Sidebar/FilterRow.swift) /
+  [FeedRow](app/DataPointsAI/DataPointsAI/Views/Sidebar/FeedRow.swift) /
+  [NewsletterFeedRow](app/DataPointsAI/DataPointsAI/Views/Sidebar/NewsletterFeedRow.swift) /
+  [NewsletterHeader](app/DataPointsAI/DataPointsAI/Views/Sidebar/NewsletterHeader.swift) /
+  [CategoryHeader](app/DataPointsAI/DataPointsAI/Views/Sidebar/CategoryHeader.swift)
+  unread-count badges, [SetupWizardView](app/DataPointsAI/DataPointsAI/Views/SetupWizardView.swift)
+  recommended/selected indicators, [ArticleListView](app/DataPointsAI/DataPointsAI/Views/ArticleListView.swift)
+  group unread dot, [ArticleSummarySection](app/DataPointsAI/DataPointsAI/Views/ArticleDetail/ArticleSummarySection.swift)
+  key-point bullets.
+- **Color-only state → SF Symbol glyphs:** [ArticleRow](app/DataPointsAI/DataPointsAI/Views/Components/ArticleRow.swift)
+  activity dots became `sparkles` / `link` / `bubble.left.fill`
+  glyphs in `.foregroundStyle(.secondary)`. [ArticleDetailView](app/DataPointsAI/DataPointsAI/Views/ArticleDetailView.swift)
+  tab strip status dots became `checkmark` glyphs.
+- **Blue micro-tint backgrounds → system materials:** `Color.blue.opacity(0.05)`
+  backgrounds on the AI Summary section, chat container, and related
+  links section became `.thinMaterial` with appropriate corner radii.
+- **AI brand unified on purple:** the AI Summary label in both
+  article and library detail views was `.blue` in places and `.purple`
+  in others; all now `.purple` to match the chip + assistant chat
+  avatar.
+- **Empty-state document fills:** `Color.white` (absolute white in
+  Dark Mode) → `Color(.controlBackgroundColor)` which adapts.
 
-[ArticleTheme.swift](app/DataPointsAI/DataPointsAI/Models/ArticleTheme.swift) `Color(red: …, green: …, blue: …)` palettes stay
-as-is — MACUX.md §Core postures lists article themes as the documented
-exception, provided they resolve dynamically via `NSColor(name:
-dynamicProvider:)`.
+**Skipped intentionally:**
+- Featured-callout purple in [ArticleDetailView](app/DataPointsAI/DataPointsAI/Views/ArticleDetailView.swift) —
+  deliberate brand color, semantically distinct from accent so the
+  callout doesn't blend into the article header gradient. SwiftUI's
+  `Color.purple` adapts to Dark Mode.
+- AI Summary chip / chat assistant avatar purple — same reason.
+- Empty-state illustrations (`Color.brown` bookshelf, `Color.indigo`
+  empty-library circle, `Color.gray` paper stack, `Color.green`
+  caught-up celebration, `Color.orange` offline state, `Color.yellow`
+  no-results hint) — decorative artwork, SwiftUI named colors that
+  adapt. Not state indicators.
+- `Color.black.opacity(0.3)` modal scrim in
+  [MainView ServerStatusView](app/DataPointsAI/DataPointsAI/Views/MainView.swift#L412) — standard
+  macOS / iOS modal-overlay pattern.
+- OfflineBanner `.orange.opacity(0.9)` — `Color.orange` is the
+  conventional warning color across Apple apps; it adapts.
+- Star (`.yellow`) and bookmark (`.orange`) glyphs — Apple's
+  conventional semantic colors for these specific roles (Finder, Mail,
+  Safari Reader).
+
+**Verified:** `xcodebuild -scheme DataPointsAI` reports `BUILD SUCCEEDED`.
 
 ## 5. Bump SettingsView width to 540pt and split per-tab files
 

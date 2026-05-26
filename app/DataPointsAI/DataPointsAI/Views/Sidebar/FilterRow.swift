@@ -20,8 +20,7 @@ struct FilterRow: View {
                             .foregroundStyle(.white)
                             .padding(.horizontal, 6)
                             .padding(.vertical, 2)
-                            .background(Color.blue)
-                            .clipShape(Capsule())
+                            .background(Color.accentColor, in: Capsule())
                     } else {
                         Text("\(count)")
                             .font(.caption)
@@ -35,7 +34,7 @@ struct FilterRow: View {
             }
         } icon: {
             Image(systemName: filter.systemImage)
-                .foregroundStyle(filter == .unread ? .blue : .secondary)
+                .foregroundStyle(filter == .unread ? Color.accentColor : Color.secondary)
         }
         .tag(filter)
     }

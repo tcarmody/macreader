@@ -85,12 +85,12 @@ struct ArticleDetailStatusBar: View {
     private var readStatusIndicator: some View {
         HStack(spacing: 4) {
             Circle()
-                .fill(article.isRead ? Color.secondary.opacity(0.3) : Color.blue)
+                .fill(article.isRead ? Color.secondary.opacity(0.3) : Color.accentColor)
                 .frame(width: 6, height: 6)
 
             Text(article.isRead ? "Read" : "Unread")
                 .font(.caption)
-                .foregroundStyle(article.isRead ? Color.secondary : Color.blue)
+                .foregroundStyle(article.isRead ? Color.secondary : Color.accentColor)
         }
     }
 

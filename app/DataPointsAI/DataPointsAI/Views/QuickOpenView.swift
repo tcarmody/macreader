@@ -264,9 +264,8 @@ struct QuickOpenFeedRow: View {
                     .font(.caption)
                     .padding(.horizontal, 6)
                     .padding(.vertical, 2)
-                    .background(Color.blue)
+                    .background(Color.accentColor, in: Capsule())
                     .foregroundStyle(.white)
-                    .clipShape(Capsule())
             }
         }
         .padding(.vertical, 4)

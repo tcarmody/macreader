@@ -19,8 +19,7 @@ struct NewsletterFeedRow: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color.blue)
-                        .clipShape(Capsule())
+                        .background(Color.accentColor, in: Capsule())
                 }
             }
         } icon: {

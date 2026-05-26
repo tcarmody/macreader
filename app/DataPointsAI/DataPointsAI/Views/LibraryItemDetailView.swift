@@ -158,8 +158,7 @@ struct LibraryItemDetailView: View {
                     .foregroundStyle(.white)
                     .padding(.horizontal, 8)
                     .padding(.vertical, 4)
-                    .background(Color.blue)
-                    .clipShape(Capsule())
+                    .background(Color.accentColor, in: Capsule())
 
                 Spacer()
             }
@@ -199,7 +198,7 @@ struct LibraryItemDetailView: View {
                 HStack {
                     Label("AI Summary", systemImage: "sparkles")
                         .font(appTypeface.font(size: fontSize.bodyFontSize + 2, weight: .semibold))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(.purple)
 
                     Spacer()
 
@@ -238,8 +237,7 @@ struct LibraryItemDetailView: View {
                 .padding(.top, 4)
             }
             .padding()
-            .background(Color.blue.opacity(0.05))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
         } else {
             generateSummaryView(item: item, fontSize: fontSize, lineSpacing: lineSpacing, appTypeface: appTypeface)
         }

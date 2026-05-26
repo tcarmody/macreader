@@ -175,9 +175,8 @@ struct ArticleDetailView: View {
                                 .foregroundStyle(.white)
                                 .padding(.horizontal, 14)
                                 .padding(.vertical, 8)
-                                .background(Color.purple)
-                                .clipShape(Capsule())
-                                .shadow(color: .black.opacity(0.25), radius: 6, y: 3)
+                                .background(Color.purple, in: Capsule())
+                                .shadow(radius: 6, y: 3)
                         }
                         .buttonStyle(.plain)
                         .padding(.trailing, 20)
@@ -236,11 +235,17 @@ struct ArticleDetailView: View {
                 } else if tab == .related && appState.isLoadingRelated {
                     ProgressView().scaleEffect(0.45).frame(width: 8, height: 8)
                 } else if tab == .ai && hasSummary {
-                    Circle().fill(Color.purple).frame(width: 6, height: 6)
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(.secondary)
                 } else if tab == .related && hasRelated {
-                    Circle().fill(Color.blue).frame(width: 6, height: 6)
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(.secondary)
                 } else if tab == .chat && hasChatHistory {
-                    Circle().fill(Color.blue).frame(width: 6, height: 6)
+                    Image(systemName: "checkmark")
+                        .font(.system(size: 8, weight: .bold))
+                        .foregroundStyle(.secondary)
                 } else if (tab == .ai || tab == .related) && !isDisabled {
                     Image(systemName: "plus")
                         .font(.system(size: 7, weight: .medium))
@@ -442,7 +447,7 @@ struct ArticleDetailView: View {
                 HStack {
                     Label("AI Summary", systemImage: "sparkles")
                         .font(appTypeface.font(size: fontSize.bodyFontSize + 2, weight: .semibold))
-                        .foregroundStyle(.blue)
+                        .foregroundStyle(.purple)
 
                     Spacer()
 
@@ -477,8 +482,7 @@ struct ArticleDetailView: View {
                 .padding(.top, 4)
             }
             .padding()
-            .background(Color.blue.opacity(0.05))
-            .clipShape(RoundedRectangle(cornerRadius: 8))
+            .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
         } else {
             generateSummaryView(article: article, fontSize: fontSize, lineSpacing: lineSpacing, appTypeface: appTypeface)
         }

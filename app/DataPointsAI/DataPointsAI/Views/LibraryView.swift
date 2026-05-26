@@ -149,7 +149,7 @@ struct LibraryItemRow: View {
             // Type icon
             Image(systemName: item.type.iconName)
                 .font(.title2)
-                .foregroundStyle(item.isRead ? Color.secondary : Color.blue)
+                .foregroundStyle(item.isRead ? Color.secondary : Color.accentColor)
                 .frame(width: 28)
 
             VStack(alignment: .leading, spacing: 4) {
@@ -175,8 +175,7 @@ struct LibraryItemRow: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color.blue.opacity(0.7))
-                        .clipShape(Capsule())
+                        .background(Color.accentColor.opacity(0.8), in: Capsule())
 
                     Text(item.timeAgo)
                         .font(.caption2)

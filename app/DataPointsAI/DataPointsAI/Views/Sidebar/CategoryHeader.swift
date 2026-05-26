@@ -32,8 +32,7 @@ struct CategoryHeader: View {
                         .foregroundStyle(.white)
                         .padding(.horizontal, 6)
                         .padding(.vertical, 2)
-                        .background(Color.blue)
-                        .clipShape(Capsule())
+                        .background(Color.accentColor, in: Capsule())
                 }
             }
             // Offset to align with feed row badges (section headers are wider than rows)

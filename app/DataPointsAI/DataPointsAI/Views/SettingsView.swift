@@ -2115,7 +2115,7 @@ struct ThemePreviewButton: View {
                         .overlay(
                             RoundedRectangle(cornerRadius: 8)
                                 .strokeBorder(
-                                    isSelected ? Color.accentColor : Color.gray.opacity(0.3),
+                                    isSelected ? Color.accentColor : Color(.separatorColor),
                                     lineWidth: isSelected ? 2 : 1
                                 )
                         )

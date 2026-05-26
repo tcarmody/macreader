@@ -27,7 +27,7 @@ struct ArticleSummarySection: View {
             HStack {
                 Label("AI Summary", systemImage: "sparkles")
                     .font(appTypeface.font(size: fontSize.bodyFontSize + 2, weight: .semibold))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(.purple)
 
                 Spacer()
 
@@ -62,8 +62,7 @@ struct ArticleSummarySection: View {
             .padding(.top, 4)
         }
         .padding()
-        .background(Color.blue.opacity(0.05))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
     }
 
     @ViewBuilder
@@ -145,7 +144,7 @@ struct ArticleKeyPointsSection: View {
                     HStack(alignment: .top, spacing: 8) {
                         Text("•")
                             .font(appTypeface.font(size: fontSize.bodyFontSize))
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.accentColor)
                         Text(point.smartQuotes)
                             .font(appTypeface.font(size: fontSize.bodyFontSize))
                             .lineSpacing(fontSize.bodyFontSize * (lineSpacing.multiplier - 1))

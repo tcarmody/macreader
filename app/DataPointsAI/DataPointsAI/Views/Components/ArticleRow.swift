@@ -38,15 +38,13 @@ struct ArticleRow: View {
                 ZStack {
                     if isMultiSelected {
                         Image(systemName: "checkmark.circle.fill")
-                            .foregroundStyle(.blue)
+                            .foregroundStyle(Color.accentColor)
                             .font(.system(size: 14))
                     } else if !article.isRead {
-                        // Unread indicator - simple blue dot
                         Circle()
-                            .fill(Color.blue)
+                            .fill(Color.accentColor)
                             .frame(width: 8, height: 8)
                     } else {
-                        // Read - empty space (no indicator)
                         Color.clear
                             .frame(width: 8, height: 8)
                     }
@@ -85,19 +83,25 @@ struct ArticleRow: View {
                                 .font(.caption2)
                                 .foregroundStyle(.orange)
                         }
+                        // Per-article state glyphs. SF Symbols (not color
+                        // alone) distinguish summary / related / chat so
+                        // color-blind and VoiceOver users get the same
+                        // signal as sighted users.
                         let hasAny = article.summaryShort != nil || article.hasChat == true || (article.relatedLinkCount ?? 0) > 0
                         if hasAny {
-                            HStack(spacing: 3) {
+                            HStack(spacing: 4) {
                                 if article.summaryShort != nil {
-                                    Circle().fill(Color.purple.opacity(0.6)).frame(width: 5, height: 5)
+                                    Image(systemName: "sparkles")
                                 }
                                 if let count = article.relatedLinkCount, count > 0 {
-                                    Circle().fill(Color.blue.opacity(0.6)).frame(width: 5, height: 5)
+                                    Image(systemName: "link")
                                 }
                                 if article.hasChat == true {
-                                    Circle().fill(Color.blue.opacity(0.4)).frame(width: 5, height: 5)
+                                    Image(systemName: "bubble.left.fill")
                                 }
                             }
+                            .font(.caption2)
+                            .foregroundStyle(.secondary)
                             .helpLabel([
                                 article.summaryShort != nil ? "Summary" : nil,
                                 (article.relatedLinkCount ?? 0) > 0 ? "\(article.relatedLinkCount!) related" : nil,

@@ -392,7 +392,7 @@ struct NoFeedsIllustration: View {
         ZStack {
             // Background circle
             Circle()
-                .fill(Color.blue.opacity(0.1))
+                .fill(Color.accentColor.opacity(0.1))
 
             // Stack of papers
             RoundedRectangle(cornerRadius: 6)
@@ -408,14 +408,14 @@ struct NoFeedsIllustration: View {
                 .rotationEffect(.degrees(2))
 
             RoundedRectangle(cornerRadius: 6)
-                .fill(Color.white)
+                .fill(Color(.controlBackgroundColor))
                 .frame(width: 50, height: 60)
-                .shadow(color: .black.opacity(0.1), radius: 2, y: 1)
+                .shadow(radius: 2, y: 1)
 
             // Plus sign
             Image(systemName: "plus.circle.fill")
                 .font(.system(size: 24))
-                .foregroundStyle(.blue)
+                .foregroundStyle(Color.accentColor)
                 .offset(x: 20, y: 20)
         }
     }
@@ -430,9 +430,9 @@ struct NoArticlesIllustration: View {
 
             // Document shape
             RoundedRectangle(cornerRadius: 8)
-                .fill(Color.white)
+                .fill(Color(.controlBackgroundColor))
                 .frame(width: 55, height: 70)
-                .shadow(color: .black.opacity(0.1), radius: 3, y: 2)
+                .shadow(radius: 3, y: 2)
 
             // Lines representing text
             VStack(spacing: 6) {
@@ -645,7 +645,7 @@ struct GroupSectionHeader: View {
             if unreadCount > 0 {
                 HStack(spacing: 4) {
                     Circle()
-                        .fill(Color.blue)
+                        .fill(Color.accentColor)
                         .frame(width: 6, height: 6)
                     Text("\(unreadCount) unread")
                         .font(.caption2)

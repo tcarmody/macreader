@@ -44,11 +44,10 @@ struct ArticleChatSection: View {
                 }
             }
         }
-        .background(Color.blue.opacity(0.05))
-        .clipShape(RoundedRectangle(cornerRadius: 8))
+        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
-                .strokeBorder(Color.blue.opacity(0.2), lineWidth: 1)
+                .strokeBorder(Color(.separatorColor), lineWidth: 1)
         )
         .task {
             await loadChatHistory()
@@ -185,9 +184,9 @@ struct ArticleChatSection: View {
                 // Assistant avatar
                 Image(systemName: "sparkles")
                     .font(.caption)
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(.purple)
                     .frame(width: 24, height: 24)
-                    .background(Color.blue.opacity(0.1))
+                    .background(Color.purple.opacity(0.1))
                     .clipShape(Circle())
 
                 VStack(alignment: .leading, spacing: 4) {
@@ -251,9 +250,9 @@ struct ArticleChatSection: View {
         HStack(alignment: .top, spacing: 8) {
             Image(systemName: "sparkles")
                 .font(.caption)
-                .foregroundStyle(.blue)
+                .foregroundStyle(.purple)
                 .frame(width: 24, height: 24)
-                .background(Color.blue.opacity(0.1))
+                .background(Color.purple.opacity(0.1))
                 .clipShape(Circle())
 
             HStack(spacing: 4) {
