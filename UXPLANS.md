@@ -253,33 +253,49 @@ was no longer doing anything so collapsed it to just the `HStack`.
 
 ## Smaller items, batch when convenient
 
+### Done (2026-05-26 batch)
+
+- ✅ **Delete orphan SearchBar.swift** — only referenced by its own
+  `#Preview`; removed.
+- ✅ **Enforce minimum window size** — `.frame(minWidth: 900,
+  minHeight: 600)` on the `WindowGroup`'s `MainView()` (matches
+  MACUX.md §Windows main-reading-window minimum).
+- ✅ **Reader Mode toolbar placement** — moved to
+  `ToolbarItem(placement: .navigation)` so the icon-only book toggle
+  sits on the leading edge alongside other pane-state toggles.
+- ✅ **Reader Mode shortcut conflict resolved** — dropped the View
+  menu's ⇧⌘F binding (conflicted with the conventional ⌘F Find
+  meaning). The bare `f` via [KeyboardShortcutManager](app/DataPointsAI/DataPointsAI/Services/KeyboardShortcutManager.swift)
+  is now the single owner.
+- ✅ **`.navigationSubtitle(...)` for transient status** — added
+  `AppState.statusSubtitle: String?` (a computed property reading
+  `serverRunning`, `isOffline`, `isSyncing`, `isClusteringLoading`)
+  and wired `.navigationSubtitle(appState.statusSubtitle ?? "")` to
+  [ArticleListView](app/DataPointsAI/DataPointsAI/Views/ArticleListView.swift)
+  (which owns the window's `navigationTitle`). Surfaces
+  "Connecting…", "Offline — reading cached articles", "Refreshing
+  feeds…", "Clustering topics…" in the window subtitle.
+- ✅ **AddFeedView → `Form`** — replaced the hand-rolled `VStack` +
+  `.textFieldStyle(.roundedBorder)` block with a `Form { Section { … } }
+  .formStyle(.grouped)` + a single bottom action bar. Now consistent
+  with EditFeedView, FeatureArticleSheet, Settings sub-views, etc.
+
+### Deferred
+
 - **Centralize menu-bar shortcuts** in
   [KeyboardShortcutManager.swift](app/DataPointsAI/DataPointsAI/Services/KeyboardShortcutManager.swift).
-  Today ~25 `.keyboardShortcut(…)` calls are scattered inline in
-  [RSSReaderApp.swift](app/DataPointsAI/DataPointsAI/App/RSSReaderApp.swift).
-  MACUX.md §Menus wants them in one place so the menu bar, toolbar,
-  and in-content hotkey handlers can't disagree.
-- **Use `.navigationSubtitle(…)`** for "Refreshing feeds…",
-  "Summarizing…", "Server starting…" status. Today they surface via
-  overlays/banners; MACUX.md §Windows says the subtitle slot is the
-  right home.
-- **`isDocumentEdited` dot** on sheets that have unsaved edits
-  (EditFeedView, AddFeedView). Today close-with-unsaved doesn't
-  trigger a Save/Discard alert.
-- **Enforce minimum window size** via `.frame(minWidth:, minHeight:)`
-  on the `WindowGroup`. MACUX.md §Windows prescribes 900×600 for the
-  main reading window.
-- **Delete or use the orphan [SearchBar.swift](app/DataPointsAI/DataPointsAI/Views/Components/SearchBar.swift)** —
-  only referenced by its own `#Preview`.
-- **AddFeedView is a hand-rolled `VStack`** ([MainView.swift:417-491](app/DataPointsAI/DataPointsAI/Views/MainView.swift#L417-L491)) —
-  convert to `Form { … }` for consistency with other sheets.
-- **Reader Mode toggle in toolbar should sit at `.navigation`
-  placement** ([ArticleDetailView.swift:962-972](app/DataPointsAI/DataPointsAI/Views/ArticleDetailView.swift#L962-L972)) —
-  it's a pane-state toggle, which MACUX.md §Toolbars puts on the
-  leading edge.
-- **Reader Mode shortcut conflict** — menu uses ⇧⌘F, but ⌘F is
-  reserved for Find. Toolbar tooltip says `(f)` (single-key, handled
-  via `KeyboardShortcutManager`). Pick one binding and standardize.
-- **Sidebar toolbar holds transient state** (trash + clear-selection
-  when a feed selection exists) — MACUX.md §Sidebars says "carry
-  navigation, not transient state." Move to a contextual menu instead.
+  ~25 `.keyboardShortcut(…)` calls scattered inline in
+  [RSSReaderApp.swift](app/DataPointsAI/DataPointsAI/App/RSSReaderApp.swift)
+  remain. The refactor is purely organizational — single source of
+  truth for shortcut chords, but no user-visible change. Worth doing
+  before the next round of shortcut churn.
+- **`isDocumentEdited` dot on unsaved sheets** (EditFeedView,
+  newsletter editing). Requires tracking dirty state per sheet +
+  hooking `NSApp.keyWindow?.isDocumentEdited = isDirty` + a
+  Save/Discard confirmation on close. Non-trivial wiring; defer
+  until the next sheet UX pass.
+- **Sidebar transient state** — trash + clear-selection toolbar
+  buttons in the sidebar when feeds are multi-selected. MACUX.md
+  flags this but the alternative (multi-select-aware row context
+  menus + ⌫ key handler + Edit menu actions) is bigger than a
+  smaller-batch fix. Current UX is reasonable.

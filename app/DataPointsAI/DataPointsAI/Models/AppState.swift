@@ -42,6 +42,17 @@ class AppState: ObservableObject {
     let networkMonitor = NetworkMonitor.shared
     @Published var isOffline: Bool = false
 
+    /// One-line transient status surfaced as the window's
+    /// `.navigationSubtitle`. Returns nil when nothing notable is
+    /// happening; the subtitle slot stays empty.
+    var statusSubtitle: String? {
+        if !serverRunning { return "Connecting…" }
+        if isOffline { return "Offline — reading cached articles" }
+        if isSyncing { return "Refreshing feeds…" }
+        if isClusteringLoading { return "Clustering topics…" }
+        return nil
+    }
+
     internal var healthCheckTask: Task<Void, Never>?
     private var networkCancellable: AnyCancellable?
 

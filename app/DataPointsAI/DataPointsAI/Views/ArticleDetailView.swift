@@ -961,7 +961,10 @@ struct ArticleDetailView: View {
                 .helpLabel("Extract full article content from website")
             }
 
-            ToolbarItem {
+            // Reader Mode is a pane-state toggle, so it goes on the
+            // leading edge with .navigation placement — the macOS
+            // convention for sidebar/inspector/pane visibility.
+            ToolbarItem(placement: .navigation) {
                 Button {
                     appState.readerModeEnabled.toggle()
                 } label: {

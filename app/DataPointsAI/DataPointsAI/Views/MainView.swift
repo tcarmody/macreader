@@ -424,51 +424,40 @@ struct AddFeedView: View {
     @State private var errorMessage: String?
 
     var body: some View {
-        VStack(spacing: 20) {
-            Text("Add Feed")
-                .font(.headline)
+        VStack(spacing: 0) {
+            Form {
+                Section {
+                    TextField("Feed URL", text: $feedURL, prompt: Text("https://example.com/feed.xml"))
+                    TextField("Name (optional)", text: $feedName, prompt: Text("My Feed"))
+                }
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Feed URL")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                TextField("https://example.com/feed.xml", text: $feedURL)
-                    .textFieldStyle(.roundedBorder)
+                if let error = errorMessage {
+                    Section {
+                        Label(error, systemImage: "exclamationmark.triangle.fill")
+                            .foregroundStyle(.red)
+                            .font(.callout)
+                    }
+                }
             }
+            .formStyle(.grouped)
 
-            VStack(alignment: .leading, spacing: 8) {
-                Text("Name (optional)")
-                    .font(.subheadline)
-                    .foregroundStyle(.secondary)
-
-                TextField("My Feed", text: $feedName)
-                    .textFieldStyle(.roundedBorder)
-            }
-
-            if let error = errorMessage {
-                Text(error)
-                    .font(.caption)
-                    .foregroundStyle(.red)
-            }
+            Divider()
 
             HStack {
-                Button("Cancel") {
-                    dismiss()
-                }
-                .keyboardShortcut(.cancelAction)
+                Button("Cancel") { dismiss() }
+                    .keyboardShortcut(.cancelAction)
 
                 Spacer()
 
-                Button("Add") {
-                    addFeed()
-                }
-                .keyboardShortcut(.defaultAction)
-                .disabled(feedURL.isEmpty || isLoading)
+                Button("Add") { addFeed() }
+                    .keyboardShortcut(.defaultAction)
+                    .buttonStyle(.borderedProminent)
+                    .disabled(feedURL.isEmpty || isLoading)
             }
+            .padding()
         }
-        .padding()
-        .frame(width: 400)
+        .frame(width: 440)
+        .navigationTitle("Add Feed")
     }
 
     private func addFeed() {

@@ -18,6 +18,7 @@ struct ArticleListView: View {
             }
         }
         .navigationTitle(appState.currentFilterName)
+        .navigationSubtitle(appState.statusSubtitle ?? "")
         .onChange(of: listSelection) { oldSelection, newSelection in
             handleSelectionChange(from: oldSelection, to: newSelection)
         }

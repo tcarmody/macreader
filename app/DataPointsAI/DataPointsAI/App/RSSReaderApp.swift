@@ -15,6 +15,7 @@ struct RSSReaderApp: App {
         WindowGroup {
             MainView()
                 .environmentObject(appState)
+                .frame(minWidth: 900, minHeight: 600)
                 .onAppear {
                     Task {
                         await appState.startServer()
@@ -199,10 +200,13 @@ struct RSSReaderApp: App {
 
                 Divider()
 
+                // Reader Mode shortcut lives on the bare `f` key
+                // (handled by KeyboardShortcutManager) — ⌘F is the
+                // reserved Find binding. Tooltip and menu omit the
+                // chord; the bare key is the documented way.
                 Button(appState.readerModeEnabled ? "Exit Reader Mode" : "Enter Reader Mode") {
                     appState.readerModeEnabled.toggle()
                 }
-                .keyboardShortcut("f", modifiers: [.command, .shift])
 
                 Divider()
 
