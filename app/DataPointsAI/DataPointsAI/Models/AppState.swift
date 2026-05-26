@@ -47,7 +47,6 @@ class AppState: ObservableObject {
 
     // UI state
     @Published var showAddFeed: Bool = false
-    @Published var showSettings: Bool = false
     @Published var showImportOPML: Bool = false
     @Published var showQuickOpen: Bool = false
     @Published var showFeedManager: Bool = false

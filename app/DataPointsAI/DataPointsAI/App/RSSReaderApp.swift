@@ -243,108 +243,99 @@ struct RSSReaderApp: App {
                 .disabled(appState.selectedArticleIds.isEmpty && appState.selectedFeedIds.isEmpty)
             }
 
-            // Article menu
+            // Article menu — wrapped in Groups so the top level stays
+            // under SwiftUI's 10-element @CommandsBuilder cap (items past
+            // the 10th are silently dropped).
             CommandMenu("Article") {
-                Button("Open in Browser") {
-                    if let article = appState.selectedArticle {
-                        NSWorkspace.shared.open(article.url)
-                    }
-                }
-                .keyboardShortcut(.return, modifiers: .command)
-                .disabled(appState.selectedArticle == nil)
-
-                Button("Open Original") {
-                    if let article = appState.selectedArticle {
-                        NSWorkspace.shared.open(article.url)
-                    }
-                }
-                .keyboardShortcut("o", modifiers: .command)
-                .disabled(appState.selectedArticle == nil)
-
-                Divider()
-
-                Button("Share Article...") {
-                    appState.shareArticle()
-                }
-                .keyboardShortcut(".", modifiers: [.command, .shift])
-                .disabled(appState.selectedArticle == nil)
-
-                Divider()
-
-                Button("Summarize Article") {
-                    if let article = appState.selectedArticle {
-                        Task {
-                            try? await appState.summarizeArticle(articleId: article.id)
+                Group {
+                    Button("Open in Browser") {
+                        if let article = appState.selectedArticle {
+                            NSWorkspace.shared.open(article.url)
                         }
                     }
-                }
-                .keyboardShortcut("s", modifiers: [.command, .shift])
-                .disabled(appState.selectedArticle == nil || appState.selectedArticleDetail?.summaryFull != nil)
+                    .keyboardShortcut(.return, modifiers: .command)
+                    .disabled(appState.selectedArticle == nil)
 
-                Button("Toggle Bookmark") {
-                    if let article = appState.selectedArticle {
-                        Task {
-                            try? await appState.toggleBookmark(articleId: article.id)
+                    Divider()
+
+                    Button("Share Article...") {
+                        appState.shareArticle()
+                    }
+                    .keyboardShortcut(appState.showLibrary ? nil : KeyboardShortcut(".", modifiers: [.command, .shift]))
+                    .disabled(appState.selectedArticle == nil)
+
+                    Divider()
+
+                    Button("Summarize Article") {
+                        if let article = appState.selectedArticle {
+                            Task {
+                                try? await appState.summarizeArticle(articleId: article.id)
+                            }
                         }
                     }
-                }
-                .keyboardShortcut("b", modifiers: .command)
-                .disabled(appState.selectedArticle == nil)
+                    .keyboardShortcut(appState.showLibrary ? nil : KeyboardShortcut("s", modifiers: [.command, .shift]))
+                    .disabled(appState.selectedArticle == nil || appState.selectedArticleDetail?.summaryFull != nil)
 
-                Divider()
-
-                Button("Copy Link") {
-                    if let article = appState.selectedArticle {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(article.url.absoluteString, forType: .string)
+                    Button("Toggle Bookmark") {
+                        if let article = appState.selectedArticle {
+                            Task {
+                                try? await appState.toggleBookmark(articleId: article.id)
+                            }
+                        }
                     }
+                    .keyboardShortcut(appState.showLibrary ? nil : KeyboardShortcut("b", modifiers: .command))
+                    .disabled(appState.selectedArticle == nil)
                 }
-                .keyboardShortcut("l", modifiers: .command)
-                .disabled(appState.selectedArticle == nil)
 
-                Button("Copy Article URL") {
-                    if let article = appState.selectedArticle {
-                        NSPasteboard.general.clearContents()
-                        NSPasteboard.general.setString(article.url.absoluteString, forType: .string)
+                Group {
+                    Divider()
+
+                    Button("Copy Link") {
+                        if let article = appState.selectedArticle {
+                            NSPasteboard.general.clearContents()
+                            NSPasteboard.general.setString(article.url.absoluteString, forType: .string)
+                        }
                     }
-                }
-                .keyboardShortcut("c", modifiers: [.command, .shift])
-                .disabled(appState.selectedArticle == nil)
+                    .keyboardShortcut("l", modifiers: .command)
+                    .disabled(appState.selectedArticle == nil)
 
-                Button("Copy Title") {
-                    appState.copyArticleTitle()
-                }
-                .keyboardShortcut("t", modifiers: [.command, .option])
-                .disabled(appState.selectedArticle == nil)
-
-                Button("Copy Summary") {
-                    appState.copyArticleSummary()
-                }
-                .keyboardShortcut("c", modifiers: [.command, .option])
-                .disabled(appState.selectedArticle == nil || appState.selectedArticleDetail?.summaryFull == nil && appState.selectedArticleDetail?.summaryShort == nil)
-
-                Divider()
-
-                Button("Mark as Read") {
-                    markSelectedAsRead(true)
-                }
-                .keyboardShortcut("r", modifiers: .command)
-                .disabled(appState.selectedArticle == nil && appState.selectedArticleIds.isEmpty)
-
-                Button("Mark as Unread") {
-                    markSelectedAsRead(false)
-                }
-                .keyboardShortcut("u", modifiers: .command)
-                .disabled(appState.selectedArticle == nil && appState.selectedArticleIds.isEmpty)
-
-                Divider()
-
-                Button("Mark All as Read") {
-                    Task {
-                        try? await markCurrentFilterAsRead()
+                    Button("Copy Title") {
+                        appState.copyArticleTitle()
                     }
+                    .keyboardShortcut(appState.showLibrary ? nil : KeyboardShortcut("t", modifiers: [.command, .option]))
+                    .disabled(appState.selectedArticle == nil)
+
+                    Button("Copy Summary") {
+                        appState.copyArticleSummary()
+                    }
+                    .keyboardShortcut(appState.showLibrary ? nil : KeyboardShortcut("c", modifiers: [.command, .option]))
+                    .disabled(appState.selectedArticle == nil || appState.selectedArticleDetail?.summaryFull == nil && appState.selectedArticleDetail?.summaryShort == nil)
                 }
-                .keyboardShortcut("k", modifiers: [.command, .shift])
+
+                Group {
+                    Divider()
+
+                    Button("Mark as Read") {
+                        markSelectedAsRead(true)
+                    }
+                    .keyboardShortcut("r", modifiers: .command)
+                    .disabled(appState.selectedArticle == nil && appState.selectedArticleIds.isEmpty)
+
+                    Button("Mark as Unread") {
+                        markSelectedAsRead(false)
+                    }
+                    .keyboardShortcut("u", modifiers: .command)
+                    .disabled(appState.selectedArticle == nil && appState.selectedArticleIds.isEmpty)
+
+                    Divider()
+
+                    Button("Mark All as Read") {
+                        Task {
+                            try? await markCurrentFilterAsRead()
+                        }
+                    }
+                    .keyboardShortcut("k", modifiers: [.command, .shift])
+                }
             }
 
             // Feed menu
@@ -389,112 +380,97 @@ struct RSSReaderApp: App {
                 .disabled(!isCurrentlyViewingFeed)
             }
 
-            // Library menu
+            // Library menu — wrapped in Groups so the top level stays
+            // under SwiftUI's 10-element @CommandsBuilder cap (items past
+            // the 10th are silently dropped).
             CommandMenu("Library") {
-                Button("Open Library") {
-                    DispatchQueue.main.async {
-                        if !appState.showLibrary {
-                            appState.selectLibrary()
+                Group {
+                    // Navigation toggle to enter Library — the canonical
+                    // ⇧⌘L binding lives on the View menu's "Show Library"
+                    // toggle so the same key both enters and exits.
+                    Button("Open Library") {
+                        DispatchQueue.main.async {
+                            if !appState.showLibrary {
+                                appState.selectLibrary()
+                            }
                         }
                     }
-                }
-                .keyboardShortcut("l", modifiers: [.command, .shift])
 
-                Divider()
+                    Divider()
 
-                Button("Add to Library...") {
-                    DispatchQueue.main.async {
-                        appState.showAddToLibrary = true
-                    }
-                }
-                .keyboardShortcut("a", modifiers: [.command, .shift])
-
-                Button("Add File to Library...") {
-                    appState.openFilePickerForLibrary()
-                }
-                .keyboardShortcut("o", modifiers: [.command, .shift])
-
-                Divider()
-
-                Button("Share Library Item...") {
-                    appState.shareLibraryItem()
-                }
-                .keyboardShortcut(".", modifiers: [.command, .shift])
-                .disabled(appState.selectedLibraryItem == nil)
-
-                Divider()
-
-                Button("Copy Library Item Title") {
-                    appState.copyLibraryItemTitle()
-                }
-                .keyboardShortcut("t", modifiers: [.command, .option])
-                .disabled(appState.selectedLibraryItem == nil)
-
-                Button("Copy Library Item Summary") {
-                    appState.copyLibraryItemSummary()
-                }
-                .keyboardShortcut("c", modifiers: [.command, .option])
-                .disabled(appState.selectedLibraryItem == nil || appState.selectedLibraryItemDetail?.summaryFull == nil && appState.selectedLibraryItemDetail?.summaryShort == nil)
-
-                Divider()
-
-                Button("Summarize Library Item") {
-                    if let item = appState.selectedLibraryItem {
-                        Task {
-                            try? await appState.summarizeLibraryItem(itemId: item.id)
+                    // The canonical ⇧⌘A binding lives on File menu's
+                    // "Add to Library..." — same target, single owner.
+                    Button("Add to Library...") {
+                        DispatchQueue.main.async {
+                            appState.showAddToLibrary = true
                         }
                     }
-                }
-                .keyboardShortcut("s", modifiers: [.command, .shift])
-                .disabled(appState.selectedLibraryItem == nil || appState.selectedLibraryItemDetail?.summaryFull != nil)
 
-                Button("Toggle Library Bookmark") {
-                    if let item = appState.selectedLibraryItem {
-                        Task {
-                            try? await appState.toggleLibraryItemBookmark(itemId: item.id)
+                    Button("Add File to Library...") {
+                        appState.openFilePickerForLibrary()
+                    }
+                    .keyboardShortcut("o", modifiers: [.command, .shift])
+                }
+
+                Group {
+                    Divider()
+
+                    Button("Share Library Item...") {
+                        appState.shareLibraryItem()
+                    }
+                    .keyboardShortcut(appState.showLibrary ? KeyboardShortcut(".", modifiers: [.command, .shift]) : nil)
+                    .disabled(appState.selectedLibraryItem == nil)
+
+                    Divider()
+
+                    Button("Copy Library Item Title") {
+                        appState.copyLibraryItemTitle()
+                    }
+                    .keyboardShortcut(appState.showLibrary ? KeyboardShortcut("t", modifiers: [.command, .option]) : nil)
+                    .disabled(appState.selectedLibraryItem == nil)
+
+                    Button("Copy Library Item Summary") {
+                        appState.copyLibraryItemSummary()
+                    }
+                    .keyboardShortcut(appState.showLibrary ? KeyboardShortcut("c", modifiers: [.command, .option]) : nil)
+                    .disabled(appState.selectedLibraryItem == nil || appState.selectedLibraryItemDetail?.summaryFull == nil && appState.selectedLibraryItemDetail?.summaryShort == nil)
+                }
+
+                Group {
+                    Divider()
+
+                    Button("Summarize Library Item") {
+                        if let item = appState.selectedLibraryItem {
+                            Task {
+                                try? await appState.summarizeLibraryItem(itemId: item.id)
+                            }
                         }
                     }
-                }
-                .keyboardShortcut("b", modifiers: .command)
-                .disabled(appState.selectedLibraryItem == nil)
+                    .keyboardShortcut(appState.showLibrary ? KeyboardShortcut("s", modifiers: [.command, .shift]) : nil)
+                    .disabled(appState.selectedLibraryItem == nil || appState.selectedLibraryItemDetail?.summaryFull != nil)
 
-                Divider()
-
-                Button("Delete Library Item") {
-                    if let item = appState.selectedLibraryItem {
-                        Task {
-                            try? await appState.deleteLibraryItem(itemId: item.id)
+                    Button("Toggle Library Bookmark") {
+                        if let item = appState.selectedLibraryItem {
+                            Task {
+                                try? await appState.toggleLibraryItemBookmark(itemId: item.id)
+                            }
                         }
                     }
-                }
-                .keyboardShortcut(.delete, modifiers: .command)
-                .disabled(appState.selectedLibraryItem == nil)
-            }
+                    .keyboardShortcut(appState.showLibrary ? KeyboardShortcut("b", modifiers: .command) : nil)
+                    .disabled(appState.selectedLibraryItem == nil)
 
-            // Window menu
-            CommandGroup(after: .windowArrangement) {
-                Divider()
+                    Divider()
 
-                Button("Quick Open...") {
-                    DispatchQueue.main.async {
-                        appState.showQuickOpen = true
+                    Button("Delete Library Item") {
+                        if let item = appState.selectedLibraryItem {
+                            Task {
+                                try? await appState.deleteLibraryItem(itemId: item.id)
+                            }
+                        }
                     }
+                    .keyboardShortcut(.delete, modifiers: .command)
+                    .disabled(appState.selectedLibraryItem == nil)
                 }
-                .keyboardShortcut("k", modifiers: .command)
-
-                Button("Settings...") {
-                    DispatchQueue.main.async {
-                        appState.showSettings = true
-                    }
-                }
-                .keyboardShortcut(",", modifiers: .command)
-
-                Button("Feed Manager...") {
-                    DispatchQueue.main.async {
-                        appState.showFeedManager = true
-                    }
-                }
-                .keyboardShortcut("f", modifiers: [.command, .option])
             }
 
             // Help menu
