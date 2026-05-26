@@ -151,25 +151,27 @@ color-blind and VoiceOver users.
 
 ## 5. Bump SettingsView width to 540pt and split per-tab files
 
-**Status:** pending
+**Status:** ✅ done (2026-05-26)
 
 **Why this matters:** MACUX.md §Settings prescribes ~520-540pt fixed
 width. [SettingsView.swift](app/DataPointsAI/DataPointsAI/Views/SettingsView.swift)
-is 480pt and 2184 lines — explicitly flagged in MACUX.md as ripe to
-split when next touched.
+was 480pt and 2184 lines — explicitly flagged as ripe for splitting.
 
-**Where:** [SettingsView.swift:40](app/DataPointsAI/DataPointsAI/Views/SettingsView.swift#L40)
-`.frame(width: 480, height: 500)`.
+**What changed:**
+- Width 480 → 540pt at [SettingsView.swift:40](app/DataPointsAI/DataPointsAI/Views/SettingsView.swift#L40).
+- Created [Views/Settings/](app/DataPointsAI/DataPointsAI/Views/Settings/) and moved each tab into its own file:
+  - [GeneralSettingsView.swift](app/DataPointsAI/DataPointsAI/Views/Settings/GeneralSettingsView.swift) (165 lines)
+  - [AppearanceSettingsView.swift](app/DataPointsAI/DataPointsAI/Views/Settings/AppearanceSettingsView.swift) (193 lines, includes `ThemePreviewButton`)
+  - [AISettingsView.swift](app/DataPointsAI/DataPointsAI/Views/Settings/AISettingsView.swift) (168 lines)
+  - [NewsletterSettingsView.swift](app/DataPointsAI/DataPointsAI/Views/Settings/NewsletterSettingsView.swift) (495 lines, includes Gmail helpers)
+  - [NotificationRulesSettingsView.swift](app/DataPointsAI/DataPointsAI/Views/Settings/NotificationRulesSettingsView.swift) (557 lines, includes `NotificationHistoryRow`, `NotificationRuleRow`, `EditNotificationRuleSheet`)
+  - [StatisticsSettingsView.swift](app/DataPointsAI/DataPointsAI/Views/Settings/StatisticsSettingsView.swift) (373 lines, includes `StatRow`)
+  - [AboutView.swift](app/DataPointsAI/DataPointsAI/Views/Settings/AboutView.swift) (35 lines)
+- [SettingsView.swift](app/DataPointsAI/DataPointsAI/Views/SettingsView.swift) shrank from 2184 → 210 lines — now just the `TabView` shell + load/save bridge + the `applySettingsChangeHandlers` View extension.
+- Also fixed a leftover from item #4: `AboutView` newspaper icon was
+  `.foregroundStyle(.blue)`; now `Color.accentColor`.
 
-**Fix recipe:**
-1. Change width to 540, keep height 500 (or remove fixed height
-   entirely if pane content varies smoothly).
-2. Each `TabView` pane already lives in its own struct
-   (`GeneralSettingsView`, `AppearanceSettingsView`, etc.) — move
-   each to its own file under
-   `app/DataPointsAI/DataPointsAI/Views/Settings/`.
-3. Leave `SettingsView` itself as the thin `TabView` shell + the
-   `loadSettings/saveSettings` bridge.
+**Verified:** `xcodebuild -scheme DataPointsAI` reports `BUILD SUCCEEDED`.
 
 ## 6. `accessibilityElement(children: .combine)` on composite rows
 

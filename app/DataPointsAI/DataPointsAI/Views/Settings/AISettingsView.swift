@@ -1,0 +1,168 @@
+import SwiftUI
+
+/// AI settings tab
+struct AISettingsView: View {
+    @EnvironmentObject var appState: AppState
+    @Binding var llmProvider: LLMProvider
+    @Binding var defaultModel: String
+
+    @State private var showAPIKeySheet = false
+    @State private var showSetupWizard = false
+    @State private var apiKeyInput = ""
+    @State private var selectedKeyProvider: LLMProvider = .anthropic
+    @State private var isSaving = false
+    @State private var saveError: String?
+
+    var body: some View {
+        Form {
+            Section {
+                Picker("Provider", selection: $llmProvider) {
+                    ForEach(LLMProvider.allCases, id: \.self) { provider in
+                        Text(provider.label).tag(provider)
+                    }
+                }
+
+                Text(llmProvider.description)
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text("AI Provider")
+            }
+
+            Section {
+                Picker("Default model", selection: $defaultModel) {
+                    ForEach(llmProvider.modelOptions, id: \.value) { option in
+                        Text(option.label).tag(option.value)
+                    }
+                }
+                .pickerStyle(.radioGroup)
+
+                if let selectedOption = llmProvider.modelOptions.first(where: { $0.value == defaultModel }) {
+                    Text(selectedOption.description)
+                        .font(.caption)
+                        .foregroundStyle(.secondary)
+                }
+            } header: {
+                Text("Model")
+            }
+
+            Section {
+                ForEach(LLMProvider.allCases, id: \.self) { provider in
+                    HStack {
+                        Text(provider.label)
+                        Spacer()
+                        if KeychainService.shared.hasKey(for: provider) {
+                            Image(systemName: "checkmark.circle.fill")
+                                .foregroundStyle(.green)
+                            Button("Remove") {
+                                removeAPIKey(for: provider)
+                            }
+                            .buttonStyle(.link)
+                            .foregroundStyle(.red)
+                        } else {
+                            Text("Not configured")
+                                .foregroundStyle(.secondary)
+                            Button("Add") {
+                                selectedKeyProvider = provider
+                                apiKeyInput = ""
+                                saveError = nil
+                                showAPIKeySheet = true
+                            }
+                            .buttonStyle(.link)
+                        }
+                    }
+                }
+
+                Text("API keys are stored securely in your macOS Keychain.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+
+                Button("Open Setup Wizard...") {
+                    showSetupWizard = true
+                }
+                .buttonStyle(.link)
+            } header: {
+                Text("API Keys")
+            }
+        }
+        .formStyle(.grouped)
+        .sheet(isPresented: $showAPIKeySheet) {
+            apiKeySheet
+        }
+        .sheet(isPresented: $showSetupWizard) {
+            SetupWizardView {
+                showSetupWizard = false
+            }
+            .environmentObject(appState)
+        }
+    }
+
+    private var apiKeySheet: some View {
+        VStack(spacing: 20) {
+            Text("Add \(selectedKeyProvider.label) API Key")
+                .font(.headline)
+
+            SecureField("API Key", text: $apiKeyInput)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 300)
+
+            if let error = saveError {
+                Text(error)
+                    .foregroundStyle(.red)
+                    .font(.caption)
+            }
+
+            HStack {
+                Button("Cancel") {
+                    showAPIKeySheet = false
+                }
+                .keyboardShortcut(.escape)
+
+                Button("Save") {
+                    saveAPIKey()
+                }
+                .keyboardShortcut(.return)
+                .buttonStyle(.borderedProminent)
+                .disabled(apiKeyInput.isEmpty || isSaving)
+            }
+        }
+        .padding(30)
+        .frame(width: 400)
+    }
+
+    private func saveAPIKey() {
+        isSaving = true
+        saveError = nil
+
+        Task {
+            do {
+                try KeychainService.shared.save(key: apiKeyInput, for: selectedKeyProvider)
+                // Restart the server to pick up the new key
+                await appState.restartServer()
+
+                await MainActor.run {
+                    isSaving = false
+                    showAPIKeySheet = false
+                }
+            } catch {
+                await MainActor.run {
+                    isSaving = false
+                    saveError = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func removeAPIKey(for provider: LLMProvider) {
+        Task {
+            do {
+                try KeychainService.shared.delete(provider: provider)
+            } catch {
+                print("Failed to remove API key: \(error)")
+            }
+            // Restart the server to pick up the change
+            await appState.restartServer()
+        }
+    }
+}
+
