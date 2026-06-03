@@ -93,17 +93,22 @@ class Database:
     def get_feed(self, feed_id: int, user_id: int | None = None) -> DBFeed | None:
         return self.feeds.get(feed_id, user_id)
 
-    def get_feeds(self, user_id: int | None = None) -> list[DBFeed]:
-        return self.feeds.get_all(user_id)
+    def get_feeds(self, user_id: int | None = None, admin: bool = True) -> list[DBFeed]:
+        return self.feeds.get_all(user_id, admin)
+
+    def get_visible_feed_ids(self, admin: bool) -> set[int] | None:
+        """Feed IDs visible to the caller, or None when unrestricted (admin)."""
+        return self.feeds.get_visible_feed_ids(admin)
 
     def update_feed(
         self,
         feed_id: int,
         name: str | None = None,
         category: str | None = None,
-        clear_category: bool = False
+        clear_category: bool = False,
+        is_public: bool | None = None
     ):
-        return self.feeds.update(feed_id, name, category, clear_category)
+        return self.feeds.update(feed_id, name, category, clear_category, is_public)
 
     def update_feed_fetched(self, feed_id: int, error: str | None = None):
         return self.feeds.update_fetched(feed_id, error)
@@ -242,7 +247,8 @@ class Database:
         summarized_only: bool | None = None,
         sort_by: str = "newest",
         limit: int = 50,
-        offset: int = 0
+        offset: int = 0,
+        admin: bool = True
     ) -> list[DBArticle]:
         return self.articles.get_many(
             user_id=user_id,
@@ -254,6 +260,7 @@ class Database:
             sort_by=sort_by,
             limit=limit,
             offset=offset,
+            admin=admin,
         )
 
     def feature_article(self, article_id: int, user_id: int, note: str | None = None) -> bool:
@@ -286,9 +293,10 @@ class Database:
         since: datetime,
         feed_ids: list[int] | None = None,
         limit: int = 300,
+        admin: bool = True,
     ) -> list[DBArticle]:
         """Fetch recent shared RSS articles for story-group detection (no user state)."""
-        return self.articles.get_shared_since(since, feed_ids, limit)
+        return self.articles.get_shared_since(since, feed_ids, limit, admin)
 
     def update_article_content(self, article_id: int, content: str):
         self.articles.update_content(article_id, content)
@@ -338,12 +346,30 @@ class Database:
     def mark_all_read(self, user_id: int, is_read: bool = True) -> int:
         return self.user_state.mark_all_read(user_id, is_read)
 
-    def search(self, query: str, limit: int = 20, include_summaries: bool = True) -> list[DBArticle]:
+    def search(
+        self,
+        query: str,
+        limit: int = 20,
+        include_summaries: bool = True,
+        visible_feed_ids: set[int] | None = None
+    ) -> list[DBArticle]:
+        """Full-text search. When visible_feed_ids is provided (non-admin), results
+        are restricted to those feeds plus any featured article."""
         if self._search:
-            ids = self._search.search(query, limit)
-            return self.articles.get_by_ids(ids)
-        # FTS5 fallback when Tantivy is not available
-        return self.articles.search(query, limit, include_summaries=include_summaries)
+            # Over-fetch when filtering so the post-filter still returns up to `limit`.
+            raw_limit = limit if visible_feed_ids is None else limit * 4
+            ids = self._search.search(query, raw_limit)
+            results = self.articles.get_by_ids(ids)
+        else:
+            # FTS5 fallback when Tantivy is not available
+            results = self.articles.search(query, limit, include_summaries=include_summaries)
+
+        if visible_feed_ids is not None:
+            results = [
+                a for a in results
+                if a.feed_id in visible_feed_ids or getattr(a, "is_featured", False)
+            ][:limit]
+        return results
 
     def get_duplicate_articles(self) -> list[tuple[str, list[DBArticle]]]:
         return self.articles.get_duplicates()
@@ -369,17 +395,19 @@ class Database:
         self,
         user_id: int,
         unread_only: bool = False,
-        limit: int = 100
+        limit: int = 100,
+        admin: bool = True
     ) -> dict[str, list[DBArticle]]:
-        return self.articles.get_grouped_by_date(user_id, unread_only, limit)
+        return self.articles.get_grouped_by_date(user_id, unread_only, limit, admin)
 
     def get_articles_grouped_by_feed(
         self,
         user_id: int,
         unread_only: bool = False,
-        limit: int = 100
+        limit: int = 100,
+        admin: bool = True
     ) -> dict[int, list[DBArticle]]:
-        return self.articles.get_grouped_by_feed(user_id, unread_only, limit)
+        return self.articles.get_grouped_by_feed(user_id, unread_only, limit, admin)
 
     # ─────────────────────────────────────────────────────────────
     # Settings operations (delegated to SettingsRepository)

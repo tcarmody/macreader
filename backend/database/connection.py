@@ -144,6 +144,13 @@ class DatabaseConnection:
                 """)
 
             # Migrations
+            # Feed visibility: allowlist for non-admin web users. Private (FALSE) by
+            # default; admins publish feeds explicitly. Featured articles bypass this.
+            self._migrate_add_column(connection, "feeds", "is_public", "BOOLEAN DEFAULT FALSE")
+            connection.execute(
+                "CREATE INDEX IF NOT EXISTS idx_feeds_public ON feeds(is_public)"
+            )
+
             self._migrate_add_column(connection, "articles", "source_url", "TEXT")
             self._migrate_add_column(connection, "articles", "content_type", "TEXT")
             self._migrate_add_column(connection, "articles", "file_name", "TEXT")

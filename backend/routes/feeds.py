@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
-from ..auth import verify_api_key, get_current_user, require_admin
+from ..auth import verify_api_key, get_current_user, require_admin, is_admin_user
 from ..config import state, get_db
 from ..database import Database
 from ..exceptions import require_feed
@@ -40,8 +40,11 @@ async def list_feeds(
     db: Annotated[Database, Depends(get_db)],
     user_id: Annotated[int, Depends(get_current_user)]
 ) -> list[FeedResponse]:
-    """List all subscribed feeds with user-specific unread counts."""
-    feeds = db.get_feeds(user_id)
+    """List subscribed feeds with user-specific unread counts.
+
+    Non-admin (web) users only see feeds published to the web (is_public).
+    """
+    feeds = db.get_feeds(user_id, admin=is_admin_user(db, user_id))
     return [FeedResponse.from_db(f) for f in feeds]
 
 
@@ -111,14 +114,20 @@ async def update_feed(
     db: Annotated[Database, Depends(get_db)],
     _admin: Annotated[int, Depends(require_admin)] = 0
 ) -> FeedResponse:
-    """Update a feed's name or category. Set category to empty string to remove it."""
+    """Update a feed's name, category, or web visibility. Set category to empty string to remove it."""
     require_feed(db.get_feed(feed_id))
 
     # Empty string means clear category
     clear_category = request.category == ""
     category = None if clear_category else request.category
 
-    db.update_feed(feed_id, name=request.name, category=category, clear_category=clear_category)
+    db.update_feed(
+        feed_id,
+        name=request.name,
+        category=category,
+        clear_category=clear_category,
+        is_public=request.is_public,
+    )
 
     updated_feed = db.get_feed(feed_id)
     if not updated_feed:

@@ -105,6 +105,7 @@ class AutoDigestService:
         brief_length: str = "short",
         format: str = "markdown",
         force_refresh: bool = False,
+        admin: bool = True,
     ) -> Digest:
         """Generate (or return cached) a digest for the requested period.
 
@@ -116,17 +117,21 @@ class AutoDigestService:
             brief_length:  Brief length — sentence | short | paragraph.
             format:        Output format — markdown | html.
             force_refresh: Ignore cached digest and re-generate.
+            admin:         When False, restrict to public feeds + featured articles,
+                           and never read/write the shared (canonical) digest cache so
+                           the narrower non-admin digest can't contaminate it.
         """
         period_end = datetime.now()
         period_start = self._period_start(period, period_end)
 
-        # Return cached digest when possible
-        if not force_refresh and feed_ids is None:
+        # Return cached digest when possible. The cache holds the full (admin) digest,
+        # so non-admins always regenerate against their restricted article set.
+        if not force_refresh and feed_ids is None and admin:
             cached = self._db.digests.get_latest(period, max_age_hours=_CACHE_MAX_AGE_HOURS)
             if cached and cached.tone == tone and cached.brief_length == brief_length and cached.format == format:
                 return self._from_db_digest(cached)
 
-        articles = self._db.get_articles_since(since=period_start, feed_ids=feed_ids, limit=500)
+        articles = self._db.get_articles_since(since=period_start, feed_ids=feed_ids, limit=500, admin=admin)
         if not articles:
             return self._empty_digest(period, period_start, period_end, format)
 
@@ -203,7 +208,7 @@ class AutoDigestService:
 
         # ── 8. Persist ────────────────────────────────────────────────────────
         digest_id = None
-        if feed_ids is None:  # only cache unfilitered digests
+        if feed_ids is None and admin:  # only cache unfiltered, full (admin) digests
             digest_id = self._db.digests.save(
                 period=period,
                 period_start=period_start,

@@ -96,6 +96,7 @@ class DBFeed:
     last_fetched: datetime | None
     fetch_error: str | None = None
     unread_count: int = 0
+    is_public: bool = False
 
 
 @dataclass

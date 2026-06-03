@@ -7,7 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from ..auth import verify_api_key, get_current_user
+from ..auth import verify_api_key, get_current_user, is_admin_user
 from ..config import state, get_db
 from ..database import Database
 from ..schemas import (
@@ -48,11 +48,29 @@ async def generate_briefs_batch(
     length = BriefLength(request.length.value)
     tone = BriefTone(request.tone.value)
 
+    # Non-admins may only brief articles they can see (public feeds + featured).
+    visible_feed_ids = db.get_visible_feed_ids(admin=is_admin_user(db, user_id))
+
     # Split into cached vs. needs-generation
     items_to_generate: list[dict] = []
     cached_results: dict[int, BatchBriefResult] = {}
 
     for article_id in request.article_ids:
+        # Non-admin visibility gate must run before the cached-brief shortcut,
+        # otherwise a cached brief could leak a private-feed article's content.
+        if visible_feed_ids is not None:
+            guard = db.get_article(article_id)
+            if guard is None or (
+                not getattr(guard, "is_featured", False)
+                and guard.feed_id not in visible_feed_ids
+            ):
+                cached_results[article_id] = BatchBriefResult(
+                    article_id=article_id,
+                    success=False,
+                    error="Article not found",
+                )
+                continue
+
         cached = db.briefs.get(article_id, length.value, tone.value)
         if cached:
             cached_results[article_id] = BatchBriefResult(
@@ -134,6 +152,7 @@ async def generate_briefs_batch(
 @router.get("/story-groups")
 async def get_story_groups(
     db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)],
     since: str | None = Query(default=None, description="ISO8601 start time (default: 48h ago)"),
     feed_ids: str | None = Query(default=None, description="Comma-separated feed IDs to filter"),
     min_size: int = Query(default=2, ge=2, le=20),
@@ -174,6 +193,7 @@ async def get_story_groups(
         feed_ids=parsed_feed_ids,
         min_size=min_size,
         force_refresh=refresh,
+        admin=is_admin_user(db, user_id),
     )
 
     # Enrich with article details
@@ -236,6 +256,7 @@ def _build_response(groups, db: Database) -> list[StoryGroupResponse]:
 @router.get("/auto")
 async def get_auto_digest(
     db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)],
     period: str = Query(default="today", description="'today' (24 h) or 'week' (7 days)"),
     feed_ids: str | None = Query(default=None, description="Comma-separated feed IDs to filter"),
     max_stories: int = Query(default=10, ge=1, le=50),
@@ -287,6 +308,7 @@ async def get_auto_digest(
         brief_length=brief_length,
         format=format,
         force_refresh=refresh,
+        admin=is_admin_user(db, user_id),
     )
 
     return AutoDigestResponse(

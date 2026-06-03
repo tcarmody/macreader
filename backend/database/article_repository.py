@@ -119,7 +119,8 @@ class ArticleRepository:
         summarized_only: bool | None = None,
         sort_by: str = "newest",
         limit: int = 50,
-        offset: int = 0
+        offset: int = 0,
+        admin: bool = True
     ) -> list[DBArticle]:
         """
         Get articles with optional filters, including per-user read/bookmark state.
@@ -133,6 +134,8 @@ class ArticleRepository:
             sort_by: Sort order
             limit: Maximum number of articles to return
             offset: Number of articles to skip
+            admin: When False, restrict to public feeds; featured articles are
+                always visible regardless of feed visibility (the allowlist rule).
         """
         # Join with user_article_state for per-user read/bookmark status
         # Also LEFT JOIN article_briefs for the sentence-length neutral brief used in list preview
@@ -156,6 +159,14 @@ class ArticleRepository:
         """
         # Two user_id params: one for EXISTS(article_chats), one for user_article_state JOIN
         params: list = [user_id, user_id]
+
+        # Non-admin allowlist: only articles from public feeds, plus any featured
+        # article (so curated items from private feeds still surface on the web).
+        if not admin:
+            query += """ AND (
+                EXISTS(SELECT 1 FROM feeds f WHERE f.id = a.feed_id AND COALESCE(f.is_public, 0) = 1)
+                OR COALESCE(a.is_featured, 0) = 1
+            )"""
 
         if feed_id is not None:
             query += " AND a.feed_id = ?"
@@ -186,11 +197,14 @@ class ArticleRepository:
         since: datetime,
         feed_ids: list[int] | None = None,
         limit: int = 300,
+        admin: bool = True,
     ) -> list[DBArticle]:
         """Fetch recent shared RSS articles (no per-user state needed).
 
         Returns articles where user_id IS NULL (shared RSS, not library items),
-        published or created on or after `since`. Used by story group detection.
+        published or created on or after `since`. Used by story group detection
+        and the auto-digest. When admin is False, restricts to public feeds plus
+        featured articles (the non-admin allowlist).
         """
         query = f"""
             SELECT {self.ARTICLE_COLUMNS},
@@ -204,6 +218,12 @@ class ArticleRepository:
               )
         """
         params: list = [since.isoformat(), since.isoformat()]
+
+        if not admin:
+            query += """ AND (
+                EXISTS(SELECT 1 FROM feeds f WHERE f.id = a.feed_id AND COALESCE(f.is_public, 0) = 1)
+                OR COALESCE(a.is_featured, 0) = 1
+            )"""
 
         if feed_ids:
             placeholders = ",".join("?" * len(feed_ids))
@@ -469,10 +489,11 @@ class ArticleRepository:
         self,
         user_id: int,
         unread_only: bool = False,
-        limit: int = 100
+        limit: int = 100,
+        admin: bool = True
     ) -> dict[str, list[DBArticle]]:
         """Get articles grouped by date (YYYY-MM-DD)."""
-        articles = self.get_many(user_id=user_id, unread_only=unread_only, limit=limit)
+        articles = self.get_many(user_id=user_id, unread_only=unread_only, limit=limit, admin=admin)
         grouped: dict[str, list[DBArticle]] = {}
         for article in articles:
             date_key = (article.published_at or article.created_at).strftime("%Y-%m-%d")
@@ -574,10 +595,11 @@ class ArticleRepository:
         self,
         user_id: int,
         unread_only: bool = False,
-        limit: int = 100
+        limit: int = 100,
+        admin: bool = True
     ) -> dict[int, list[DBArticle]]:
         """Get articles grouped by feed ID."""
-        articles = self.get_many(user_id=user_id, unread_only=unread_only, limit=limit)
+        articles = self.get_many(user_id=user_id, unread_only=unread_only, limit=limit, admin=admin)
         grouped: dict[int, list[DBArticle]] = {}
         for article in articles:
             if article.feed_id not in grouped:
