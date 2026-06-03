@@ -34,6 +34,7 @@ router = APIRouter(
 @router.get("/reading-stats")
 async def get_reading_stats(
     db: Annotated[Database, Depends(get_db)],
+    admin_id: Annotated[int, Depends(require_admin)],
     period_type: str = Query(default="rolling", pattern="^(rolling|calendar)$"),
     period_value: str = Query(default="30d", pattern="^(7d|30d|90d|week|month|year)$"),
 ) -> ReadingStatsResponse:
@@ -69,7 +70,7 @@ async def get_reading_stats(
         start_date=start_date, end_date=end_date
     )
     reading_data = db.statistics.get_reading_stats(
-        start_date=start_date, end_date=end_date
+        user_id=admin_id, start_date=start_date, end_date=end_date
     )
 
     # Get topic data

@@ -191,60 +191,69 @@ class StatisticsRepository:
 
     def get_reading_stats(
         self,
+        user_id: int,
         start_date: datetime | None = None,
         end_date: datetime | None = None
     ) -> dict:
-        """Get reading statistics for a period."""
+        """Get reading statistics for a user over a period.
+
+        Read/bookmark state is per-user (user_article_state), so all counts are
+        scoped to the given user_id. Reading time comes from articles.reading_time_minutes.
+        """
         with self._db.conn() as conn:
-            # Build date filter for read_at
+            # Date filter on read_at, plus the per-user scope. uas = user_article_state.
             date_filter = ""
-            params: list = []
+            params: list = [user_id]
 
             if start_date:
-                date_filter += " AND read_at >= ?"
+                date_filter += " AND uas.read_at >= ?"
                 params.append(start_date.isoformat())
             if end_date:
-                date_filter += " AND read_at <= ?"
+                date_filter += " AND uas.read_at <= ?"
                 params.append(end_date.isoformat())
 
             # Articles read in period
             articles_read = conn.execute(
-                f"SELECT COUNT(*) as cnt FROM articles WHERE is_read = 1 {date_filter}",
+                f"""SELECT COUNT(*) as cnt FROM user_article_state uas
+                    WHERE uas.user_id = ? AND uas.is_read = 1 {date_filter}""",
                 params
             ).fetchone()["cnt"]
 
-            # Total reading time
+            # Total reading time (article-level reading_time_minutes for read articles)
             reading_time = conn.execute(
-                f"""SELECT COALESCE(SUM(reading_time_minutes), 0) as total
-                    FROM articles WHERE is_read = 1 {date_filter}""",
+                f"""SELECT COALESCE(SUM(a.reading_time_minutes), 0) as total
+                    FROM user_article_state uas
+                    JOIN articles a ON a.id = uas.article_id
+                    WHERE uas.user_id = ? AND uas.is_read = 1 {date_filter}""",
                 params
             ).fetchone()["total"]
 
             # Average reading time
             avg_reading = reading_time / articles_read if articles_read > 0 else 0
 
-            # Bookmarks added in period (reusing date range on bookmarked_at)
-            bookmark_params: list = []
+            # Bookmarks added in period (date range on bookmarked_at)
+            bookmark_params: list = [user_id]
             bookmark_filter = ""
             if start_date:
-                bookmark_filter += " AND bookmarked_at >= ?"
+                bookmark_filter += " AND uas.bookmarked_at >= ?"
                 bookmark_params.append(start_date.isoformat())
             if end_date:
-                bookmark_filter += " AND bookmarked_at <= ?"
+                bookmark_filter += " AND uas.bookmarked_at <= ?"
                 bookmark_params.append(end_date.isoformat())
 
             bookmarks_added = conn.execute(
-                f"SELECT COUNT(*) as cnt FROM articles WHERE is_bookmarked = 1 {bookmark_filter}",
+                f"""SELECT COUNT(*) as cnt FROM user_article_state uas
+                    WHERE uas.user_id = ? AND uas.is_bookmarked = 1 {bookmark_filter}""",
                 bookmark_params
             ).fetchone()["cnt"]
 
             # Read by day (last 14 days max for chart)
             read_by_day = {}
             day_rows = conn.execute(
-                f"""SELECT DATE(read_at) as day, COUNT(*) as cnt
-                    FROM articles
-                    WHERE is_read = 1 AND read_at IS NOT NULL {date_filter}
-                    GROUP BY DATE(read_at)
+                f"""SELECT DATE(uas.read_at) as day, COUNT(*) as cnt
+                    FROM user_article_state uas
+                    WHERE uas.user_id = ? AND uas.is_read = 1 AND uas.read_at IS NOT NULL {date_filter}
+                    GROUP BY DATE(uas.read_at)
                     ORDER BY day DESC
                     LIMIT 14""",
                 params
@@ -257,9 +266,10 @@ class StatisticsRepository:
             read_by_feed = {}
             feed_rows = conn.execute(
                 f"""SELECT f.name, COUNT(*) as cnt
-                    FROM articles a
+                    FROM user_article_state uas
+                    JOIN articles a ON a.id = uas.article_id
                     JOIN feeds f ON a.feed_id = f.id
-                    WHERE a.is_read = 1 {date_filter}
+                    WHERE uas.user_id = ? AND uas.is_read = 1 {date_filter}
                     GROUP BY f.id
                     ORDER BY cnt DESC
                     LIMIT 10""",

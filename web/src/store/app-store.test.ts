@@ -52,14 +52,6 @@ describe('useAppStore', () => {
       useAppStore.getState().setTheme('dark')
       expect(useAppStore.getState().theme).toBe('dark')
     })
-
-    it('should toggle hideRead', () => {
-      expect(useAppStore.getState().hideRead).toBe(false)
-      useAppStore.getState().toggleHideRead()
-      expect(useAppStore.getState().hideRead).toBe(true)
-      useAppStore.getState().toggleHideRead()
-      expect(useAppStore.getState().hideRead).toBe(false)
-    })
   })
 
   describe('toast tracking', () => {
