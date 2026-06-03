@@ -232,6 +232,11 @@ struct FeedManagerView: View {
             }
             .width(min: 100, ideal: 150)
 
+            TableColumn("Web") { feed in
+                webVisibilityCell(for: feed)
+            }
+            .width(90)
+
             TableColumn("Status") { feed in
                 FeedHealthBadge(status: feed.healthStatus)
             }
@@ -341,6 +346,24 @@ struct FeedManagerView: View {
         .menuStyle(.borderlessButton)
     }
 
+    @ViewBuilder
+    private func webVisibilityCell(for feed: Feed) -> some View {
+        Button {
+            toggleVisibility(for: feed)
+        } label: {
+            HStack(spacing: 4) {
+                Image(systemName: feed.isPublic ? "globe" : "lock.fill")
+                Text(feed.isPublic ? "Public" : "Private")
+            }
+            .font(.caption)
+            .foregroundStyle(feed.isPublic ? Color.green : Color.secondary)
+        }
+        .buttonStyle(.plain)
+        .helpLabel(feed.isPublic
+            ? "Public — visible to all web readers. Click to make private."
+            : "Private — only admins and featured items. Click to publish to the web.")
+    }
+
     // MARK: - Actions
 
     private func deleteSelectedFeeds() {
@@ -388,6 +411,16 @@ struct FeedManagerView: View {
                 try await appState.updateFeed(feedId: feed.id, category: category ?? "")
             } catch {
                 print("Failed to update category: \(error)")
+            }
+        }
+    }
+
+    private func toggleVisibility(for feed: Feed) {
+        Task {
+            do {
+                try await appState.setFeedPublic(feedId: feed.id, isPublic: !feed.isPublic)
+            } catch {
+                print("Failed to update feed visibility: \(error)")
             }
         }
     }

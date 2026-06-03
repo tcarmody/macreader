@@ -201,6 +201,13 @@ extension APIClient {
     struct UpdateFeedRequest: Encodable {
         let name: String?
         let category: String?
+        var isPublic: Bool? = nil
+
+        enum CodingKeys: String, CodingKey {
+            case name
+            case category
+            case isPublic = "is_public"
+        }
     }
 }
 

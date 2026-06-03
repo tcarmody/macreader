@@ -12,6 +12,8 @@ struct Feed: Identifiable, Codable, Hashable, Sendable {
     var unreadCount: Int
     let lastFetched: Date?
     let fetchError: String?
+    /// Whether the feed is published to non-admin web users (allowlist). Admins always see all feeds.
+    var isPublic: Bool
 
     enum CodingKeys: String, CodingKey {
         case id
@@ -21,6 +23,20 @@ struct Feed: Identifiable, Codable, Hashable, Sendable {
         case unreadCount = "unread_count"
         case lastFetched = "last_fetched"
         case fetchError = "fetch_error"
+        case isPublic = "is_public"
+    }
+
+    init(from decoder: Decoder) throws {
+        let c = try decoder.container(keyedBy: CodingKeys.self)
+        id = try c.decode(Int.self, forKey: .id)
+        url = try c.decode(URL.self, forKey: .url)
+        name = try c.decode(String.self, forKey: .name)
+        category = try c.decodeIfPresent(String.self, forKey: .category)
+        unreadCount = try c.decodeIfPresent(Int.self, forKey: .unreadCount) ?? 0
+        lastFetched = try c.decodeIfPresent(Date.self, forKey: .lastFetched)
+        fetchError = try c.decodeIfPresent(String.self, forKey: .fetchError)
+        // Defensive: older cached feeds may predate this field.
+        isPublic = try c.decodeIfPresent(Bool.self, forKey: .isPublic) ?? false
     }
 
     /// Whether this is a local feed (Library or Newsletters) that doesn't need HTTP fetching

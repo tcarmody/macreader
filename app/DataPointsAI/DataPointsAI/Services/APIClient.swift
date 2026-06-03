@@ -181,10 +181,10 @@ final class APIClient {
         )
     }
 
-    func updateFeed(id: Int, name: String?, category: String? = nil) async throws -> Feed {
+    func updateFeed(id: Int, name: String?, category: String? = nil, isPublic: Bool? = nil) async throws -> Feed {
         return try await put(
             path: "/feeds/\(id)",
-            body: UpdateFeedRequest(name: name, category: category)
+            body: UpdateFeedRequest(name: name, category: category, isPublic: isPublic)
         )
     }
 

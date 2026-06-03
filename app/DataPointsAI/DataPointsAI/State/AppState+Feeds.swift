@@ -33,12 +33,17 @@ extension AppState {
         await reloadArticles()
     }
 
-    func updateFeed(feedId: Int, name: String? = nil, category: String? = nil) async throws {
-        let updatedFeed = try await apiClient.updateFeed(id: feedId, name: name, category: category)
+    func updateFeed(feedId: Int, name: String? = nil, category: String? = nil, isPublic: Bool? = nil) async throws {
+        let updatedFeed = try await apiClient.updateFeed(id: feedId, name: name, category: category, isPublic: isPublic)
 
         if let index = feeds.firstIndex(where: { $0.id == feedId }) {
             feeds[index] = updatedFeed
         }
+    }
+
+    /// Toggle whether a feed is published to non-admin web users (allowlist).
+    func setFeedPublic(feedId: Int, isPublic: Bool) async throws {
+        try await updateFeed(feedId: feedId, isPublic: isPublic)
     }
 
     func moveFeedToCategory(feedId: Int, category: String?) async throws {
