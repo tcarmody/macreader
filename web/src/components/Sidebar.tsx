@@ -71,14 +71,14 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds, onOpenHelp }
 
   const { data: feeds = [], isLoading: feedsLoading } = useFeeds()
   const { data: stats } = useStats()
-  const { data: topics = [] } = useTopics()
   const { data: authStatus } = useAuthStatus()
+  const isAdmin = authStatus?.is_admin ?? true // default true for backwards compat
+  const { data: topics = [] } = useTopics(isAdmin) // topics are admin-only
   const { data: savedSearches = [] } = useSavedSearches()
   const createSavedSearch = useCreateSavedSearch()
   const deleteSavedSearch = useDeleteSavedSearch()
   const touchSavedSearch = useTouchSavedSearch()
   const refreshFeeds = useRefreshFeeds()
-  const isAdmin = authStatus?.is_admin ?? true // default true for backwards compat
 
   // Mark initial setup complete once the user has feeds
   useEffect(() => {
@@ -335,20 +335,22 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds, onOpenHelp }
               Digest
             </Button>
           </Tooltip>
-          <Tooltip
-            content="Reading statistics and topic trends"
-            side="bottom"
-          >
-            <Button
-              variant={currentView === 'stats' ? 'secondary' : 'ghost'}
-              size="sm"
-              className="flex-1"
-              onClick={() => setCurrentView('stats')}
+          {isAdmin && (
+            <Tooltip
+              content="Reading statistics and topic trends"
+              side="bottom"
             >
-              <BarChart2 className="h-4 w-4 mr-1" />
-              Stats
-            </Button>
-          </Tooltip>
+              <Button
+                variant={currentView === 'stats' ? 'secondary' : 'ghost'}
+                size="sm"
+                className="flex-1"
+                onClick={() => setCurrentView('stats')}
+              >
+                <BarChart2 className="h-4 w-4 mr-1" />
+                Stats
+              </Button>
+            </Tooltip>
+          )}
         </div>
 
         <Separator className="my-2" />

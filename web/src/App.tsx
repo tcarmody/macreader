@@ -240,7 +240,7 @@ function AppContent() {
       {/* Main Content */}
       {currentView === 'digest' ? (
         <DigestView />
-      ) : currentView === 'stats' ? (
+      ) : currentView === 'stats' && (authStatus?.is_admin ?? true) ? (
         <StatsView />
       ) : currentView === 'feeds' ? (
         <>

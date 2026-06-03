@@ -8,6 +8,7 @@ export interface Feed {
   last_fetched: string | null
   unread_count: number
   fetch_error: string | null
+  is_public: boolean
 }
 
 export interface Article {

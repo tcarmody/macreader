@@ -69,11 +69,12 @@ export function useStats() {
   })
 }
 
-export function useTopics() {
+export function useTopics(enabled = true) {
   return useQuery({
     queryKey: queryKeys.topics,
     queryFn: api.getCurrentTopics,
     staleTime: 5 * 60 * 1000, // 5 minutes
+    enabled, // topics are admin-only; skip the request for non-admins
   })
 }
 
@@ -134,7 +135,7 @@ export function useDeleteFeed() {
 export function useUpdateFeed() {
   const queryClient = useQueryClient()
   return useMutation({
-    mutationFn: ({ feedId, data }: { feedId: number; data: { name?: string; category?: string } }) =>
+    mutationFn: ({ feedId, data }: { feedId: number; data: { name?: string; category?: string; is_public?: boolean } }) =>
       api.updateFeed(feedId, data),
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: queryKeys.feeds })

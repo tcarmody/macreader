@@ -13,6 +13,8 @@ import {
   Clock,
   CheckCircle2,
   Circle,
+  Globe,
+  Lock,
 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -219,6 +221,13 @@ export function FeedManagerDialog({ isOpen, onClose, onAddFeed }: FeedManagerDia
     })
   }
 
+  const handleVisibilityToggle = async (feed: Feed) => {
+    await updateFeed.mutateAsync({
+      feedId: feed.id,
+      data: { is_public: !feed.is_public }
+    })
+  }
+
   const handleImportClick = () => {
     fileInputRef.current?.click()
   }
@@ -372,6 +381,7 @@ export function FeedManagerDialog({ isOpen, onClose, onAddFeed }: FeedManagerDia
                 )}
                 <div className="flex-1 min-w-0">Name</div>
                 <div className="w-28">Category</div>
+                {isAdmin && <div className="w-16">Web</div>}
                 <div className="w-20">Status</div>
                 <div className="w-24">Last Fetched</div>
                 <div className="w-20">Actions</div>
@@ -434,6 +444,27 @@ export function FeedManagerDialog({ isOpen, onClose, onAddFeed }: FeedManagerDia
                       <span className="text-sm">{feed.category || <span className="text-muted-foreground">None</span>}</span>
                     )}
                   </div>
+
+                  {isAdmin && (
+                    <div className="w-16">
+                      <button
+                        onClick={() => handleVisibilityToggle(feed)}
+                        disabled={updateFeed.isPending}
+                        className={cn(
+                          "inline-flex items-center gap-1 rounded px-1.5 py-0.5 text-xs transition-colors",
+                          feed.is_public
+                            ? "text-emerald-600 hover:bg-emerald-500/10"
+                            : "text-muted-foreground hover:bg-muted"
+                        )}
+                        title={feed.is_public
+                          ? "Public — visible to all web readers. Click to make private."
+                          : "Private — only admins and featured items. Click to publish to the web."}
+                      >
+                        {feed.is_public ? <Globe className="h-3.5 w-3.5" /> : <Lock className="h-3.5 w-3.5" />}
+                        {feed.is_public ? "Public" : "Private"}
+                      </button>
+                    </div>
+                  )}
 
                   <div className="w-20">
                     <FeedHealthBadge status={getFeedHealthStatus(feed)} />
