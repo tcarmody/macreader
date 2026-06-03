@@ -7,7 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, Query, HTTPException
 
-from ..auth import verify_api_key
+from ..auth import verify_api_key, require_admin
 from ..config import state, get_db
 from ..database import Database
 from ..schemas import (
@@ -25,7 +25,9 @@ from ..schemas import (
 router = APIRouter(
     prefix="/statistics",
     tags=["statistics"],
-    dependencies=[Depends(verify_api_key)]
+    # Admin-only: reading stats and topic clustering expose aggregate signal across
+    # all feeds (including private ones), so they are not available to non-admins.
+    dependencies=[Depends(verify_api_key), Depends(require_admin)]
 )
 
 

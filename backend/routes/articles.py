@@ -7,7 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 
-from ..auth import verify_api_key, get_current_user, require_admin
+from ..auth import verify_api_key, get_current_user, require_admin, is_admin_user
 from ..config import state, get_db
 from ..database import Database
 from ..exceptions import require_article, require_feed
@@ -32,6 +32,22 @@ router = APIRouter(
     tags=["articles"],
     dependencies=[Depends(verify_api_key)]
 )
+
+
+def require_article_visible(article, db: Database, user_id: int):
+    """404 if a non-admin requests an article from a private feed that isn't featured.
+
+    Mirrors the list/search allowlist for direct-by-id access so it can't be a
+    side channel. Returns the article unchanged when visible.
+    """
+    if is_admin_user(db, user_id):
+        return article
+    if getattr(article, "is_featured", False):
+        return article
+    visible = db.get_visible_feed_ids(admin=False)
+    if visible is not None and article.feed_id not in visible:
+        raise HTTPException(status_code=404, detail="Article not found")
+    return article
 
 
 async def resolve_fetch_url(article, db: Database, use_aggregator_url: bool) -> str:
@@ -94,7 +110,8 @@ async def list_articles(
         summarized_only=summarized_only,
         sort_by=sort_by,
         limit=limit,
-        offset=offset
+        offset=offset,
+        admin=is_admin_user(db, user_id)
     )
 
     # Filter out duplicates if requested
@@ -121,10 +138,16 @@ async def get_articles_grouped(
         unread_only: Only include unread articles
         limit: Maximum total articles to return
     """
-    feeds_map = {f.id: f for f in db.get_feeds()}
+    admin = is_admin_user(db, user_id)
+
+    # Topic clustering is admin-only (exposes aggregate signal across all feeds).
+    if group_by == "topic" and not admin:
+        raise HTTPException(status_code=403, detail="Topic grouping is not available")
+
+    feeds_map = {f.id: f for f in db.get_feeds(user_id, admin=admin)}
 
     if group_by == "date":
-        grouped = db.get_articles_grouped_by_date(user_id=user_id, unread_only=unread_only, limit=limit)
+        grouped = db.get_articles_grouped_by_date(user_id=user_id, unread_only=unread_only, limit=limit, admin=admin)
         groups = []
         for date_str in sorted(grouped.keys(), reverse=True):
             articles = grouped[date_str]
@@ -152,7 +175,7 @@ async def get_articles_grouped(
             )
 
         # Get all articles first
-        articles = db.get_articles(user_id=user_id, unread_only=unread_only, limit=limit)
+        articles = db.get_articles(user_id=user_id, unread_only=unread_only, limit=limit, admin=admin)
 
         if not articles:
             return GroupedArticlesResponse(group_by=group_by, groups=[])
@@ -177,7 +200,7 @@ async def get_articles_grouped(
                     articles=[ArticleResponse.from_db(a) for a in topic_articles]
                 ))
     else:  # group_by == "feed"
-        grouped = db.get_articles_grouped_by_feed(user_id=user_id, unread_only=unread_only, limit=limit)
+        grouped = db.get_articles_grouped_by_feed(user_id=user_id, unread_only=unread_only, limit=limit, admin=admin)
         groups = []
         for feed_id in sorted(grouped.keys()):
             articles = grouped[feed_id]
@@ -308,6 +331,7 @@ async def get_article(
 ) -> ArticleDetailResponse:
     """Get single article with full summary."""
     article = require_article(db.get_article_with_state(article_id, user_id))
+    require_article_visible(article, db, user_id)
     return ArticleDetailResponse.from_db(article)
 
 

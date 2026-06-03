@@ -140,7 +140,7 @@ export async function deleteFeed(feedId: number): Promise<void> {
 
 export async function updateFeed(
   feedId: number,
-  data: { name?: string; category?: string }
+  data: { name?: string; category?: string; is_public?: boolean }
 ): Promise<Feed> {
   return fetchApi(`/feeds/${feedId}`, {
     method: 'PUT',

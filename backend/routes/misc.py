@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from ..auth import verify_api_key, get_current_user, require_admin
+from ..auth import verify_api_key, get_current_user, require_admin, is_admin_user
 from ..config import state, get_db, config
 from ..database import Database
 from ..schemas import (
@@ -45,14 +45,22 @@ async def health_check() -> dict:
 async def search(
     q: str,
     db: Annotated[Database, Depends(get_db)],
+    user_id: Annotated[int, Depends(get_current_user)],
     limit: int = Query(default=20, le=100),
     include_summaries: bool = Query(default=True)
 ) -> list[ArticleResponse]:
-    """Full-text search across articles and summaries."""
+    """Full-text search across articles and summaries.
+
+    Non-admin (web) users only match articles from public feeds, plus featured items.
+    """
     if len(q) < 2:
         raise HTTPException(status_code=400, detail="Query too short")
 
-    articles = db.search(q, limit=limit, include_summaries=include_summaries)
+    visible_feed_ids = db.get_visible_feed_ids(admin=is_admin_user(db, user_id))
+    articles = db.search(
+        q, limit=limit, include_summaries=include_summaries,
+        visible_feed_ids=visible_feed_ids,
+    )
     return [ArticleResponse.from_db(a) for a in articles]
 
 

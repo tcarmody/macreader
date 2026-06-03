@@ -257,6 +257,7 @@ class FeedResponse(BaseModel):
     unread_count: int
     last_fetched: str | None
     fetch_error: str | None = None
+    is_public: bool = False
 
     @classmethod
     def from_db(cls, feed: DBFeed) -> "FeedResponse":
@@ -267,7 +268,8 @@ class FeedResponse(BaseModel):
             category=feed.category,
             unread_count=feed.unread_count,
             last_fetched=serialize_datetime(feed.last_fetched),
-            fetch_error=feed.fetch_error
+            fetch_error=feed.fetch_error,
+            is_public=feed.is_public
         )
 
 
@@ -281,6 +283,7 @@ class UpdateFeedRequest(BaseModel):
     """Request to update a feed."""
     name: str | None = None
     category: str | None = None
+    is_public: bool | None = None
 
 
 class BulkDeleteFeedsRequest(BaseModel):

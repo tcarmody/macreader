@@ -140,6 +140,7 @@ class StoryGroupService:
         min_size: int = 2,
         window_hours: int = 48,
         force_refresh: bool = False,
+        admin: bool = True,
     ) -> list[StoryGroup]:
         """Return story groups for a time window, using cache when fresh.
 
@@ -148,11 +149,16 @@ class StoryGroupService:
         2. Check TieredCache keyed on article-id set + window_hours.
         3. On cache miss (or force_refresh): call LLM, persist to DB, update cache.
         4. Return groups with min_size >= min_size members.
+
+        When admin is False, only public-feed + featured articles are considered,
+        and the resulting groups are NOT persisted to the DB (which would overwrite
+        the canonical full groups for the window). The in-memory cache is keyed on the
+        article-id set, so non-admin and admin runs never collide there.
         """
         period_end = datetime.now()
         period_start = since
 
-        articles = self._db.get_articles_since(since=since, feed_ids=feed_ids, limit=300)
+        articles = self._db.get_articles_since(since=since, feed_ids=feed_ids, limit=300, admin=admin)
         if len(articles) < 2:
             return []
 
@@ -168,8 +174,9 @@ class StoryGroupService:
         groups = await self.detect_groups(articles, window_hours=window_hours)
         filtered = [g for g in groups if len(g.member_ids) >= min_size]
 
-        # Persist to DB (replaces any existing groups for this date window)
-        if filtered:
+        # Persist to DB (replaces any existing groups for this date window).
+        # Skip for non-admins so a feed-restricted run can't clobber the canonical groups.
+        if filtered and admin:
             group_dicts = [
                 {
                     "label": g.label,

@@ -50,38 +50,60 @@ class FeedRepository:
                 ).fetchone()
             return row_to_feed(row) if row else None
 
-    def get_all(self, user_id: int | None = None) -> list[DBFeed]:
-        """Get all feeds with user-specific unread counts (excludes internal Archive feed)."""
+    def get_all(self, user_id: int | None = None, admin: bool = True) -> list[DBFeed]:
+        """Get all feeds with user-specific unread counts (excludes internal Archive feed).
+
+        When admin is False, only feeds marked public (is_public = 1) are returned —
+        the allowlist for non-admin web users.
+        """
+        # Non-admins only see feeds explicitly published to the web.
+        visibility = "" if admin else " AND COALESCE(f.is_public, 0) = 1"
         with self._db.conn() as conn:
             if user_id is not None:
-                rows = conn.execute("""
+                rows = conn.execute(f"""
                     SELECT f.*,
                            COUNT(CASE WHEN COALESCE(uas.is_read, FALSE) = FALSE THEN 1 END) as unread_count
                     FROM feeds f
                     LEFT JOIN articles a ON f.id = a.feed_id
                     LEFT JOIN user_article_state uas ON a.id = uas.article_id AND uas.user_id = ?
-                    WHERE f.url NOT LIKE 'archive://%'
+                    WHERE f.url NOT LIKE 'archive://%'{visibility}
                     GROUP BY f.id
                     ORDER BY f.name
                 """, (user_id,)).fetchall()
             else:
                 # Without user_id, count all articles as unread
-                rows = conn.execute("""
+                rows = conn.execute(f"""
                     SELECT f.*, COUNT(a.id) as unread_count
                     FROM feeds f
                     LEFT JOIN articles a ON f.id = a.feed_id
-                    WHERE f.url NOT LIKE 'archive://%'
+                    WHERE f.url NOT LIKE 'archive://%'{visibility}
                     GROUP BY f.id
                     ORDER BY f.name
                 """).fetchall()
             return [row_to_feed(row) for row in rows]
+
+    def get_visible_feed_ids(self, admin: bool) -> set[int] | None:
+        """Feed IDs visible to the caller, or None when unrestricted (admin).
+
+        Single source of truth for the non-admin allowlist, used by article read
+        paths that don't go through get_all (search, grouped, digests). Returns the
+        set of public feed IDs for non-admins; None means "no restriction".
+        """
+        if admin:
+            return None
+        with self._db.conn() as conn:
+            rows = conn.execute(
+                "SELECT id FROM feeds WHERE COALESCE(is_public, 0) = 1"
+            ).fetchall()
+            return {row["id"] for row in rows}
 
     def update(
         self,
         feed_id: int,
         name: str | None = None,
         category: str | None = None,
-        clear_category: bool = False
+        clear_category: bool = False,
+        is_public: bool | None = None
     ):
         """Update feed details. Use clear_category=True to remove category."""
         with self._db.conn() as conn:
@@ -91,6 +113,8 @@ class FeedRepository:
                 conn.execute("UPDATE feeds SET category = NULL WHERE id = ?", (feed_id,))
             elif category is not None:
                 conn.execute("UPDATE feeds SET category = ? WHERE id = ?", (category, feed_id))
+            if is_public is not None:
+                conn.execute("UPDATE feeds SET is_public = ? WHERE id = ?", (1 if is_public else 0, feed_id))
 
     def update_fetched(self, feed_id: int, error: str | None = None):
         """Update feed's last fetched timestamp."""

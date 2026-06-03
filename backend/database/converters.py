@@ -124,6 +124,12 @@ def row_to_feed(row: sqlite3.Row) -> DBFeed:
     except (IndexError, KeyError):
         fetch_error = None
 
+    # Handle is_public - may not be present in all queries (and may be NULL on old rows)
+    try:
+        is_public = bool(row["is_public"])
+    except (IndexError, KeyError):
+        is_public = False
+
     return DBFeed(
         id=row["id"],
         url=row["url"],
@@ -131,7 +137,8 @@ def row_to_feed(row: sqlite3.Row) -> DBFeed:
         category=row["category"],
         last_fetched=last_fetched,
         fetch_error=fetch_error,
-        unread_count=unread_count
+        unread_count=unread_count,
+        is_public=is_public
     )
 
 
