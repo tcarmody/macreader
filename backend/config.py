@@ -60,6 +60,13 @@ class Config:
     EXA_API_KEY: str = os.getenv("EXA_API_KEY", "")
     ENABLE_RELATED_LINKS: bool = _parse_bool(os.getenv("ENABLE_RELATED_LINKS"), default=True)
 
+    # Rebuild the Tantivy search index on startup if it's empty/behind. Off by
+    # default: on a capacity-constrained volume a large rebuild can fill the disk
+    # (transient index segments) and wedge SQLite. Trigger explicitly via
+    # POST /admin/search/rebuild once there's headroom. Search uses the FTS5
+    # fallback whenever the Tantivy index is empty.
+    SEARCH_REBUILD_ON_START: bool = _parse_bool(os.getenv("SEARCH_REBUILD_ON_START"), default=False)
+
     # Composer integration: promote articles to the Composer research workbench
     # Leave blank to disable the feature entirely.
     COMPOSER_URL: str = os.getenv("COMPOSER_URL", "")

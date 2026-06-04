@@ -65,19 +65,28 @@ async def lifespan(app: FastAPI):
         state.db = Database(config.DB_PATH)
         state.cache = create_cache(config.CACHE_DIR)
 
-        # Initialize Tantivy search index. Attach it immediately, then rebuild in
-        # the BACKGROUND if it's empty or behind the DB — a synchronous rebuild of
-        # tens of thousands of articles can exceed the platform health-check window
-        # and trigger a restart loop, which is how the index ends up empty. While a
-        # rebuild is in flight, Database.search falls back to FTS5 (gated on the
-        # index being non-empty), so search keeps working.
+        # Initialize Tantivy search index and attach it immediately. If it's
+        # behind the DB we do NOT rebuild on startup by default: on a
+        # capacity-constrained volume a large rebuild's transient index segments
+        # can fill the disk and wedge SQLite, and a synchronous rebuild can also
+        # exceed the health-check window. Search falls back to FTS5 whenever the
+        # Tantivy index is empty, so it keeps working. Trigger a rebuild
+        # explicitly via POST /admin/search/rebuild (or SEARCH_REBUILD_ON_START).
         search_path = config.DB_PATH.parent / "tantivy_index"
         try:
             search = SearchIndex(search_path)
             state.db.set_search(search)
             idx_count = search.count()
             art_count = state.db.count_articles()
-            if idx_count < art_count:
+            if idx_count >= art_count:
+                logger.info("Search index ready: %d documents", idx_count)
+            elif not config.SEARCH_REBUILD_ON_START:
+                logger.warning(
+                    "Search index behind (%d/%d docs) — using FTS5 fallback. "
+                    "POST /admin/search/rebuild to populate Tantivy.",
+                    idx_count, art_count,
+                )
+            else:
                 logger.info(
                     "Search index behind (%d/%d docs) — rebuilding in background…",
                     idx_count, art_count,
@@ -96,8 +105,6 @@ async def lifespan(app: FastAPI):
                 task = asyncio.create_task(_rebuild_search_index())
                 _background_tasks.add(task)
                 task.add_done_callback(_background_tasks.discard)
-            else:
-                logger.info("Search index ready: %d documents", idx_count)
         except Exception:
             logger.exception("Failed to initialize search index — falling back to FTS5")
         state.feed_parser = FeedParser()
