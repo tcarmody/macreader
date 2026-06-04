@@ -4,6 +4,9 @@ import type { FilterType, GroupBy, SortBy, ApiKeyConfig } from '@/types'
 
 export type DesignStyle = 'default' | 'warm' | 'soft' | 'sharp' | 'compact' | 'teal' | 'high-contrast' | 'sepia' | 'mono'
 
+// Casual web experience (non-admin readers). See DOCTRINE.md "Web is casual-first".
+export type CasualView = 'home' | 'highlights' | 'bookmarked' | 'digest' | 'search'
+
 interface AppState {
   // UI State
   sidebarCollapsed: boolean
@@ -26,6 +29,13 @@ interface AppState {
   searchQuery: string
   isSearching: boolean
   searchIncludeSummaries: boolean
+
+  // Casual web experience (non-admin readers)
+  casualView: CasualView
+  // Admins use the full UI by default but can preview the reader experience
+  readerPreview: boolean
+  // Home stream filter by source feed (null = all sources)
+  casualSourceFilter: number | null
 
   // Feature Usage Tracking
   featureUsage: {
@@ -59,6 +69,9 @@ interface AppState {
   setSearchQuery: (query: string) => void
   setIsSearching: (isSearching: boolean) => void
   toggleSearchIncludeSummaries: () => void
+  setCasualView: (view: CasualView) => void
+  toggleReaderPreview: () => void
+  setCasualSourceFilter: (feedId: number | null) => void
   setHasCompletedInitialSetup: (value: boolean) => void
   setApiConfig: (config: ApiKeyConfig) => void
   clearApiKeys: () => void
@@ -95,6 +108,11 @@ export const useAppStore = create<AppState>()(
       searchQuery: '',
       isSearching: false,
       searchIncludeSummaries: true,
+
+      // Initial Casual State
+      casualView: 'home',
+      readerPreview: false,
+      casualSourceFilter: null,
 
       // Initial Feature Usage
       featureUsage: {
@@ -144,6 +162,10 @@ export const useAppStore = create<AppState>()(
       setSearchQuery: (query) => set({ searchQuery: query }),
       setIsSearching: (isSearching) => set({ isSearching }),
       toggleSearchIncludeSummaries: () => set((state) => ({ searchIncludeSummaries: !state.searchIncludeSummaries })),
+      // Switching casual tabs closes any open reader (clears selection)
+      setCasualView: (view) => set({ casualView: view, selectedArticleId: null, selectedLibraryItemId: null }),
+      toggleReaderPreview: () => set((state) => ({ readerPreview: !state.readerPreview, selectedArticleId: null, selectedLibraryItemId: null })),
+      setCasualSourceFilter: (feedId) => set({ casualSourceFilter: feedId }),
       setHasCompletedInitialSetup: (value) => set({ hasCompletedInitialSetup: value }),
       setApiConfig: (config) => {
         // Also store in localStorage for API client to access
@@ -194,6 +216,8 @@ export const useAppStore = create<AppState>()(
         sortBy: state.sortBy,
         hideDuplicates: state.hideDuplicates,
         searchIncludeSummaries: state.searchIncludeSummaries,
+        casualView: state.casualView,
+        readerPreview: state.readerPreview,
         featureUsage: state.featureUsage,
         // Convert Sets to Arrays for JSON serialization
         shownToasts: [...state.shownToasts],

@@ -23,7 +23,17 @@ The primary value proposition of DataPoints is AI-generated summaries. Unlike tr
 
 ### Native-First, Web-Second
 
-The macOS app uses native SwiftUI, not a web wrapper. Native apps provide better keyboard shortcuts, system integration (Spotlight, notifications, dock badges), and feel more at home on the Mac. The web PWA was added later for cross-platform access, not as the primary experience.
+The macOS app uses native SwiftUI, not a web wrapper. Native apps provide better keyboard shortcuts, system integration (Spotlight, notifications, dock badges), and feel more at home on the Mac. The web PWA was added later for cross-platform access, not as the primary experience. (The two clients are no longer feature-mirrors of each other — see [Web Is Casual-First, Not a Mac Mirror](#web-is-casual-first-not-a-mac-mirror).)
+
+### Web Is Casual-First, Not a Mac Mirror
+
+**Principle**: The macOS app is the power/admin tool and tracks the full backend feature surface. The web PWA deliberately reduces that surface for casual readers who have never used an RSS reader. **Parity between the two clients is explicitly _not_ a goal.**
+
+**Application**: For non-admin web users the experience collapses to a few friendly destinations — a curated **Home** (featured highlights + a digest entry + the latest stream, filterable by source), **Highlights** (admin-curated Featured merged with the reader's own Library), **Saved** (bookmarks), a dedicated **Digest**, and **Search**. RSS jargon is gone: there is no "Summarized" filter (AI summaries simply render inline, always), no "Topics" clustering, no "Stats", and no feed-management furniture. The layout is adaptive single-column — a bottom tab bar with full-screen reading on phones, a left rail with a centered reading column on desktop — rather than the Mac-style resizable two-pane list+detail.
+
+**How it's gated**: One `web/` codebase, branched on `authStatus.is_admin`. Non-admins get the casual shell (`components/casual/`); admins keep the full power UI and can preview the reader experience via Settings → Appearance → "View as reader" (`readerPreview` in the store). The backend already enforces the visibility rules this depends on (non-admins see only public feeds plus Featured articles), so the divergence lives almost entirely in the frontend.
+
+**Why it matters**: Mirroring a power tool onto every surface punishes the majority of readers with controls meant for the curator. Casual users want to read good things on whatever screen they have; admins want the full console. Letting the two diverge serves both instead of compromising for a false notion of consistency.
 
 ### Progressive Disclosure
 

@@ -14,6 +14,7 @@ import { AddFeedDialog } from '@/components/AddFeedDialog'
 import { FeedManagerDialog } from '@/components/FeedManagerDialog'
 import { LoginScreen } from '@/components/LoginScreen'
 import { HelpPanel } from '@/components/HelpPanel'
+import { CasualApp } from '@/components/casual/CasualApp'
 import { Group, Panel, ResizeHandle, useDefaultLayout } from '@/components/ui/resizable'
 import { useAppStore, applyTheme, applyDesignStyle } from '@/store/app-store'
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts'
@@ -45,7 +46,7 @@ const queryClient = new QueryClient({
 })
 
 function AppContent() {
-  const { currentView, theme, designStyle, apiConfig, sidebarCollapsed } = useAppStore()
+  const { currentView, theme, designStyle, apiConfig, sidebarCollapsed, readerPreview } = useAppStore()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [addFeedOpen, setAddFeedOpen] = useState(false)
   const [feedManagerOpen, setFeedManagerOpen] = useState(false)
@@ -231,6 +232,13 @@ function AppContent() {
         <SettingsDialog isOpen={settingsOpen} onClose={() => setSettingsOpen(false)} />
       </>
     )
+  }
+
+  // Casual-first web experience: non-admin readers (and admins previewing it)
+  // get the simplified shell instead of the full power UI. See DOCTRINE.md.
+  const isAdmin = authStatus?.is_admin ?? true
+  if (!isAdmin || readerPreview) {
+    return <CasualApp />
   }
 
   const sidebar = (

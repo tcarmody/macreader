@@ -28,10 +28,13 @@ import type { ApiKeyConfig } from '@/types'
 interface SettingsDialogProps {
   isOpen: boolean
   onClose: () => void
+  // Casual readers see only Appearance + Account — no backend URL, API keys, or
+  // data archival. See DOCTRINE.md "Web is casual-first".
+  restricted?: boolean
 }
 
-export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
-  const { apiConfig, setApiConfig, theme, setTheme, designStyle, setDesignStyle } = useAppStore()
+export function SettingsDialog({ isOpen, onClose, restricted = false }: SettingsDialogProps) {
+  const { apiConfig, setApiConfig, theme, setTheme, designStyle, setDesignStyle, toggleReaderPreview } = useAppStore()
   const { data: status, refetch: refetchStatus, isLoading: statusLoading } = useStatus()
   const { data: authStatus } = useAuthStatus()
   const logoutMutation = useLogout()
@@ -39,7 +42,7 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
   const [localConfig, setLocalConfig] = useState<ApiKeyConfig>(apiConfig)
   const [testingConnection, setTestingConnection] = useState(false)
   const [_connectionStatus, setConnectionStatus] = useState<'idle' | 'success' | 'error'>('idle')
-  const [activeTab, setActiveTab] = useState<'api' | 'appearance' | 'data'>('api')
+  const [activeTab, setActiveTab] = useState<'api' | 'appearance' | 'data'>(restricted ? 'appearance' : 'api')
   const [archiveDays, setArchiveDays] = useState(30)
   const [archiveResult, setArchiveResult] = useState<string | null>(null)
   const archiveMutation = useArchiveArticles()
@@ -107,20 +110,22 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
           </Button>
         </div>
 
-        {/* Tabs */}
+        {/* Tabs (casual readers only get Appearance + Account) */}
         <div className="flex border-b border-border">
-          <button
-            onClick={() => setActiveTab('api')}
-            className={cn(
-              "flex-1 px-4 py-2 text-sm font-medium transition-colors",
-              activeTab === 'api'
-                ? "border-b-2 border-primary text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Key className="h-4 w-4 inline mr-2" />
-            API Keys
-          </button>
+          {!restricted && (
+            <button
+              onClick={() => setActiveTab('api')}
+              className={cn(
+                "flex-1 px-4 py-2 text-sm font-medium transition-colors",
+                activeTab === 'api'
+                  ? "border-b-2 border-primary text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Key className="h-4 w-4 inline mr-2" />
+              API Keys
+            </button>
+          )}
           <button
             onClick={() => setActiveTab('appearance')}
             className={cn(
@@ -131,20 +136,22 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
             )}
           >
             <Monitor className="h-4 w-4 inline mr-2" />
-            Appearance
+            {restricted ? 'Appearance & Account' : 'Appearance'}
           </button>
-          <button
-            onClick={() => setActiveTab('data')}
-            className={cn(
-              "flex-1 px-4 py-2 text-sm font-medium transition-colors",
-              activeTab === 'data'
-                ? "border-b-2 border-primary text-primary"
-                : "text-muted-foreground hover:text-foreground"
-            )}
-          >
-            <Database className="h-4 w-4 inline mr-2" />
-            Data
-          </button>
+          {!restricted && (
+            <button
+              onClick={() => setActiveTab('data')}
+              className={cn(
+                "flex-1 px-4 py-2 text-sm font-medium transition-colors",
+                activeTab === 'data'
+                  ? "border-b-2 border-primary text-primary"
+                  : "text-muted-foreground hover:text-foreground"
+              )}
+            >
+              <Database className="h-4 w-4 inline mr-2" />
+              Data
+            </button>
+          )}
         </div>
 
         {/* Content */}
@@ -353,6 +360,34 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
 
           {activeTab === 'appearance' && (
             <div className="space-y-6">
+              {/* Account (casual readers manage their session here) */}
+              {restricted && authStatus?.user && (
+                <>
+                  <div>
+                    <h3 className="text-sm font-medium mb-3">
+                      <User className="h-4 w-4 inline mr-2" />
+                      Account
+                    </h3>
+                    <div className="flex items-center justify-between p-3 bg-muted rounded-md">
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium truncate">{authStatus.user.name || authStatus.user.email}</p>
+                        <p className="text-xs text-muted-foreground truncate">{authStatus.user.email}</p>
+                      </div>
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        onClick={() => logoutMutation.mutate()}
+                        disabled={logoutMutation.isPending}
+                      >
+                        <LogOut className="h-4 w-4 mr-1" />
+                        Logout
+                      </Button>
+                    </div>
+                  </div>
+                  <Separator />
+                </>
+              )}
+
               {/* Theme */}
               <div>
                 <label className="block text-sm font-medium mb-3">Theme</label>
@@ -431,6 +466,32 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
               </div>
 
               <Separator />
+
+              {/* Reader preview (admins only) — see the casual web experience */}
+              {!restricted && authStatus?.is_admin && (
+                <>
+                  <div className="flex items-center justify-between gap-4">
+                    <div className="min-w-0">
+                      <h3 className="text-sm font-medium">View as reader</h3>
+                      <p className="text-xs text-muted-foreground mt-0.5">
+                        Preview the simplified, casual web experience non-admins see.
+                      </p>
+                    </div>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="shrink-0"
+                      onClick={() => {
+                        toggleReaderPreview()
+                        onClose()
+                      }}
+                    >
+                      Open preview
+                    </Button>
+                  </div>
+                  <Separator />
+                </>
+              )}
 
               {/* Keyboard Shortcuts Info */}
               <div>
@@ -540,12 +601,18 @@ export function SettingsDialog({ isOpen, onClose }: SettingsDialogProps) {
 
         {/* Footer */}
         <div className="flex justify-end gap-2 p-4 border-t border-border">
-          <Button variant="outline" onClick={onClose}>
-            Cancel
-          </Button>
-          <Button onClick={handleSave}>
-            Save Changes
-          </Button>
+          {restricted ? (
+            <Button onClick={onClose}>Done</Button>
+          ) : (
+            <>
+              <Button variant="outline" onClick={onClose}>
+                Cancel
+              </Button>
+              <Button onClick={handleSave}>
+                Save Changes
+              </Button>
+            </>
+          )}
         </div>
       </div>
     </div>
