@@ -32,7 +32,6 @@ export function ArticleCard({
       )}
     >
       <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
-        <SourceTag name={article.feed_name} className="min-w-0 max-w-[55%]" />
         <span className="shrink-0">{formatDate(article.published_at)}</span>
         <div className="ml-auto flex items-center gap-1.5">
           {article.is_featured && <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />}
@@ -42,6 +41,7 @@ export function ArticleCard({
 
       <h3 className={cn('text-base sm:text-lg leading-snug', !article.is_read ? 'font-semibold' : 'font-medium')}>
         {article.title}
+        <SourceTag name={article.feed_name} variant="caps" className="ml-2 align-middle" />
       </h3>
 
       {summary && (

@@ -3,8 +3,33 @@ import { cn } from '@/lib/utils'
 // A small, consistent "source" block shown on every article — the feed/publisher
 // name (e.g. "TechCrunch", "New York Times", "Techmeme"). Non-interactive so it
 // can sit inside clickable cards without nesting buttons.
-export function SourceTag({ name, className }: { name: string; className?: string }) {
+//
+// - 'pill'  : rounded chip with a dot (used in the reader header)
+// - 'caps'  : small uppercase box, shown at the end of card headlines
+export function SourceTag({
+  name,
+  className,
+  variant = 'pill',
+}: {
+  name: string
+  className?: string
+  variant?: 'pill' | 'caps'
+}) {
   if (!name) return null
+
+  if (variant === 'caps') {
+    return (
+      <span
+        className={cn(
+          'inline-flex max-w-full items-center rounded-md border border-border bg-muted/50 px-2 py-0.5 text-[10px] font-semibold uppercase tracking-wider text-muted-foreground',
+          className
+        )}
+      >
+        <span className="truncate">{name}</span>
+      </span>
+    )
+  }
+
   return (
     <span
       className={cn(
