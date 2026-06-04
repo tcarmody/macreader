@@ -1,5 +1,6 @@
 import { BookMarked, Star, Sparkles, FileText, Link as LinkIcon } from 'lucide-react'
 import { cn, formatDate, stripHtml, smartQuotes } from '@/lib/utils'
+import { SourceTag } from '@/components/ui/source-tag'
 import type { Article, StandaloneItem } from '@/types'
 
 // A roomy, casual-friendly reading card. Used across Home / Highlights /
@@ -30,10 +31,9 @@ export function ArticleCard({
         !article.is_read && 'border-l-2 border-l-primary'
       )}
     >
-      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-1.5">
-        <span className="truncate max-w-[60%] font-medium text-foreground/70">{article.feed_name}</span>
-        <span>·</span>
-        <span>{formatDate(article.published_at)}</span>
+      <div className="flex items-center gap-2 text-xs text-muted-foreground mb-2">
+        <SourceTag name={article.feed_name} className="min-w-0 max-w-[55%]" />
+        <span className="shrink-0">{formatDate(article.published_at)}</span>
         <div className="ml-auto flex items-center gap-1.5">
           {article.is_featured && <Star className="h-3.5 w-3.5 text-amber-400 fill-amber-400" />}
           {article.is_bookmarked && <BookMarked className="h-3.5 w-3.5 text-amber-500" />}

@@ -46,6 +46,7 @@ import {
   usePromoteToComposer,
   useChatHistory,
 } from '@/hooks/use-queries'
+import { SourceTag } from '@/components/ui/source-tag'
 import { ArticleChat } from './ArticleChat'
 import { RelatedLinks } from './RelatedLinks'
 
@@ -337,7 +338,7 @@ export function ArticleDetail() {
       </h1>
 
       <div className="flex items-center gap-3 text-sm text-muted-foreground">
-        <Badge variant="secondary">{article.feed_name}</Badge>
+        <SourceTag name={article.feed_name} />
         {article.author && <span>by {article.author}</span>}
         <span>·</span>
         <time>{formatFullDate(article.published_at)}</time>
