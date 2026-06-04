@@ -118,7 +118,7 @@ export function LibraryList() {
 
   if (isLoading) {
     return (
-      <div className="w-80 border-r border-border flex flex-col bg-background">
+      <div className="h-full w-full flex flex-col bg-background">
         <div className="p-4 border-b border-border">
           <Skeleton className="h-6 w-32" />
         </div>
@@ -135,7 +135,7 @@ export function LibraryList() {
   }
 
   return (
-    <div className="w-80 border-r border-border flex flex-col bg-background">
+    <div className="h-full w-full flex flex-col bg-background">
       {/* Header */}
       <div className="p-4 border-b border-border">
         <div className="flex items-center justify-between">
@@ -295,7 +295,7 @@ export function LibraryItemDetail() {
 
   if (!selectedLibraryItemId) {
     return (
-      <div className="flex-1 flex items-center justify-center text-muted-foreground bg-muted/30">
+      <div className="h-full w-full flex items-center justify-center text-muted-foreground bg-muted/30">
         <div className="text-center">
           <Library className="h-16 w-16 mx-auto mb-4 opacity-20" />
           <p className="text-lg">Select an item to view</p>
@@ -306,7 +306,7 @@ export function LibraryItemDetail() {
 
   if (isLoading || !item) {
     return (
-      <div className="flex-1 p-8 space-y-4">
+      <div className="h-full w-full p-8 space-y-4">
         <Skeleton className="h-8 w-3/4" />
         <Skeleton className="h-4 w-1/2" />
         <Skeleton className="h-64 w-full" />
@@ -400,7 +400,7 @@ export function LibraryItemDetail() {
   const summaryForShare = item.summary_full ?? item.summary_short
 
   return (
-    <div className="flex-1 flex flex-col bg-background">
+    <div className="h-full w-full flex flex-col bg-background">
       {/* Toolbar (mirrors ArticleDetail) */}
       <div className="flex items-center gap-2 px-4 py-3 border-b border-border">
         <Button

@@ -150,7 +150,7 @@ export function ArticleDetail() {
 
   if (!selectedArticleId) {
     return (
-      <div className="flex-1 flex items-center justify-center text-muted-foreground bg-muted/30">
+      <div className="h-full w-full flex items-center justify-center text-muted-foreground bg-muted/30">
         <div className="text-center">
           <ExternalLink className="h-16 w-16 mx-auto mb-4 opacity-20" />
           <p className="text-lg">Select an article to read</p>
@@ -162,7 +162,7 @@ export function ArticleDetail() {
 
   if (isLoading || !article) {
     return (
-      <div className="flex-1 p-8 space-y-4">
+      <div className="h-full w-full p-8 space-y-4">
         <Skeleton className="h-8 w-3/4" />
         <Skeleton className="h-4 w-1/2" />
         <Skeleton className="h-32 w-full" />
@@ -492,7 +492,7 @@ export function ArticleDetail() {
   )
 
   return (
-    <div className="flex-1 flex flex-col bg-background">
+    <div className="h-full w-full flex flex-col bg-background">
       {/* Always-visible article header */}
       {articleHeader}
 

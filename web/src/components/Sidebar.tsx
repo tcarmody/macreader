@@ -223,7 +223,7 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds, onOpenHelp }
   }
 
   return (
-    <div className="w-64 border-r border-border flex flex-col bg-card">
+    <div className="h-full w-full flex flex-col bg-card">
       {/* Header */}
       <div className="p-4 flex items-center justify-between">
         <h1 className="font-semibold text-lg">Data Points</h1>

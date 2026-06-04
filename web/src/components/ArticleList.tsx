@@ -197,7 +197,7 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
   // Show special progress card for topic clustering
   if (isTopicClustering) {
     return (
-      <div className="w-80 border-r border-border flex flex-col bg-background">
+      <div className="h-full w-full flex flex-col bg-background">
         <div className="p-4 border-b border-border">
           <h2 className="font-semibold">{getFilterTitle()}</h2>
         </div>
@@ -229,7 +229,7 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
 
   if (isLoadingArticles || searchLoading) {
     return (
-      <div className="w-80 border-r border-border flex flex-col bg-background">
+      <div className="h-full w-full flex flex-col bg-background">
         <div className="p-4 border-b border-border">
           <Skeleton className="h-6 w-32" />
         </div>
@@ -252,7 +252,7 @@ export function ArticleList({ onAddFeed }: ArticleListProps = {}) {
     : allArticles.length
 
   return (
-    <div className="w-80 border-r border-border flex flex-col bg-background">
+    <div className="h-full w-full flex flex-col bg-background">
       {/* Header */}
       <div className={cn(
         "p-4 border-b border-border flex flex-col gap-2",

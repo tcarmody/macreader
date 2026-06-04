@@ -14,6 +14,7 @@ import { AddFeedDialog } from '@/components/AddFeedDialog'
 import { FeedManagerDialog } from '@/components/FeedManagerDialog'
 import { LoginScreen } from '@/components/LoginScreen'
 import { HelpPanel } from '@/components/HelpPanel'
+import { Group, Panel, ResizeHandle, useDefaultLayout } from '@/components/ui/resizable'
 import { useAppStore, applyTheme, applyDesignStyle } from '@/store/app-store'
 import { useKeyboardShortcuts } from '@/hooks/use-keyboard-shortcuts'
 import { useAuthStatus } from '@/hooks/use-queries'
@@ -44,7 +45,7 @@ const queryClient = new QueryClient({
 })
 
 function AppContent() {
-  const { currentView, theme, designStyle, apiConfig } = useAppStore()
+  const { currentView, theme, designStyle, apiConfig, sidebarCollapsed } = useAppStore()
   const [settingsOpen, setSettingsOpen] = useState(false)
   const [addFeedOpen, setAddFeedOpen] = useState(false)
   const [feedManagerOpen, setFeedManagerOpen] = useState(false)
@@ -100,6 +101,11 @@ function AppContent() {
     onOpenFeedManager: () => setFeedManagerOpen(true),
     onOpenHelp: () => setHelpOpen(true),
   })
+
+  // Persisted, draggable pane layouts (saved to localStorage per group)
+  const shellLayout = useDefaultLayout({ id: 'dp-shell-layout', storage: localStorage })
+  const feedsLayout = useDefaultLayout({ id: 'dp-feeds-layout', storage: localStorage })
+  const libraryLayout = useDefaultLayout({ id: 'dp-library-layout', storage: localStorage })
 
   if (needsSetup) {
     return (
@@ -227,31 +233,81 @@ function AppContent() {
     )
   }
 
+  const sidebar = (
+    <Sidebar
+      onOpenSettings={() => setSettingsOpen(true)}
+      onAddFeed={() => setAddFeedOpen(true)}
+      onManageFeeds={() => setFeedManagerOpen(true)}
+      onOpenHelp={() => setHelpOpen(true)}
+    />
+  )
+
+  // The pane(s) to the right of the sidebar. Feeds/Library are two-pane,
+  // resizable layouts; Digest/Stats are single full-width views.
+  const mainContent =
+    currentView === 'digest' ? (
+      <DigestView />
+    ) : currentView === 'stats' && (authStatus?.is_admin ?? true) ? (
+      <StatsView />
+    ) : currentView === 'feeds' ? (
+      <Group
+        orientation="horizontal"
+        id="dp-feeds"
+        className="flex-1 min-w-0"
+        defaultLayout={feedsLayout.defaultLayout}
+        onLayoutChanged={feedsLayout.onLayoutChanged}
+      >
+        <Panel id="list" defaultSize={460} minSize={340} maxSize="60%">
+          <ArticleList onAddFeed={() => setAddFeedOpen(true)} />
+        </Panel>
+        <ResizeHandle />
+        <Panel id="detail" minSize={360}>
+          <ArticleDetail />
+        </Panel>
+      </Group>
+    ) : (
+      <Group
+        orientation="horizontal"
+        id="dp-library"
+        className="flex-1 min-w-0"
+        defaultLayout={libraryLayout.defaultLayout}
+        onLayoutChanged={libraryLayout.onLayoutChanged}
+      >
+        <Panel id="list" defaultSize={460} minSize={340} maxSize="60%">
+          <LibraryList />
+        </Panel>
+        <ResizeHandle />
+        <Panel id="detail" minSize={360}>
+          <LibraryItemDetail />
+        </Panel>
+      </Group>
+    )
+
   return (
     <div className="h-screen flex overflow-hidden bg-background">
-      {/* Sidebar */}
-      <Sidebar
-        onOpenSettings={() => setSettingsOpen(true)}
-        onAddFeed={() => setAddFeedOpen(true)}
-        onManageFeeds={() => setFeedManagerOpen(true)}
-        onOpenHelp={() => setHelpOpen(true)}
-      />
-
-      {/* Main Content */}
-      {currentView === 'digest' ? (
-        <DigestView />
-      ) : currentView === 'stats' && (authStatus?.is_admin ?? true) ? (
-        <StatsView />
-      ) : currentView === 'feeds' ? (
+      {sidebarCollapsed ? (
+        // Collapsed: fixed icon rail (not resizable) + content fills the rest.
         <>
-          <ArticleList onAddFeed={() => setAddFeedOpen(true)} />
-          <ArticleDetail />
+          {sidebar}
+          <div className="flex-1 min-w-0 flex overflow-hidden">{mainContent}</div>
         </>
       ) : (
-        <>
-          <LibraryList />
-          <LibraryItemDetail />
-        </>
+        // Expanded: sidebar is a draggable, resizable pane.
+        <Group
+          orientation="horizontal"
+          id="dp-shell"
+          className="flex-1 min-w-0"
+          defaultLayout={shellLayout.defaultLayout}
+          onLayoutChanged={shellLayout.onLayoutChanged}
+        >
+          <Panel id="sidebar" defaultSize={300} minSize={240} maxSize={420}>
+            {sidebar}
+          </Panel>
+          <ResizeHandle />
+          <Panel id="main" minSize={420} className="flex overflow-hidden">
+            {mainContent}
+          </Panel>
+        </Group>
       )}
 
       {/* Help Panel */}
