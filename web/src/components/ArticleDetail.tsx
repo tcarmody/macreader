@@ -71,6 +71,9 @@ export function ArticleDetail() {
   const [featureNoteDraft, setFeatureNoteDraft] = useState('')
 
   const [activeTab, setActiveTab] = useState<DetailTab>('article')
+  // Track which article we've applied the default tab for, so we land on the
+  // right tab once per article without overriding manual tab switches.
+  const [defaultTabForId, setDefaultTabForId] = useState<number | null>(null)
   const [hasTriggeredRelated, setHasTriggeredRelated] = useState(false)
   const [autoSwitchAfterSummarize, setAutoSwitchAfterSummarize] = useState(false)
   const [autoSwitchAfterRelated, setAutoSwitchAfterRelated] = useState(false)
@@ -114,9 +117,8 @@ export function ArticleDetail() {
     }
   }, [article?.related_links, autoSwitchAfterRelated, findRelated.isPending])
 
-  // Reset state when article changes
+  // Reset transient state when article changes (tab default handled below)
   useEffect(() => {
-    setActiveTab('article')
     setHasTriggeredRelated(false)
     setAutoSwitchAfterSummarize(false)
     setAutoSwitchAfterRelated(false)
@@ -147,6 +149,14 @@ export function ArticleDetail() {
     viewport.addEventListener('scroll', handleScroll, { passive: true })
     return () => viewport.removeEventListener('scroll', handleScroll)
   }, [activeTab, selectedArticleId])
+
+  // Land on the AI Summary tab when a summary already exists (featured /
+  // highlights / library-style entries), otherwise the full article. Applied
+  // once per article — manual tab switches afterward stick.
+  if (article && article.id !== defaultTabForId) {
+    setDefaultTabForId(article.id)
+    setActiveTab(article.summary_full || article.summary_short ? 'ai' : 'article')
+  }
 
   if (!selectedArticleId) {
     return (
@@ -401,6 +411,7 @@ export function ArticleDetail() {
 
       {isAdmin && (
         <Tooltip
+          side="bottom"
           content={
             article.is_featured
               ? 'Edit the editorial note or unfeature'
@@ -423,7 +434,7 @@ export function ArticleDetail() {
 
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Tooltip content={hasContent ? 'Refetch full content' : 'Fetch full content'}>
+          <Tooltip side="bottom" content={hasContent ? 'Refetch full content' : 'Fetch full content'}>
             <Button
               variant="ghost"
               size="icon"
@@ -452,6 +463,7 @@ export function ArticleDetail() {
 
       <div className="ml-auto flex items-center gap-0.5">
         <Tooltip
+          side="bottom"
           content={
             article.promoted_to_composer
               ? 'Already in Composer'
@@ -477,12 +489,12 @@ export function ArticleDetail() {
             )}
           </Button>
         </Tooltip>
-        <Tooltip content="Share">
+        <Tooltip side="bottom" content="Share">
           <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={handleShare}>
             <Share2 className="h-4 w-4" />
           </Button>
         </Tooltip>
-        <Tooltip content="Open in browser">
+        <Tooltip side="bottom" content="Open in browser">
           <Button variant="ghost" size="icon" className="h-7 w-7 text-muted-foreground hover:text-foreground" onClick={handleOpenExternal}>
             <ExternalLink className="h-4 w-4" />
           </Button>
@@ -529,13 +541,15 @@ export function ArticleDetail() {
         ))}
       </div>
 
+      {/* Persistent action toolbar — available on every tab */}
+      {articleToolbar}
+
       {/* Tab Content */}
       <div className="flex-1 relative overflow-hidden" ref={scrollAreaRef}>
       <ScrollArea className="h-full">
         {/* Article Tab */}
         {activeTab === 'article' && (
           <>
-            {articleToolbar}
             <article className="max-w-3xl mx-auto px-8 pt-6 pb-8">
             {hasContent ? (
               <div
