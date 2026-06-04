@@ -83,6 +83,28 @@ class Database:
         """Attach the Tantivy search index. Called once after startup rebuild."""
         self._search = search
 
+    def search_index_doc_count(self) -> int | None:
+        """Documents currently in the Tantivy index, or None if Tantivy is unavailable."""
+        return self._search.count() if self._search else None
+
+    def count_articles(self) -> int:
+        """Total rows in the articles table (everything the search index covers)."""
+        with self._connection.conn() as conn:
+            return conn.execute("SELECT COUNT(*) FROM articles").fetchone()[0]
+
+    def rebuild_search_index(self) -> int:
+        """Wipe and rebuild the Tantivy index from all articles. Returns the doc
+        count (-1 if Tantivy is unavailable). Safe to run in a worker thread."""
+        if not self._search:
+            return -1
+        # Stream rows from the cursor (don't fetchall) so we never hold all
+        # article content in memory at once — rebuild() iterates as it writes.
+        with self._connection.conn() as conn:
+            cursor = conn.execute(
+                "SELECT id, feed_id, title, content, summary_full, summary_short FROM articles"
+            )
+            return self._search.rebuild(cursor)
+
     # ─────────────────────────────────────────────────────────────
     # Feed operations (delegated to FeedRepository)
     # ─────────────────────────────────────────────────────────────
@@ -355,13 +377,16 @@ class Database:
     ) -> list[DBArticle]:
         """Full-text search. When visible_feed_ids is provided (non-admin), results
         are restricted to those feeds plus any featured article."""
-        if self._search:
+        # Only use Tantivy when it actually has documents — an empty or
+        # not-yet-rebuilt index would otherwise return zero results instead of
+        # falling back to the (in-sync) FTS5 index.
+        if self._search and self._search.count() > 0:
             # Over-fetch when filtering so the post-filter still returns up to `limit`.
             raw_limit = limit if visible_feed_ids is None else limit * 4
             ids = self._search.search(query, raw_limit)
             results = self.articles.get_by_ids(ids)
         else:
-            # FTS5 fallback when Tantivy is not available
+            # FTS5 fallback when Tantivy is unavailable or empty.
             results = self.articles.search(query, limit, include_summaries=include_summaries)
 
         if visible_feed_ids is not None:

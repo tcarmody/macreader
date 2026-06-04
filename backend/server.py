@@ -9,6 +9,7 @@ FastAPI application providing endpoints for:
 - Settings
 """
 
+import asyncio
 import logging
 import os
 from contextlib import asynccontextmanager
@@ -42,12 +43,18 @@ from .routes import (
 )
 from .routes.gmail import router as gmail_router
 from .routes.chat import router as chat_router
+from .routes.admin import router as admin_router
 from .services.chat_service import ChatService
 from .rate_limit import setup_rate_limiting
 from .oauth import router as oauth_router, setup_oauth
 from .gmail import start_gmail_scheduler, stop_gmail_scheduler
 
 logger = logging.getLogger(__name__)
+
+
+# Strong references to fire-and-forget startup tasks (e.g. the search rebuild),
+# so the event loop doesn't garbage-collect them mid-run.
+_background_tasks: set = set()
 
 
 @asynccontextmanager
@@ -58,21 +65,39 @@ async def lifespan(app: FastAPI):
         state.db = Database(config.DB_PATH)
         state.cache = create_cache(config.CACHE_DIR)
 
-        # Initialize Tantivy search index
+        # Initialize Tantivy search index. Attach it immediately, then rebuild in
+        # the BACKGROUND if it's empty or behind the DB — a synchronous rebuild of
+        # tens of thousands of articles can exceed the platform health-check window
+        # and trigger a restart loop, which is how the index ends up empty. While a
+        # rebuild is in flight, Database.search falls back to FTS5 (gated on the
+        # index being non-empty), so search keeps working.
         search_path = config.DB_PATH.parent / "tantivy_index"
         try:
             search = SearchIndex(search_path)
-            if search.count() == 0:
-                logger.info("Search index is empty — rebuilding from database...")
-                with state.db._connection.conn() as conn:
-                    rows = conn.execute(
-                        "SELECT id, feed_id, title, content, summary_full, summary_short FROM articles"
-                    ).fetchall()
-                count = search.rebuild(rows)
-                logger.info("Search index ready: %d documents", count)
-            else:
-                logger.info("Search index loaded: %d documents", search.count())
             state.db.set_search(search)
+            idx_count = search.count()
+            art_count = state.db.count_articles()
+            if idx_count < art_count:
+                logger.info(
+                    "Search index behind (%d/%d docs) — rebuilding in background…",
+                    idx_count, art_count,
+                )
+
+                async def _rebuild_search_index():
+                    n = await asyncio.to_thread(state.db.rebuild_search_index)
+                    if n < art_count:
+                        logger.error(
+                            "Search index rebuild incomplete: %d/%d docs", n, art_count
+                        )
+                    else:
+                        logger.info("Search index rebuild complete: %d docs", n)
+
+                # Keep a strong reference so the task isn't GC'd mid-rebuild.
+                task = asyncio.create_task(_rebuild_search_index())
+                _background_tasks.add(task)
+                task.add_done_callback(_background_tasks.discard)
+            else:
+                logger.info("Search index ready: %d documents", idx_count)
         except Exception:
             logger.exception("Failed to initialize search index — falling back to FTS5")
         state.feed_parser = FeedParser()
@@ -306,3 +331,4 @@ app.include_router(notifications_router)
 app.include_router(statistics_router)
 app.include_router(chat_router)
 app.include_router(digest_router)
+app.include_router(admin_router)
