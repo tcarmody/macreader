@@ -12,9 +12,53 @@ struct AISettingsView: View {
     @State private var selectedKeyProvider: LLMProvider = .anthropic
     @State private var isSaving = false
     @State private var saveError: String?
+    @State private var showBackendKeySheet = false
+    @State private var backendKeyInput = ""
 
     var body: some View {
         Form {
+            Section {
+                HStack {
+                    Text("Server")
+                    Spacer()
+                    Text(APIClient.defaultBaseURL.host ?? "—")
+                        .foregroundStyle(.secondary)
+                }
+                HStack {
+                    Text("API Key")
+                    Spacer()
+                    if KeychainService.shared.hasBackendAPIKey {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        Button("Change") {
+                            backendKeyInput = ""
+                            saveError = nil
+                            showBackendKeySheet = true
+                        }
+                        .buttonStyle(.link)
+                        Button("Remove") {
+                            removeBackendKey()
+                        }
+                        .buttonStyle(.link)
+                        .foregroundStyle(.red)
+                    } else {
+                        Text("Not configured")
+                            .foregroundStyle(.secondary)
+                        Button("Add") {
+                            backendKeyInput = ""
+                            saveError = nil
+                            showBackendKeySheet = true
+                        }
+                        .buttonStyle(.link)
+                    }
+                }
+                Text("This app connects to the shared hosted backend. Featuring a story here makes it visible to everyone with an account.")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+            } header: {
+                Text("Backend Connection")
+            }
+
             Section {
                 Picker("Provider", selection: $llmProvider) {
                     ForEach(LLMProvider.allCases, id: \.self) { provider in
@@ -89,6 +133,9 @@ struct AISettingsView: View {
         .sheet(isPresented: $showAPIKeySheet) {
             apiKeySheet
         }
+        .sheet(isPresented: $showBackendKeySheet) {
+            backendKeySheet
+        }
         .sheet(isPresented: $showSetupWizard) {
             SetupWizardView {
                 showSetupWizard = false
@@ -128,6 +175,70 @@ struct AISettingsView: View {
         }
         .padding(30)
         .frame(width: 400)
+    }
+
+    private var backendKeySheet: some View {
+        VStack(spacing: 20) {
+            Text("Backend API Key")
+                .font(.headline)
+
+            Text("Paste the AUTH_API_KEY configured on the server.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            SecureField("API Key", text: $backendKeyInput)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 300)
+
+            if let error = saveError {
+                Text(error)
+                    .foregroundStyle(.red)
+                    .font(.caption)
+            }
+
+            HStack {
+                Button("Cancel") {
+                    showBackendKeySheet = false
+                }
+                .keyboardShortcut(.escape)
+
+                Button("Save") {
+                    saveBackendKey()
+                }
+                .keyboardShortcut(.return)
+                .buttonStyle(.borderedProminent)
+                .disabled(backendKeyInput.isEmpty || isSaving)
+            }
+        }
+        .padding(30)
+        .frame(width: 400)
+    }
+
+    private func saveBackendKey() {
+        isSaving = true
+        saveError = nil
+
+        Task {
+            do {
+                try await appState.updateBackendAPIKey(backendKeyInput)
+                await MainActor.run {
+                    isSaving = false
+                    showBackendKeySheet = false
+                }
+            } catch {
+                await MainActor.run {
+                    isSaving = false
+                    saveError = error.localizedDescription
+                }
+            }
+        }
+    }
+
+    private func removeBackendKey() {
+        Task {
+            try? KeychainService.shared.deleteBackendAPIKey()
+            await appState.restartServer()
+        }
     }
 
     private func saveAPIKey() {

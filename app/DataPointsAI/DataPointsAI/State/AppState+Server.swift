@@ -3,44 +3,47 @@ import Foundation
 // MARK: - Server Management
 extension AppState {
 
+    /// Connect to the hosted backend. (The app no longer runs an embedded local
+    /// server — it talks to the shared Railway backend so featuring, reading
+    /// state, etc. are visible to every user.)
     func startServer() async {
         serverError = nil
-        do {
-            try await server.start()
-            serverRunning = true
-            startHealthChecks()
-            await refresh()
-            await archiveOldArticlesIfEnabled()
-            try? await refreshFeeds()
-
-            // Configure background refresh service
-            backgroundRefreshService.configure(with: self)
-        } catch {
-            serverError = error.localizedDescription
-            serverRunning = false
-            serverStatus = .unhealthy(error: error.localizedDescription)
+        await checkServerHealth()
+        guard serverRunning else {
+            // Unreachable or missing/invalid API key — surfaced via serverStatus.
+            // The user can set the backend API key in Settings, then reconnect.
+            if case .unhealthy = serverStatus {} else {
+                serverStatus = .unhealthy(error: "Can't reach the backend. Check the API key in Settings → AI.")
+            }
+            return
         }
+        startHealthChecks()
+        await refresh()
+        await archiveOldArticlesIfEnabled()
+        try? await refreshFeeds()
+        backgroundRefreshService.configure(with: self)
     }
 
     func stopServer() {
         healthCheckTask?.cancel()
         healthCheckTask = nil
         backgroundRefreshService.invalidate()
-        server.stop()
         serverRunning = false
         serverStatus = .unknown
     }
 
+    /// Re-create the API client (picking up any backend API key change) and
+    /// reconnect to the hosted backend.
     func restartServer() async {
         serverStatus = .checking
-        do {
-            try await server.restart()
-            serverRunning = true
-            await checkServerHealth()
-        } catch {
-            serverStatus = .unhealthy(error: error.localizedDescription)
-            serverError = error.localizedDescription
-        }
+        apiClient = APIClient()
+        await startServer()
+    }
+
+    /// Save a new backend API key and reconnect.
+    func updateBackendAPIKey(_ key: String) async throws {
+        try KeychainService.shared.saveBackendAPIKey(key)
+        await restartServer()
     }
 
     func checkServerHealth() async {

@@ -164,6 +164,57 @@ final class KeychainService: Sendable {
     }
 }
 
+// MARK: - Backend API Key
+
+/// The shared backend (`AUTH_API_KEY`) credential, stored separately from the
+/// per-provider LLM keys above so it doesn't have to fit the LLMProvider model.
+extension KeychainService {
+    private var backendKeyAccount: String { "backend_api_key" }
+
+    func saveBackendAPIKey(_ key: String) throws {
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        let base: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: serviceName,
+            kSecAttrAccount as String: backendKeyAccount,
+        ]
+        SecItemDelete(base as CFDictionary)
+        var add = base
+        add[kSecValueData as String] = Data(trimmed.utf8)
+        add[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlocked
+        let status = SecItemAdd(add as CFDictionary, nil)
+        guard status == errSecSuccess else { throw KeychainError.saveFailed(status) }
+    }
+
+    func backendAPIKey() -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: serviceName,
+            kSecAttrAccount as String: backendKeyAccount,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess, let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    func deleteBackendAPIKey() throws {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: serviceName,
+            kSecAttrAccount as String: backendKeyAccount,
+        ]
+        let status = SecItemDelete(query as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw KeychainError.deleteFailed(status)
+        }
+    }
+
+    var hasBackendAPIKey: Bool { backendAPIKey() != nil }
+}
+
 // MARK: - Errors
 
 enum KeychainError: Error, LocalizedError {

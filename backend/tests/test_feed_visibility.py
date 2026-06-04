@@ -192,6 +192,49 @@ def test_grouped_topic_blocked_for_nonadmin(vis):
     assert resp.status_code == 200
 
 
+def test_feature_endpoint_makes_article_visible_to_all_users(vis):
+    """Admin features a private-feed article via POST /feature; a non-admin reader
+    then sees it everywhere (featured filter, full list, detail) flagged is_featured.
+
+    This exercises the full HTTP path (not just the db helper) to confirm featuring
+    is global, not scoped to the admin who performed it.
+    """
+    client, _, ids = vis
+    target = ids["priv_article"]  # private-feed article, not featured in the fixture
+
+    # Non-admin can't see it yet (private feed, not featured).
+    act_as(ids["reader_id"])
+    assert client.get(f"/articles/{target}").status_code == 404
+
+    # Admin features it through the endpoint.
+    act_as(ids["admin_id"])
+    resp = client.post(f"/articles/{target}/feature", json={"note": "Editor's pick"})
+    assert resp.status_code == 200
+    assert resp.json()["is_featured"] is True
+
+    # A different (non-admin) user now sees it as featured, everywhere.
+    act_as(ids["reader_id"])
+    featured = client.get("/articles?featured_only=true&limit=100")
+    assert featured.status_code == 200
+    featured_by_id = {a["id"]: a for a in featured.json()}
+    assert target in featured_by_id
+    assert featured_by_id[target]["is_featured"] is True
+    assert featured_by_id[target]["featured_note"] == "Editor's pick"
+
+    full_list = {a["id"] for a in client.get("/articles?limit=100").json()}
+    assert target in full_list  # featured bypasses the private-feed allowlist
+    assert client.get(f"/articles/{target}").status_code == 200
+
+
+def test_feature_endpoint_blocked_for_nonadmin(vis):
+    """Non-admins cannot feature (require_admin -> 403) and the article stays unfeatured."""
+    client, db, ids = vis
+    target = ids["priv_article"]
+    act_as(ids["reader_id"])
+    assert client.post(f"/articles/{target}/feature", json={"note": "nope"}).status_code == 403
+    assert db.get_article(target).is_featured is False
+
+
 def test_update_feed_visibility_toggle(vis):
     client, db, ids = vis
     act_as(ids["admin_id"])

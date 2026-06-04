@@ -109,7 +109,8 @@ class AppState: ObservableObject {
 
     // MARK: - Dependencies
 
-    let apiClient: APIClient
+    // Recreated when the backend API key changes (see reconnectBackend()).
+    var apiClient: APIClient
     let server: PythonServer
 
     // Native macOS services
