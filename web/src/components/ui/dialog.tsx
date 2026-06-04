@@ -79,8 +79,12 @@ export function Dialog({
           </Button>
         </div>
 
-        {/* Content */}
-        <div>{children}</div>
+        {/* Content. Flex column so a dialog whose panel sets a fixed height
+            (e.g. `h-[80vh] flex flex-col`) can have a `flex-1` scroll area that
+            actually scrolls. `min-h-0` lets it shrink below content size; on a
+            non-flex panel these flex props are inert, so plain dialogs are
+            unaffected. */}
+        <div className="flex min-h-0 flex-1 flex-col">{children}</div>
       </div>
     </div>
   )
