@@ -269,3 +269,31 @@ def is_admin_user(db: "Database", user_id: int) -> bool:
     if user.provider == "api_key":
         return True
     return user.email.lower() in config.ADMIN_EMAILS
+
+
+# Header an admin client sets to faithfully preview the non-admin web
+# experience ("View as reader"). It only ever DOWNGRADES privileges for content
+# visibility — a non-admin sending it gains nothing — so it's safe to honor.
+READER_PREVIEW_HEADER = "X-Reader-Preview"
+
+
+def reader_preview_requested(request: Request) -> bool:
+    """True if the request asked to be treated as a non-admin reader."""
+    return request.headers.get(READER_PREVIEW_HEADER, "").strip().lower() in ("1", "true", "yes")
+
+
+def viewer_is_admin(
+    request: Request,
+    db: "Database" = Depends(get_db),
+    user_id: int = Depends(get_current_user),
+) -> bool:
+    """Effective admin flag for CONTENT VISIBILITY.
+
+    Same as is_admin_user(), except an admin previewing the reader experience
+    (X-Reader-Preview header) is treated as a non-admin so they see exactly the
+    whitelisted/public feeds + featured items a real reader sees. Privilege can
+    only drop here, never rise — use require_admin() to gate write actions.
+    """
+    if reader_preview_requested(request):
+        return False
+    return is_admin_user(db, user_id)

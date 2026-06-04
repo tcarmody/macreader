@@ -235,6 +235,54 @@ def test_feature_endpoint_blocked_for_nonadmin(vis):
     assert db.get_article(target).is_featured is False
 
 
+# ─────────────────────────────────────────────────────────────
+# Reader preview (X-Reader-Preview header) — admins see the reader's view
+# ─────────────────────────────────────────────────────────────
+
+PREVIEW = {"X-Reader-Preview": "1"}
+
+
+def test_reader_preview_downgrades_admin_articles(vis):
+    """An admin sending the preview header sees only the non-admin view
+    (public feeds + featured), so 'View as reader' is faithful."""
+    client, _, ids = vis
+    act_as(ids["admin_id"])
+    returned = {a["id"] for a in client.get("/articles?limit=100", headers=PREVIEW).json()}
+    assert ids["pub_article"] in returned
+    assert ids["priv_featured"] in returned       # featured still surfaces
+    assert ids["priv_article"] not in returned    # private feed now hidden
+    # Sanity: without the header the same admin sees everything.
+    all_returned = {a["id"] for a in client.get("/articles?limit=100").json()}
+    assert ids["priv_article"] in all_returned
+
+
+def test_reader_preview_downgrades_admin_feeds_and_detail(vis):
+    client, _, ids = vis
+    act_as(ids["admin_id"])
+    feeds = {f["id"] for f in client.get("/feeds", headers=PREVIEW).json()}
+    assert feeds == {ids["public_feed"]}
+    # Direct-by-id access is gated too, so it isn't a side channel.
+    assert client.get(f"/articles/{ids['priv_article']}", headers=PREVIEW).status_code == 404
+    assert client.get(f"/articles/{ids['priv_featured']}", headers=PREVIEW).status_code == 200
+
+
+def test_reader_preview_downgrades_admin_search(vis):
+    client, _, ids = vis
+    act_as(ids["admin_id"])
+    returned = {a["id"] for a in client.get("/search?q=pythons&limit=50", headers=PREVIEW).json()}
+    assert ids["pub_article"] in returned
+    assert ids["priv_article"] not in returned
+
+
+def test_reader_preview_header_never_escalates_nonadmin(vis):
+    """The header only ever downgrades — a non-admin sending it gains nothing."""
+    client, _, ids = vis
+    act_as(ids["reader_id"])
+    assert client.get(f"/articles/{ids['priv_article']}", headers=PREVIEW).status_code == 404
+    returned = {a["id"] for a in client.get("/articles?limit=100", headers=PREVIEW).json()}
+    assert ids["priv_article"] not in returned
+
+
 def test_update_feed_visibility_toggle(vis):
     client, db, ids = vis
     act_as(ids["admin_id"])

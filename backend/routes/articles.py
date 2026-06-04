@@ -7,7 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
 
-from ..auth import verify_api_key, get_current_user, require_admin, is_admin_user
+from ..auth import verify_api_key, get_current_user, require_admin, viewer_is_admin
 from ..config import state, get_db
 from ..database import Database
 from ..exceptions import require_article, require_feed
@@ -34,13 +34,14 @@ router = APIRouter(
 )
 
 
-def require_article_visible(article, db: Database, user_id: int):
+def require_article_visible(article, db: Database, admin: bool):
     """404 if a non-admin requests an article from a private feed that isn't featured.
 
     Mirrors the list/search allowlist for direct-by-id access so it can't be a
-    side channel. Returns the article unchanged when visible.
+    side channel. Returns the article unchanged when visible. `admin` is the
+    effective visibility flag (see viewer_is_admin — honors reader preview).
     """
-    if is_admin_user(db, user_id):
+    if admin:
         return article
     if getattr(article, "is_featured", False):
         return article
@@ -82,6 +83,7 @@ async def resolve_fetch_url(article, db: Database, use_aggregator_url: bool) -> 
 async def list_articles(
     db: Annotated[Database, Depends(get_db)],
     user_id: Annotated[int, Depends(get_current_user)],
+    viewer_admin: Annotated[bool, Depends(viewer_is_admin)],
     feed_id: int | None = None,
     unread_only: bool = False,
     bookmarked_only: bool = False,
@@ -111,7 +113,7 @@ async def list_articles(
         sort_by=sort_by,
         limit=limit,
         offset=offset,
-        admin=is_admin_user(db, user_id)
+        admin=viewer_admin
     )
 
     # Filter out duplicates if requested
@@ -126,6 +128,7 @@ async def list_articles(
 async def get_articles_grouped(
     db: Annotated[Database, Depends(get_db)],
     user_id: Annotated[int, Depends(get_current_user)],
+    viewer_admin: Annotated[bool, Depends(viewer_is_admin)],
     group_by: str = Query(default="date", pattern="^(date|feed|topic)$"),
     unread_only: bool = False,
     limit: int = Query(default=100, le=500)
@@ -138,7 +141,7 @@ async def get_articles_grouped(
         unread_only: Only include unread articles
         limit: Maximum total articles to return
     """
-    admin = is_admin_user(db, user_id)
+    admin = viewer_admin
 
     # Topic clustering is admin-only (exposes aggregate signal across all feeds).
     if group_by == "topic" and not admin:
@@ -327,11 +330,12 @@ async def archive_old_articles(
 async def get_article(
     article_id: int,
     db: Annotated[Database, Depends(get_db)],
-    user_id: Annotated[int, Depends(get_current_user)]
+    user_id: Annotated[int, Depends(get_current_user)],
+    viewer_admin: Annotated[bool, Depends(viewer_is_admin)],
 ) -> ArticleDetailResponse:
     """Get single article with full summary."""
     article = require_article(db.get_article_with_state(article_id, user_id))
-    require_article_visible(article, db, user_id)
+    require_article_visible(article, db, viewer_admin)
     return ArticleDetailResponse.from_db(article)
 
 

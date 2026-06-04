@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException
 
-from ..auth import verify_api_key, get_current_user, require_admin, is_admin_user
+from ..auth import verify_api_key, get_current_user, require_admin, viewer_is_admin
 from ..config import state, get_db
 from ..database import Database
 from ..exceptions import require_feed
@@ -38,13 +38,14 @@ router = APIRouter(
 @router.get("")
 async def list_feeds(
     db: Annotated[Database, Depends(get_db)],
-    user_id: Annotated[int, Depends(get_current_user)]
+    user_id: Annotated[int, Depends(get_current_user)],
+    viewer_admin: Annotated[bool, Depends(viewer_is_admin)],
 ) -> list[FeedResponse]:
     """List subscribed feeds with user-specific unread counts.
 
     Non-admin (web) users only see feeds published to the web (is_public).
     """
-    feeds = db.get_feeds(user_id, admin=is_admin_user(db, user_id))
+    feeds = db.get_feeds(user_id, admin=viewer_admin)
     return [FeedResponse.from_db(f) for f in feeds]
 
 

@@ -164,7 +164,12 @@ export const useAppStore = create<AppState>()(
       toggleSearchIncludeSummaries: () => set((state) => ({ searchIncludeSummaries: !state.searchIncludeSummaries })),
       // Switching casual tabs closes any open reader (clears selection)
       setCasualView: (view) => set({ casualView: view, selectedArticleId: null, selectedLibraryItemId: null }),
-      toggleReaderPreview: () => set((state) => ({ readerPreview: !state.readerPreview, selectedArticleId: null, selectedLibraryItemId: null })),
+      toggleReaderPreview: () => set((state) => {
+        const next = !state.readerPreview
+        // Keep the API client's synchronous flag in sync (see syncReaderPreviewFlag)
+        try { localStorage.setItem('dp-reader-preview', next ? '1' : '0') } catch { /* ignore */ }
+        return { readerPreview: next, casualView: 'home', selectedArticleId: null, selectedLibraryItemId: null }
+      }),
       setCasualSourceFilter: (feedId) => set({ casualSourceFilter: feedId }),
       setHasCompletedInitialSetup: (value) => set({ hasCompletedInitialSetup: value }),
       setApiConfig: (config) => {
@@ -244,6 +249,18 @@ export const useAppStore = create<AppState>()(
     }
   )
 )
+
+// The API client reads `dp-reader-preview` from localStorage synchronously to
+// decide whether to send the X-Reader-Preview header. Mirror the persisted
+// store value into it at startup so the very first request is already correct.
+export function syncReaderPreviewFlag() {
+  try {
+    localStorage.setItem('dp-reader-preview', useAppStore.getState().readerPreview ? '1' : '0')
+  } catch {
+    /* ignore */
+  }
+}
+syncReaderPreviewFlag()
 
 // Apply theme on load
 export function applyTheme(theme: 'light' | 'dark' | 'system') {

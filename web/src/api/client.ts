@@ -47,6 +47,13 @@ function getHeaders(): HeadersInit {
     headers['X-API-Key'] = config.apiKey
   }
 
+  // Reader preview: when an admin is previewing the casual web experience,
+  // ask the backend to apply non-admin content visibility (public feeds +
+  // featured only) so the preview is faithful. Only ever downgrades access.
+  if (localStorage.getItem('dp-reader-preview') === '1') {
+    headers['X-Reader-Preview'] = '1'
+  }
+
   // Pass LLM API keys via headers for the backend to use
   if (config.anthropicKey) {
     headers['X-Anthropic-Key'] = config.anthropicKey

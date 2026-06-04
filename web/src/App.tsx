@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { Server, Sparkles, Rss, ExternalLink } from 'lucide-react'
 import { Button } from '@/components/ui/button'
@@ -78,6 +78,17 @@ function AppContent() {
   useEffect(() => {
     applyDesignStyle(designStyle)
   }, [designStyle])
+
+  // Entering/leaving reader preview flips content visibility (admin vs reader).
+  // Drop content cached under the other context so lists refetch faithfully.
+  const prevReaderPreview = useRef(readerPreview)
+  useEffect(() => {
+    if (prevReaderPreview.current === readerPreview) return
+    prevReaderPreview.current = readerPreview
+    for (const key of [['articles'], ['feeds'], ['search'], ['digest'], ['storyGroups']]) {
+      queryClient.invalidateQueries({ queryKey: key })
+    }
+  }, [readerPreview])
 
   // Listen for system theme changes
   useEffect(() => {

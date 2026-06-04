@@ -7,7 +7,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from ..auth import verify_api_key, get_current_user, is_admin_user
+from ..auth import verify_api_key, get_current_user, viewer_is_admin
 from ..config import state, get_db
 from ..database import Database
 from ..schemas import (
@@ -34,6 +34,7 @@ async def generate_briefs_batch(
     request: BatchBriefRequest,
     db: Annotated[Database, Depends(get_db)],
     user_id: Annotated[int, Depends(get_current_user)],
+    viewer_admin: Annotated[bool, Depends(viewer_is_admin)],
 ) -> BatchBriefResponse:
     """Batch-generate newsletter briefs for up to 20 articles.
 
@@ -49,7 +50,7 @@ async def generate_briefs_batch(
     tone = BriefTone(request.tone.value)
 
     # Non-admins may only brief articles they can see (public feeds + featured).
-    visible_feed_ids = db.get_visible_feed_ids(admin=is_admin_user(db, user_id))
+    visible_feed_ids = db.get_visible_feed_ids(admin=viewer_admin)
 
     # Split into cached vs. needs-generation
     items_to_generate: list[dict] = []
@@ -153,6 +154,7 @@ async def generate_briefs_batch(
 async def get_story_groups(
     db: Annotated[Database, Depends(get_db)],
     user_id: Annotated[int, Depends(get_current_user)],
+    viewer_admin: Annotated[bool, Depends(viewer_is_admin)],
     since: str | None = Query(default=None, description="ISO8601 start time (default: 48h ago)"),
     feed_ids: str | None = Query(default=None, description="Comma-separated feed IDs to filter"),
     min_size: int = Query(default=2, ge=2, le=20),
@@ -193,7 +195,7 @@ async def get_story_groups(
         feed_ids=parsed_feed_ids,
         min_size=min_size,
         force_refresh=refresh,
-        admin=is_admin_user(db, user_id),
+        admin=viewer_admin,
     )
 
     # Enrich with article details
@@ -257,6 +259,7 @@ def _build_response(groups, db: Database) -> list[StoryGroupResponse]:
 async def get_auto_digest(
     db: Annotated[Database, Depends(get_db)],
     user_id: Annotated[int, Depends(get_current_user)],
+    viewer_admin: Annotated[bool, Depends(viewer_is_admin)],
     period: str = Query(default="today", description="'today' (24 h) or 'week' (7 days)"),
     feed_ids: str | None = Query(default=None, description="Comma-separated feed IDs to filter"),
     max_stories: int = Query(default=10, ge=1, le=50),
@@ -308,7 +311,7 @@ async def get_auto_digest(
         brief_length=brief_length,
         format=format,
         force_refresh=refresh,
-        admin=is_admin_user(db, user_id),
+        admin=viewer_admin,
     )
 
     return AutoDigestResponse(

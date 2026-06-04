@@ -6,7 +6,7 @@ from typing import Annotated
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 
-from ..auth import verify_api_key, get_current_user, require_admin, is_admin_user
+from ..auth import verify_api_key, get_current_user, require_admin, viewer_is_admin
 from ..config import state, get_db, config
 from ..database import Database
 from ..schemas import (
@@ -46,6 +46,7 @@ async def search(
     q: str,
     db: Annotated[Database, Depends(get_db)],
     user_id: Annotated[int, Depends(get_current_user)],
+    viewer_admin: Annotated[bool, Depends(viewer_is_admin)],
     limit: int = Query(default=20, le=100),
     include_summaries: bool = Query(default=True)
 ) -> list[ArticleResponse]:
@@ -56,7 +57,7 @@ async def search(
     if len(q) < 2:
         raise HTTPException(status_code=400, detail="Query too short")
 
-    visible_feed_ids = db.get_visible_feed_ids(admin=is_admin_user(db, user_id))
+    visible_feed_ids = db.get_visible_feed_ids(admin=viewer_admin)
     articles = db.search(
         q, limit=limit, include_summaries=include_summaries,
         visible_feed_ids=visible_feed_ids,
