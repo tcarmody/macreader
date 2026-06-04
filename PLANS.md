@@ -7,6 +7,15 @@ of truth — see `scripts/merge_local_into_railway.py`).
 Suggested order: **Plan B first** (search is actively broken for everyone), then
 **Plan A Phase 1**.
 
+**Status (2026-06-04): Plan B DONE.** Shipped FTS5-fallback-when-empty, an
+on-demand `POST /admin/search/rebuild`, and gated startup auto-rebuild behind
+`SEARCH_REBUILD_ON_START` (default off). Note: the first attempt's automatic
+startup rebuild filled the 500 MB Railway volume with transient Tantivy segments
+and wedged SQLite (`disk I/O error`); recovery required growing the volume to
+**5 GB**. Index is now complete (30160/30160) and search works. **Plan A is still
+open.** Lesson for Plan A: rebuild/refresh work on this single-instance,
+volume-backed deployment must respect disk headroom and not run unbounded.
+
 ---
 
 ## Plan A — "Refresh all" shouldn't block the backend
