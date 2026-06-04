@@ -29,12 +29,14 @@ extension AppState {
         return true
     }
 
-    /// Load feeds/articles/settings and refresh. Potentially slow (server-side
-    /// feed refresh), so callers that gate UI on completion should not await it.
+    /// Load existing feeds/articles/settings from the shared backend. Does NOT
+    /// trigger a server-side feed refresh on connect: the backend is shared and
+    /// single-worker, so forcing a 110-feed refresh on every launch would
+    /// saturate it and 502 concurrent requests. Feeds still refresh via the
+    /// background-refresh timer and the manual refresh button.
     private func loadInitialData() async {
         await refresh()
         await archiveOldArticlesIfEnabled()
-        try? await refreshFeeds()
         backgroundRefreshService.configure(with: self)
     }
 
