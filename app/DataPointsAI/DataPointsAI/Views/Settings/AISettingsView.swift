@@ -215,23 +215,18 @@ struct AISettingsView: View {
     }
 
     private func saveBackendKey() {
-        isSaving = true
         saveError = nil
-
-        Task {
-            do {
-                try await appState.updateBackendAPIKey(backendKeyInput)
-                await MainActor.run {
-                    isSaving = false
-                    showBackendKeySheet = false
-                }
-            } catch {
-                await MainActor.run {
-                    isSaving = false
-                    saveError = error.localizedDescription
-                }
-            }
+        do {
+            // Save + recreate the client synchronously, then close immediately.
+            try appState.updateBackendAPIKey(backendKeyInput)
+        } catch {
+            saveError = error.localizedDescription
+            return
         }
+        showBackendKeySheet = false
+        // Reconnect + refresh in the background so the sheet never blocks on a
+        // potentially long feed refresh.
+        Task { await appState.startServer() }
     }
 
     private func removeBackendKey() {
