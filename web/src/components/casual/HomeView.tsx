@@ -1,4 +1,4 @@
-import { Star, Newspaper, ChevronRight, Loader2 } from 'lucide-react'
+import { Star, Newspaper, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/ui/empty-state'
@@ -9,7 +9,7 @@ import { ArticleCard } from './ArticleCard'
 import { useOpenReader } from './use-open-reader'
 
 export function HomeView() {
-  const { casualSourceFilter, setCasualSourceFilter, setCasualView } = useAppStore()
+  const { casualSourceFilter, setCasualSourceFilter } = useAppStore()
   const { openArticle } = useOpenReader()
 
   // Featured highlights (admin-curated) for the top strip
@@ -52,19 +52,6 @@ export function HomeView() {
           </div>
         </section>
       )}
-
-      {/* Digest call-to-action */}
-      <button
-        onClick={() => setCasualView('digest')}
-        className="mb-8 flex w-full items-center gap-3 rounded-xl border border-border bg-muted/30 p-4 text-left transition-colors hover:bg-muted/60"
-      >
-        <Newspaper className="h-5 w-5 text-primary shrink-0" />
-        <div className="flex-1 min-w-0">
-          <p className="text-sm font-medium">Today's digest</p>
-          <p className="text-xs text-muted-foreground">The day's stories, summarized for you</p>
-        </div>
-        <ChevronRight className="h-4 w-4 text-muted-foreground" />
-      </button>
 
       {/* Latest */}
       <section>

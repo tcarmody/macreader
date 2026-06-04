@@ -1,4 +1,4 @@
-import { Home, Star, BookMarked, Newspaper, Search } from 'lucide-react'
+import { Home, Star, BookMarked, Search } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { useAppStore } from '@/store/app-store'
 import type { CasualView } from '@/store/app-store'
@@ -9,11 +9,11 @@ interface NavItem {
   icon: typeof Home
 }
 
+// NOTE: "Digest" is temporarily removed from the reader (it fails). See PLANS.md.
 const NAV_ITEMS: NavItem[] = [
   { view: 'home', label: 'Home', icon: Home },
   { view: 'highlights', label: 'Highlights', icon: Star },
   { view: 'bookmarked', label: 'Saved', icon: BookMarked },
-  { view: 'digest', label: 'Digest', icon: Newspaper },
   { view: 'search', label: 'Search', icon: Search },
 ]
 

@@ -5,7 +5,8 @@ import type { FilterType, GroupBy, SortBy, ApiKeyConfig } from '@/types'
 export type DesignStyle = 'default' | 'warm' | 'soft' | 'sharp' | 'compact' | 'teal' | 'high-contrast' | 'sepia' | 'mono'
 
 // Casual web experience (non-admin readers). See DOCTRINE.md "Web is casual-first".
-export type CasualView = 'home' | 'highlights' | 'bookmarked' | 'digest' | 'search'
+// NOTE: 'digest' was temporarily removed from the reader (it fails); see PLANS.md.
+export type CasualView = 'home' | 'highlights' | 'bookmarked' | 'search'
 
 interface AppState {
   // UI State

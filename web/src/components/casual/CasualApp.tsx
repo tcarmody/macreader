@@ -3,7 +3,6 @@ import { Sparkles, User, Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { useAppStore } from '@/store/app-store'
 import { useAuthStatus } from '@/hooks/use-queries'
-import { DigestView } from '@/components/DigestView'
 import { SettingsDialog } from '@/components/SettingsDialog'
 import { SideNav, BottomNav } from './CasualNav'
 import { HomeView } from './HomeView'
@@ -72,18 +71,19 @@ export function CasualApp() {
         </div>
       </header>
 
-      {/* Main content */}
+      {/* Main content (Home is the fallback for any unknown/retired view) */}
       <main className="relative flex min-h-0 flex-1 flex-col overflow-hidden">
-        {casualView === 'digest' ? (
-          <DigestView />
-        ) : (
-          <div className="flex-1 overflow-y-auto">
-            {casualView === 'home' && <HomeView />}
-            {casualView === 'highlights' && <HighlightsView />}
-            {casualView === 'bookmarked' && <BookmarkedView />}
-            {casualView === 'search' && <CasualSearchView />}
-          </div>
-        )}
+        <div className="flex-1 overflow-y-auto">
+          {casualView === 'highlights' ? (
+            <HighlightsView />
+          ) : casualView === 'bookmarked' ? (
+            <BookmarkedView />
+          ) : casualView === 'search' ? (
+            <CasualSearchView />
+          ) : (
+            <HomeView />
+          )}
+        </div>
         <CasualReader />
       </main>
 

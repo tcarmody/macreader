@@ -101,3 +101,47 @@ at a quiet moment.
 
 **Effort:** ~half a day. The admin-rebuild endpoint alone restores search
 immediately.
+
+---
+
+## Plan C — Fix Digest, then restore it to the reader
+
+**Status (2026-06-04):** Digest was **removed from the casual web reader** because
+it fails. Removal commit only touched the frontend reader surface
+(`web/src/components/casual/*`, `CasualView` type) — the backend `/digest/*`
+endpoints and the admin web `DigestView` are untouched, so nothing else regressed.
+The plan is to diagnose, fix, and re-add the **Digest** tab + the Home "Today's
+digest" CTA (both easy to restore — see the removal commit).
+
+**What we know:** `GET /digest/auto` (`backend/routes/digest.py:257`) calls
+`state.auto_digest_service.generate(...)`. It returns **503** if
+`state.auto_digest_service` is unconfigured, but the reported symptom is a hard
+failure, so the likely culprits are one of:
+
+- **LLM not configured / failing** on Railway — the digest needs the brief
+  generator (`state.brief_generator`) and story grouping; if keys/budget/timeouts
+  fail, `generate()` may raise a 500 instead of degrading.
+- **A dropped-column / schema-drift query**, like the known latent bug where
+  reading-stats queries the dropped `articles.is_read` column
+  (noted in `backend/tests/test_feed_visibility.py:180`). Auto-digest / story
+  groups may hit the same drift.
+- **Cost/latency:** a cold digest scores + briefs many stories via LLM; on the
+  single worker it can exceed the client's 5–30s window and read as "fails."
+
+**Approach:**
+
+1. **Reproduce & capture the real error.** Hit `GET /digest/auto?period=today`
+   against Railway (and locally) and read the actual traceback/status — don't
+   guess. Add a focused test in `backend/tests/` that calls the endpoint with a
+   `MockProvider` (mirror `test_auto_digest.py`) to pin the failure.
+2. **Fix the root cause** — most likely (a) make `generate()` degrade gracefully
+   (clear 503/empty-state instead of 500 when no LLM) and/or (b) repair any
+   schema-drift query (audit for `articles.is_read` and other dropped columns).
+3. **Make it cheap enough for the reader:** ensure the 2-hour cache is populated
+   by a background job (not the user's request), so the reader's first hit is
+   instant; show a friendly empty/loading state when the cache is cold.
+4. **Re-add to the reader:** restore the `digest` `CasualView`, the nav item in
+   `CasualNav.tsx`, the `DigestView` branch in `CasualApp.tsx`, and the Home CTA.
+
+**Effort:** ~half a day once the real error is captured. Step 1 is the gate —
+everything else depends on what the traceback says.
