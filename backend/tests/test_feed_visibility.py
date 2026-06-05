@@ -283,6 +283,27 @@ def test_reader_preview_header_never_escalates_nonadmin(vis):
     assert ids["priv_article"] not in returned
 
 
+def test_feed_name_resolved_from_feeds_table(vis):
+    """articles.feed_name is never populated on insert, so it must be derived
+    from the feeds table — otherwise every list/card shows no source."""
+    _, db, ids = vis
+    admin_id = ids["admin_id"]
+    arts = {a.id: a for a in db.get_articles(user_id=admin_id, admin=True, limit=100)}
+    assert arts[ids["pub_article"]].feed_name == "Public Feed"
+    assert arts[ids["priv_featured"]].feed_name == "Private Feed"
+    # single-article detail path resolves it too
+    assert db.get_article_with_state(ids["pub_article"], admin_id).feed_name == "Public Feed"
+
+
+def test_feed_name_resolved_in_search(vis):
+    client, _, ids = vis
+    act_as(ids["admin_id"])
+    resp = client.get("/search?q=pythons&limit=50")
+    assert resp.status_code == 200
+    rows = resp.json()
+    assert rows and all(r.get("feed_name") for r in rows)
+
+
 def test_reader_preview_header_is_cors_allowed():
     """The header must be in the CORS allowlist or browsers block every preview
     request cross-origin (silent empty lists — the "no stories" bug)."""

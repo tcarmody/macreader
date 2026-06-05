@@ -16,12 +16,17 @@ class ArticleRepository:
     # Explicit column list for articles table, excluding is_read/is_bookmarked/read_at/bookmarked_at
     # which are now stored in user_article_state. This prevents column name conflicts when
     # joining with user_article_state and using COALESCE for per-user state.
+    #
+    # feed_name is derived from the feeds table (LEFT JOIN feeds fj) because the
+    # denormalized articles.feed_name column is never populated on insert. Callers
+    # using ARTICLE_COLUMNS must include `LEFT JOIN feeds fj ON fj.id = a.feed_id`.
     ARTICLE_COLUMNS = """
         a.id, a.feed_id, a.url, a.title, a.author, a.content, a.content_hash,
         a.summary_short, a.summary_full, a.key_points, a.model_used, a.summarized_at,
         a.published_at, a.created_at, a.source_url, a.content_type, a.file_name,
         a.file_path, a.reading_time_minutes, a.word_count, a.featured_image,
-        a.has_code_blocks, a.site_name, a.user_id, a.feed_name, a.related_links,
+        a.has_code_blocks, a.site_name, a.user_id,
+        COALESCE(a.feed_name, fj.name) AS feed_name, a.related_links,
         a.extracted_keywords, a.related_links_error, a.promoted_to_composer,
         a.is_featured, a.featured_at, a.featured_by_user_id, a.featured_note
     """.strip()
@@ -81,6 +86,7 @@ class ArticleRepository:
                        uas.read_at,
                        uas.bookmarked_at
                 FROM articles a
+                LEFT JOIN feeds fj ON fj.id = a.feed_id
                 LEFT JOIN user_article_state uas
                     ON a.id = uas.article_id AND uas.user_id = ?
                 WHERE a.id = ?
@@ -151,6 +157,7 @@ class ArticleRepository:
                    ab.content AS brief,
                    EXISTS(SELECT 1 FROM article_chats ac WHERE ac.article_id = a.id AND ac.user_id = ?) AS has_chat
             FROM articles a
+            LEFT JOIN feeds fj ON fj.id = a.feed_id
             LEFT JOIN user_article_state uas
                 ON uas.article_id = a.id AND uas.user_id = ?
             LEFT JOIN article_briefs ab
@@ -211,6 +218,7 @@ class ArticleRepository:
                    0 AS is_read, 0 AS is_bookmarked,
                    NULL AS read_at, NULL AS bookmarked_at
             FROM articles a
+            LEFT JOIN feeds fj ON fj.id = a.feed_id
             WHERE a.user_id IS NULL
               AND (
                   (a.published_at IS NOT NULL AND a.published_at >= ?)
@@ -286,6 +294,19 @@ class ArticleRepository:
     # Note: mark_read, toggle_bookmark, bulk_mark_read, mark_feed_read, mark_all_read
     # have been moved to UserArticleStateRepository for per-user state management
 
+    @staticmethod
+    def _hydrate_with_feed_name(row) -> DBArticle:
+        """row_to_article + fall back to the joined feeds.name (aliased
+        resolved_feed_name) when the denormalized articles.feed_name is null.
+        Used by `SELECT *` paths that can't alias feed_name without colliding."""
+        art = row_to_article(row)
+        if not art.feed_name:
+            try:
+                art.feed_name = row["resolved_feed_name"]
+            except (IndexError, KeyError):
+                pass
+        return art
+
     def get_by_ids(self, ids: list[int]) -> list[DBArticle]:
         """Fetch articles by IDs, preserving the given order. Missing IDs are silently skipped."""
         if not ids:
@@ -293,9 +314,12 @@ class ArticleRepository:
         placeholders = ",".join("?" * len(ids))
         with self._db.conn() as conn:
             rows = conn.execute(
-                f"SELECT * FROM articles WHERE id IN ({placeholders})", ids
+                f"""SELECT a.*, fj.name AS resolved_feed_name
+                    FROM articles a
+                    LEFT JOIN feeds fj ON fj.id = a.feed_id
+                    WHERE a.id IN ({placeholders})""", ids
             ).fetchall()
-        article_map = {row["id"]: row_to_article(row) for row in rows}
+        article_map = {row["id"]: self._hydrate_with_feed_name(row) for row in rows}
         return [article_map[i] for i in ids if i in article_map]
 
     def get_ids_for_archive(self, days: int) -> list[int]:
@@ -350,13 +374,15 @@ class ArticleRepository:
                 escaped = query.replace('"', '""')
                 fts_query = f'title: "{escaped}" OR content: "{escaped}"'
             rows = conn.execute("""
-                SELECT a.* FROM articles a
+                SELECT a.*, fj.name AS resolved_feed_name
+                FROM articles a
                 JOIN articles_fts fts ON a.id = fts.rowid
+                LEFT JOIN feeds fj ON fj.id = a.feed_id
                 WHERE articles_fts MATCH ?
                 ORDER BY rank
                 LIMIT ?
             """, (fts_query, limit)).fetchall()
-            return [row_to_article(row) for row in rows]
+            return [self._hydrate_with_feed_name(row) for row in rows]
 
     def get_duplicates(self) -> list[tuple[str, list[DBArticle]]]:
         """Find articles with duplicate content_hash across different feeds."""
