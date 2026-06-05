@@ -1,4 +1,4 @@
-import { useQuery, useInfiniteQuery, useMutation, useQueryClient } from '@tanstack/react-query'
+import { useQuery, useInfiniteQuery, useMutation, useQueryClient, keepPreviousData } from '@tanstack/react-query'
 import * as api from '@/api/client'
 import type { FilterType, GroupBy, SortBy, Article, ArticleDetail, SavedSearch } from '@/types'
 import { useSummarizationPolling } from './use-polling'
@@ -230,6 +230,9 @@ export function useArticles(filter: FilterType, sortBy: SortBy = 'newest', hideD
       // Return the offset for the next page
       return allPages.flat().length
     },
+    // Keep the current list visible while switching filters/categories so the
+    // page height stays stable and the scroll position doesn't jump.
+    placeholderData: keepPreviousData,
     staleTime: 30000,
   })
 }
