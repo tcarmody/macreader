@@ -19,12 +19,13 @@ export function HomeView() {
 
   // Category chips — bigger buckets (e.g. "Companies", "Research") derived from
   // the reader's visible feeds, ordered by how many feeds each bucket has.
+  // "Library" is excluded — its items already surface via Highlights/featured.
   const { data: feeds = [] } = useFeeds()
   const categories = useMemo(() => {
     const counts = new Map<string, number>()
     for (const f of feeds) {
       const c = (f.category ?? '').trim()
-      if (c) counts.set(c, (counts.get(c) ?? 0) + 1)
+      if (c && c.toLowerCase() !== 'library') counts.set(c, (counts.get(c) ?? 0) + 1)
     }
     return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([c]) => c)
   }, [feeds])
