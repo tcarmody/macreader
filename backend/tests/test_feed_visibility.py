@@ -283,6 +283,13 @@ def test_reader_preview_header_never_escalates_nonadmin(vis):
     assert ids["priv_article"] not in returned
 
 
+def test_reader_preview_header_is_cors_allowed():
+    """The header must be in the CORS allowlist or browsers block every preview
+    request cross-origin (silent empty lists — the "no stories" bug)."""
+    from backend.server import allowed_headers
+    assert "X-Reader-Preview" in allowed_headers
+
+
 def test_update_feed_visibility_toggle(vis):
     client, db, ids = vis
     act_as(ids["admin_id"])

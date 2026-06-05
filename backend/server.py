@@ -231,6 +231,7 @@ allowed_headers = [
     "X-OpenAI-Key",
     "X-Google-Key",
     "X-Preferred-Provider",
+    "X-Reader-Preview",    # Admin "view as reader" — request non-admin visibility
 ]
 
 app.add_middleware(
