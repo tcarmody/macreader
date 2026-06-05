@@ -246,7 +246,18 @@ app.add_middleware(
 # Session middleware for OAuth state storage (required by authlib)
 # Uses SESSION_SECRET for signing - falls back to a default for non-OAuth use
 session_secret = config.SESSION_SECRET or "dev-session-secret-not-for-production"
-app.add_middleware(SessionMiddleware, secret_key=session_secret)
+# The OAuth `state` is stored here and must survive a cross-origin round-trip
+# (frontend domain → backend → Google → backend callback). SameSite=Lax drops it
+# on the first attempt cross-site, causing a state mismatch and the classic
+# "log in twice" symptom — use None+Secure in production so it's reliably sent.
+# A distinct cookie name avoids clobbering the login `session` cookie set in oauth.py.
+app.add_middleware(
+    SessionMiddleware,
+    secret_key=session_secret,
+    same_site="none" if config.SESSION_SECURE else "lax",  # None requires Secure (HTTP local → lax)
+    https_only=config.SESSION_SECURE,
+    session_cookie="dp_oauth_state",
+)
 
 # Setup rate limiting
 setup_rate_limiting(app)

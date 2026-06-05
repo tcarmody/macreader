@@ -52,19 +52,8 @@ function AppContent() {
   const [feedManagerOpen, setFeedManagerOpen] = useState(false)
   const [helpOpen, setHelpOpen] = useState(false)
 
-  // Handle OAuth token from URL (workaround for third-party cookie blocking)
-  useEffect(() => {
-    const params = new URLSearchParams(window.location.search)
-    const authToken = params.get('auth_token')
-    if (authToken) {
-      // Store token in localStorage
-      localStorage.setItem('authToken', authToken)
-      // Remove token from URL
-      window.history.replaceState({}, '', window.location.pathname)
-      // Refresh auth status
-      queryClient.invalidateQueries({ queryKey: ['authStatus'] })
-    }
-  }, [])
+  // OAuth token from the redirect URL is captured before render in main.tsx,
+  // so the first /auth/status request below already carries it.
 
   // Check auth status
   const { data: authStatus, isLoading: authLoading, error: authError } = useAuthStatus()
