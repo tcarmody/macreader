@@ -263,6 +263,7 @@ class Database:
         self,
         user_id: int,
         feed_id: int | None = None,
+        category: str | None = None,
         unread_only: bool = False,
         bookmarked_only: bool = False,
         featured_only: bool = False,
@@ -275,6 +276,7 @@ class Database:
         return self.articles.get_many(
             user_id=user_id,
             feed_id=feed_id,
+            category=category,
             unread_only=unread_only,
             bookmarked_only=bookmarked_only,
             featured_only=featured_only,

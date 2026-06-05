@@ -85,6 +85,7 @@ async def list_articles(
     user_id: Annotated[int, Depends(get_current_user)],
     viewer_admin: Annotated[bool, Depends(viewer_is_admin)],
     feed_id: int | None = None,
+    category: str | None = None,
     unread_only: bool = False,
     bookmarked_only: bool = False,
     featured_only: bool = False,
@@ -106,6 +107,7 @@ async def list_articles(
     articles = db.get_articles(
         user_id=user_id,
         feed_id=feed_id,
+        category=category,
         unread_only=unread_only,
         bookmarked_only=bookmarked_only,
         featured_only=featured_only,

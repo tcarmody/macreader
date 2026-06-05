@@ -119,6 +119,7 @@ class ArticleRepository:
         self,
         user_id: int,
         feed_id: int | None = None,
+        category: str | None = None,
         unread_only: bool = False,
         bookmarked_only: bool = False,
         featured_only: bool = False,
@@ -178,6 +179,10 @@ class ArticleRepository:
         if feed_id is not None:
             query += " AND a.feed_id = ?"
             params.append(feed_id)
+        if category is not None:
+            # Bucket filter (e.g. "Companies", "Research") — fj is the feeds join.
+            query += " AND fj.category = ?"
+            params.append(category)
         if unread_only:
             query += " AND COALESCE(uas.is_read, 0) = 0"
         if bookmarked_only:

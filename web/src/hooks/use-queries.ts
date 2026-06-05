@@ -215,6 +215,8 @@ export function useArticles(filter: FilterType, sortBy: SortBy = 'newest', hideD
         params.summarized_only = true
       } else if (typeof filter === 'object' && filter.type === 'feed') {
         params.feed_id = filter.feedId
+      } else if (typeof filter === 'object' && filter.type === 'category') {
+        params.category = filter.category
       }
 
       return api.getArticles(params)

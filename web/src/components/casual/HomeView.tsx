@@ -1,3 +1,4 @@
+import { useMemo } from 'react'
 import { Star, Newspaper, Loader2 } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui/button'
@@ -9,22 +10,28 @@ import { ArticleCard } from './ArticleCard'
 import { useOpenReader } from './use-open-reader'
 
 export function HomeView() {
-  const { casualSourceFilter, setCasualSourceFilter } = useAppStore()
+  const { casualCategoryFilter, setCasualCategoryFilter } = useAppStore()
   const { openArticle } = useOpenReader()
 
   // Featured highlights (admin-curated) for the top strip
   const { data: featuredData } = useArticles('featured', 'newest')
   const featured = (featuredData?.pages.flat() ?? []).slice(0, 6)
 
-  // Source chips
+  // Category chips — bigger buckets (e.g. "Companies", "Research") derived from
+  // the reader's visible feeds, ordered by how many feeds each bucket has.
   const { data: feeds = [] } = useFeeds()
-  const topSources = [...feeds]
-    .sort((a, b) => b.unread_count - a.unread_count)
-    .slice(0, 12)
+  const categories = useMemo(() => {
+    const counts = new Map<string, number>()
+    for (const f of feeds) {
+      const c = (f.category ?? '').trim()
+      if (c) counts.set(c, (counts.get(c) ?? 0) + 1)
+    }
+    return [...counts.entries()].sort((a, b) => b[1] - a[1]).map(([c]) => c)
+  }, [feeds])
 
-  // Latest stream, optionally filtered to a single source
+  // Latest stream, optionally filtered to a single category bucket
   const latestFilter: FilterType =
-    casualSourceFilter != null ? { type: 'feed', feedId: casualSourceFilter } : 'all'
+    casualCategoryFilter != null ? { type: 'category', category: casualCategoryFilter } : 'all'
   const {
     data: latestData,
     isLoading,
@@ -59,20 +66,20 @@ export function HomeView() {
           <h2 className="text-sm font-semibold uppercase tracking-wide text-muted-foreground">Latest</h2>
         </div>
 
-        {/* Source chips */}
-        {topSources.length > 0 && (
+        {/* Category chips */}
+        {categories.length > 0 && (
           <div className="mb-4 -mx-1 flex gap-1.5 overflow-x-auto pb-1 [scrollbar-width:none] [&::-webkit-scrollbar]:hidden">
             <SourceChip
               label="All"
-              active={casualSourceFilter == null}
-              onClick={() => setCasualSourceFilter(null)}
+              active={casualCategoryFilter == null}
+              onClick={() => setCasualCategoryFilter(null)}
             />
-            {topSources.map((feed) => (
+            {categories.map((category) => (
               <SourceChip
-                key={feed.id}
-                label={feed.name}
-                active={casualSourceFilter === feed.id}
-                onClick={() => setCasualSourceFilter(feed.id)}
+                key={category}
+                label={category}
+                active={casualCategoryFilter === category}
+                onClick={() => setCasualCategoryFilter(category)}
               />
             ))}
           </div>

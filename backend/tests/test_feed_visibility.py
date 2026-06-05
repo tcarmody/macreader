@@ -283,6 +283,25 @@ def test_reader_preview_header_never_escalates_nonadmin(vis):
     assert ids["priv_article"] not in returned
 
 
+def test_category_filter_respects_visibility(vis):
+    """Filtering by category bucket still applies the non-admin allowlist."""
+    client, _, ids = vis  # both fixture feeds are category "News"
+    act_as(ids["reader_id"])
+    got = {a["id"] for a in client.get("/articles?category=News&limit=100").json()}
+    assert ids["pub_article"] in got
+    assert ids["priv_featured"] in got        # featured bypasses the allowlist
+    assert ids["priv_article"] not in got     # private + not featured -> hidden
+    # Unknown category -> empty
+    assert client.get("/articles?category=Nope&limit=100").json() == []
+
+
+def test_category_filter_admin_sees_all(vis):
+    client, _, ids = vis
+    act_as(ids["admin_id"])
+    got = {a["id"] for a in client.get("/articles?category=News&limit=100").json()}
+    assert {ids["pub_article"], ids["priv_article"], ids["priv_featured"]} <= got
+
+
 def test_feed_name_resolved_from_feeds_table(vis):
     """articles.feed_name is never populated on insert, so it must be derived
     from the feeds table — otherwise every list/card shows no source."""

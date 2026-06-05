@@ -35,8 +35,8 @@ interface AppState {
   casualView: CasualView
   // Admins use the full UI by default but can preview the reader experience
   readerPreview: boolean
-  // Home stream filter by source feed (null = all sources)
-  casualSourceFilter: number | null
+  // Home stream filter by feed category bucket (e.g. "Companies"); null = all
+  casualCategoryFilter: string | null
 
   // Feature Usage Tracking
   featureUsage: {
@@ -72,7 +72,7 @@ interface AppState {
   toggleSearchIncludeSummaries: () => void
   setCasualView: (view: CasualView) => void
   toggleReaderPreview: () => void
-  setCasualSourceFilter: (feedId: number | null) => void
+  setCasualCategoryFilter: (category: string | null) => void
   setHasCompletedInitialSetup: (value: boolean) => void
   setApiConfig: (config: ApiKeyConfig) => void
   clearApiKeys: () => void
@@ -113,7 +113,7 @@ export const useAppStore = create<AppState>()(
       // Initial Casual State
       casualView: 'home',
       readerPreview: false,
-      casualSourceFilter: null,
+      casualCategoryFilter: null,
 
       // Initial Feature Usage
       featureUsage: {
@@ -171,7 +171,7 @@ export const useAppStore = create<AppState>()(
         try { localStorage.setItem('dp-reader-preview', next ? '1' : '0') } catch { /* ignore */ }
         return { readerPreview: next, casualView: 'home', selectedArticleId: null, selectedLibraryItemId: null }
       }),
-      setCasualSourceFilter: (feedId) => set({ casualSourceFilter: feedId }),
+      setCasualCategoryFilter: (category) => set({ casualCategoryFilter: category }),
       setHasCompletedInitialSetup: (value) => set({ hasCompletedInitialSetup: value }),
       setApiConfig: (config) => {
         // Also store in localStorage for API client to access

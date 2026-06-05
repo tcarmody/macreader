@@ -204,6 +204,7 @@ export async function refreshSingleFeed(feedId: number): Promise<{ message: stri
 // Articles
 export async function getArticles(params: {
   feed_id?: number
+  category?: string
   unread_only?: boolean
   bookmarked_only?: boolean
   featured_only?: boolean
@@ -215,6 +216,7 @@ export async function getArticles(params: {
 }): Promise<Article[]> {
   const searchParams = new URLSearchParams()
   if (params.feed_id) searchParams.append('feed_id', params.feed_id.toString())
+  if (params.category) searchParams.append('category', params.category)
   if (params.unread_only) searchParams.append('unread_only', 'true')
   if (params.bookmarked_only) searchParams.append('bookmarked_only', 'true')
   if (params.featured_only) searchParams.append('featured_only', 'true')
