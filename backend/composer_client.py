@@ -83,7 +83,12 @@ def _build_payload(article: DBArticle) -> dict:
 
     return {
         "source": "datapoints",
-        "source_ref": str(article.id),
+        # article.url (UNIQUE) rather than the AUTOINCREMENT id: ids diverge
+        # between DataPoints instances (local vs Railway), so two instances
+        # promoting different articles could collide on the same numeric ref.
+        # The URL is stable across instances, so either copy can promote the
+        # same article and Composer dedupes to one item.
+        "source_ref": article.url,
         "url": article.source_url or article.url,
         "title": article.title,
         "author": article.author,

@@ -35,7 +35,9 @@ def _fake_article(**overrides) -> DBArticle:
 def test_build_payload_maps_fields():
     payload = composer_client._build_payload(_fake_article())
     assert payload["source"] == "datapoints"
-    assert payload["source_ref"] == "42"
+    # source_ref is the article URL (stable across DataPoints instances),
+    # not the AUTOINCREMENT id (which diverges between local and Railway)
+    assert payload["source_ref"] == "https://example.com/a"
     assert payload["title"] == "Fed holds rates"
     assert payload["summary"] == "long summary"
     assert payload["key_points"] == ["kp1", "kp2"]
