@@ -82,3 +82,6 @@ htmlcov/
 data/uploads/
 feed_diagnostic.json
 feeds_export.opml
+
+# Claude Code per-machine settings (permissions allowlist, etc.)
+.claude/settings.local.json
