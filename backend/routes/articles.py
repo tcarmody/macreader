@@ -627,12 +627,9 @@ async def find_related_links(
     return {"success": True, "message": "Finding related links..."}
 
 
-@router.post("/{article_id}/promote")
-async def promote_to_composer(
-    article_id: int,
-    db: Annotated[Database, Depends(get_db)],
-) -> dict:
-    """Promote an article to the Composer research workbench."""
+async def _promote_article(article, db: Database) -> dict:
+    """Push one resolved article to Composer. Shared by the by-id and
+    by-ref promote routes."""
     from .. import composer_client
 
     if not composer_client.is_configured():
@@ -641,14 +638,12 @@ async def promote_to_composer(
             detail="Composer integration is not configured",
         )
 
-    article = require_article(db.get_article(article_id))
-
     try:
         result = await composer_client.promote_article(article)
     except composer_client.ComposerError as exc:
         raise HTTPException(status_code=502, detail=str(exc))
 
-    db.articles.mark_promoted_to_composer(article_id)
+    db.articles.mark_promoted_to_composer(article.id)
 
     return {
         "success": True,
@@ -656,6 +651,32 @@ async def promote_to_composer(
         "composer_url": result.composer_url,
         "already_existed": result.already_existed,
     }
+
+
+@router.post("/{article_id}/promote")
+async def promote_to_composer(
+    article_id: int,
+    db: Annotated[Database, Depends(get_db)],
+) -> dict:
+    """Promote an article to the Composer research workbench."""
+    article = require_article(db.get_article(article_id))
+    return await _promote_article(article, db)
+
+
+@router.post("/promote-by-ref")
+async def promote_to_composer_by_ref(
+    db: Annotated[Database, Depends(get_db)],
+    ref: str = Query(..., description="Article id (numeric) or URL"),
+) -> dict:
+    """Promote by an opaque reference — Composer's refresh roundtrip uses
+    this because it stores the article URL as source_ref (stable across
+    DataPoints instances), not the AUTOINCREMENT id. A digits-only ref is
+    looked up by id; anything else by URL."""
+    if ref.isdigit():
+        article = require_article(db.get_article(int(ref)))
+    else:
+        article = require_article(db.get_article_by_url(ref))
+    return await _promote_article(article, db)
 
 
 @router.post("/{article_id}/extract-source")
