@@ -91,7 +91,7 @@ You should see:
   "status": "ok",
   "summarization_enabled": true,
   "provider": "anthropic",
-  "model": "claude-haiku-4-5"
+  "model": "claude-sonnet-5"
 }
 ```
 

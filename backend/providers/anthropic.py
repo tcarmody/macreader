@@ -20,25 +20,36 @@ class AnthropicProvider(LLMProvider):
     # Using aliases which point to latest snapshots
     TIER_MODELS = {
         ModelTier.FAST: "claude-haiku-4-5",
-        ModelTier.STANDARD: "claude-sonnet-4-5",
-        ModelTier.ADVANCED: "claude-opus-4-5",
+        ModelTier.STANDARD: "claude-sonnet-5",
+        ModelTier.ADVANCED: "claude-opus-5",
     }
 
     # Model aliases for convenience
     MODEL_ALIASES = {
         "haiku": "claude-haiku-4-5",
-        "sonnet": "claude-sonnet-4-5",
-        "opus": "claude-opus-4-5",
-        # Versioned aliases (for explicit version pinning)
-        "claude-haiku-4-5-20251001": "claude-haiku-4-5-20251001",
-        "claude-sonnet-4-5-20250929": "claude-sonnet-4-5-20250929",
-        "claude-opus-4-5-20251101": "claude-opus-4-5-20251101",
+        "sonnet": "claude-sonnet-5",
+        "opus": "claude-opus-5",
     }
+
+    # Models on the adaptive-thinking API surface (Claude Sonnet 5, Opus 5 and
+    # later). Two differences that matter here:
+    #   1. temperature / top_p / top_k are rejected with a 400.
+    #   2. Thinking is on by default and shares the max_tokens budget with the
+    #      response, so an unset thinking config can truncate the answer.
+    # Every call in this codebase is a single-pass structured request, so we turn
+    # thinking off and keep max_tokens meaning "room for the answer".
+    ADAPTIVE_THINKING_MODELS = (
+        "claude-sonnet-5",
+        "claude-opus-5",
+        "claude-opus-4-7",
+        "claude-opus-4-8",
+        "claude-fable-5",
+    )
 
     def __init__(
         self,
         api_key: str,
-        default_model: str = "claude-haiku-4-5",
+        default_model: str = "claude-sonnet-5",
     ):
         """
         Initialize Anthropic provider.
@@ -53,6 +64,24 @@ class AnthropicProvider(LLMProvider):
     def _resolve_model(self, model: str) -> str:
         """Resolve model alias to full model ID."""
         return self.MODEL_ALIASES.get(model, model)
+
+    @classmethod
+    def _uses_adaptive_thinking(cls, model: str) -> bool:
+        """True if the model is on the adaptive-thinking API surface."""
+        return model.startswith(cls.ADAPTIVE_THINKING_MODELS)
+
+    @classmethod
+    def _apply_sampling(cls, kwargs: dict, model: str, temperature: float) -> None:
+        """
+        Set the sampling/thinking parameters this model accepts.
+
+        Newer models reject temperature outright and need thinking disabled
+        explicitly; older ones take temperature and have no thinking config.
+        """
+        if cls._uses_adaptive_thinking(model):
+            kwargs["thinking"] = {"type": "disabled"}
+        elif temperature > 0:
+            kwargs["temperature"] = temperature
 
     @property
     def name(self) -> str:
@@ -118,8 +147,7 @@ class AnthropicProvider(LLMProvider):
             "max_tokens": max_tokens,
             "messages": messages,
         }
-        if temperature > 0:
-            kwargs["temperature"] = temperature
+        self._apply_sampling(kwargs, resolved_model, temperature)
         if system:
             kwargs["system"] = system
 
@@ -194,8 +222,7 @@ class AnthropicProvider(LLMProvider):
             "max_tokens": max_tokens,
             "messages": anthropic_messages,
         }
-        if temperature > 0:
-            kwargs["temperature"] = temperature
+        self._apply_sampling(kwargs, resolved_model, temperature)
         if system:
             kwargs["system"] = system
 
@@ -249,16 +276,15 @@ class AnthropicProvider(LLMProvider):
         """
         resolved_model = self._resolve_model(model) if model else self._default_model
 
-        response = self.client.messages.create(
-            model=resolved_model,
-            max_tokens=max_tokens,
-            temperature=temperature if temperature > 0 else anthropic.NOT_GIVEN,
-            system=[{
+        kwargs = {
+            "model": resolved_model,
+            "max_tokens": max_tokens,
+            "system": [{
                 "type": "text",
                 "text": system_prompt,
                 "cache_control": {"type": "ephemeral"}
             }],
-            messages=[{
+            "messages": [{
                 "role": "user",
                 "content": [
                     {
@@ -271,8 +297,11 @@ class AnthropicProvider(LLMProvider):
                         "text": dynamic_content
                     }
                 ]
-            }]
-        )
+            }],
+        }
+        self._apply_sampling(kwargs, resolved_model, temperature)
+
+        response = self.client.messages.create(**kwargs)
 
         usage = response.usage
         cached_tokens = 0

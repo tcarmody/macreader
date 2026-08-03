@@ -22,7 +22,7 @@ if TYPE_CHECKING:
 
 class Model(Enum):
     """Model tier selection for summarization."""
-    SONNET = "standard"  # Balanced model
+    SONNET = "standard"  # Default: Claude Sonnet 5 on Anthropic
     HAIKU = "fast"       # Quick, cheap model
 
 
@@ -52,6 +52,11 @@ class Summarizer:
     # Maximum content length to send to API
     MAX_CONTENT_LENGTH = 15000
 
+    # Output budget for a summary or critic pass. Comfortably above the ~600
+    # tokens a summary needs; the newer Claude tokenizers count more tokens for
+    # the same text, so leave headroom rather than risk a truncated JSON object.
+    MAX_OUTPUT_TOKENS = 2048
+
     # System prompt establishing the AI persona and quality standards
     SYSTEM_PROMPT = """You are a sharp technology columnist writing for software engineers and AI practitioners. Your voice is conversational and confident—closer to The Atlantic or Ars Technica than a press release or research abstract. You write to be read, not just to inform.
 
@@ -65,10 +70,19 @@ Core principles:
 - Let the summary breathe. Not every fact belongs in the prose—that's what key points are for. Prioritize narrative flow over completeness.
 - Always connect stories to their practical implications for builders and practitioners
 - Be skeptical of marketing language and press release hype—focus on substance
-- Surface the detail that makes a reader pause and think—but through selection, not editorializing. Pick the interesting fact; don't tell the reader it's interesting."""
+- Surface the detail that makes a reader pause and think—but through selection, not editorializing. Pick the interesting fact; don't tell the reader it's interesting.
+
+Output discipline:
+- Deliver exactly what the task asks for, in the shape it asks for. Don't add fields, sections, notes, or caveats that weren't requested.
+- Length targets are targets, not floors. Hit them by choosing what to leave out, not by compressing prose into fragments or padding with filler.
+- Never narrate your process, explain your choices, or comment on the request. The output is the deliverable."""
 
     # Static instruction prompt (cacheable) - separated from dynamic content
-    INSTRUCTION_PROMPT = """Summarize the article below. Respond with valid JSON only—no other text.
+    INSTRUCTION_PROMPT = """Summarize the article below.
+
+Return one JSON object and nothing else: no preamble, no markdown code fences, no commentary before or after. Use exactly the four keys shown at the end of these instructions, and no others.
+
+Every guideline below applies to all fields, not only the first one you write.
 
 CONTENT TYPE DETECTION:
 First, classify the article as one of: news, analysis, tutorial, review, research, newsletter
@@ -96,7 +110,7 @@ SUMMARY GUIDELINES:
 Write 4-6 sentences as flowing prose—readable, not dense. Imagine someone skimming this over coffee.
 
 For SINGLE-STORY articles (news, analysis, tutorial, review, research):
-- ONE paragraph only. No paragraph breaks. This is critical — even long, complex stories get a single cohesive paragraph.
+- ONE paragraph only. No paragraph breaks. Long and complex stories get a single cohesive paragraph too — length is never a reason to split.
 - Open with what happened. One clear sentence.
 - Then develop the story naturally: pick the 2-3 most interesting details (not all of them) and weave them into sentences that each earn their place. Vary rhythm—follow a long explanatory sentence with a short declarative one.
 - Close by connecting to the bigger picture, but make it feel like a natural thought, not a thesis statement. Never start with "This matters because..." or "This is significant for..."
@@ -129,8 +143,11 @@ ADDITIONAL GUIDELINES:
 
 KEY POINTS GUIDELINES:
 - 3-5 bullet points with distinct, scannable takeaways
+- One sentence each, roughly 25 words or fewer
 - Include specific facts, numbers, dates, or names
 - For multi-story articles, prioritize across all stories by importance
+
+Stay inside the stated limits: 8-12 words for the headline, 4-6 sentences of summary, 3-5 key points. If you are close to the ceiling, cut a detail rather than running past it.
 
 Respond with this exact JSON structure:
 {
@@ -144,6 +161,8 @@ Respond with this exact JSON structure:
     CRITIC_PROMPT = """You are a senior editor reviewing a draft summary. Rewrite what needs fixing, leave what works, and write a better headline. Your goal: make this read like smart magazine journalism, not a wire-service brief.
 
 You will receive the original article title and a JSON summary produced by a first-pass summarizer.
+
+Editing, not expanding: the revision should be the same length as the draft or shorter. The only reason to add words is a substantial story the draft dropped from a newsletter. Rewriting for rhythm is not a license to elaborate.
 
 EVALUATION CRITERIA:
 
@@ -186,7 +205,7 @@ EVALUATION CRITERIA:
 
 Always rewrite the summary even if changes are minor—tightening a phrase or varying a sentence still counts. Write the headline fresh every time.
 
-Respond with valid JSON only:
+Return one JSON object and nothing else: no preamble, no markdown code fences, no commentary. Use exactly these four keys:
 {
   "headline": "Your improved headline here",
   "summary": "The revised summary",
@@ -198,7 +217,7 @@ Respond with valid JSON only:
         self,
         provider: LLMProvider,
         cache: "TieredCache | None" = None,
-        default_model: Model = Model.HAIKU,
+        default_model: Model = Model.SONNET,
         critic_enabled: bool = True,
     ):
         """
@@ -268,7 +287,7 @@ Respond with valid JSON only:
                 instruction_prompt=self.INSTRUCTION_PROMPT,
                 dynamic_content=article_content,
                 model=self.provider.get_model_for_tier(model_tier),
-                max_tokens=1024,
+                max_tokens=self.MAX_OUTPUT_TOKENS,
             )
         else:
             # Other providers: combine prompts
@@ -277,7 +296,7 @@ Respond with valid JSON only:
                 user_prompt=user_prompt,
                 system_prompt=self.SYSTEM_PROMPT,
                 model=self.provider.get_model_for_tier(model_tier),
-                max_tokens=1024,
+                max_tokens=self.MAX_OUTPUT_TOKENS,
             )
 
         # Check if critic step should run
@@ -409,22 +428,26 @@ Article:
 
         dynamic_content = f"Original article title: {title}\nURL: {url}\n\nFirst-pass summary:\n{step1_response}"
 
+        # The critic rewrites prose the first pass already produced, so it runs
+        # on the same tier as the draft rather than a cheaper one.
+        critic_model = self.provider.get_model_for_tier(ModelTier.STANDARD)
+
         try:
             if isinstance(self.provider, AnthropicProvider):
                 response = self.provider.complete_with_cacheable_prefix(
                     system_prompt=self.SYSTEM_PROMPT,
                     instruction_prompt=self.CRITIC_PROMPT,
                     dynamic_content=dynamic_content,
-                    model=self.provider.get_model_for_tier(ModelTier.FAST),
-                    max_tokens=1024,
+                    model=critic_model,
+                    max_tokens=self.MAX_OUTPUT_TOKENS,
                 )
             else:
                 user_prompt = f"{self.CRITIC_PROMPT}\n\n{dynamic_content}"
                 response = self.provider.complete(
                     user_prompt=user_prompt,
                     system_prompt=self.SYSTEM_PROMPT,
-                    model=self.provider.get_model_for_tier(ModelTier.FAST),
-                    max_tokens=1024,
+                    model=critic_model,
+                    max_tokens=self.MAX_OUTPUT_TOKENS,
                 )
 
             # Validate the critic produced parseable JSON

@@ -234,8 +234,8 @@ class TestCriticFailure:
 class TestCriticModelSelection:
     """Tests for model tier selection in critic step."""
 
-    def test_critic_uses_fast_tier(self):
-        """Critic always uses FAST tier regardless of step 1 model."""
+    def test_critic_uses_standard_tier(self):
+        """Critic rewrites prose, so it runs on STANDARD like the draft."""
         provider = MockProvider()
         provider.queue_response(_make_step1_response())
         provider.queue_response(_make_critic_response())
@@ -245,9 +245,9 @@ class TestCriticModelSelection:
         content = "word " * 2500
         summarizer.summarize(content, "https://example.com/long")
 
-        # Step 1 uses STANDARD, step 2 (critic) uses FAST
+        # Both passes run on STANDARD
         assert provider.calls[0]["model"] == "mock-standard"
-        assert provider.calls[1]["model"] == "mock-fast"
+        assert provider.calls[1]["model"] == "mock-standard"
 
     def test_step1_model_preserved_in_summary(self):
         """Summary.model_used reflects step 1 model, not critic model."""
