@@ -376,14 +376,29 @@ extension AppState {
     // MARK: - Search
 
     func search(query: String) async {
-        guard query.count >= 2 else {
+        let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard trimmed.count >= Self.minSearchQueryLength else {
+            // Leaving search returns to global scope, so the next search doesn't
+            // silently inherit a narrowing the user set up for a previous one.
+            searchScopeIsGlobal = true
             await reloadArticles()
             return
         }
 
         do {
-            articles = try await apiClient.search(query: query, includeSummaries: searchIncludeSummaries)
+            let results = try await apiClient.search(
+                query: trimmed,
+                limit: Self.articlesPageSize,
+                includeSummaries: searchIncludeSummaries
+            )
+            // A newer keystroke may have superseded us while the request was in
+            // flight; that task owns the results now.
+            guard !Task.isCancelled else { return }
+            articles = results
         } catch {
+            // Editing the query cancels the in-flight request. That's the system
+            // doing what we asked, not a failure — never surface it.
+            guard !error.isCancellation else { return }
             self.error = error.localizedDescription
         }
     }

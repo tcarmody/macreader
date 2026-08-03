@@ -24,6 +24,8 @@ class AppState: ObservableObject {
     @Published var selectedArticleDetail: ArticleDetail?
     @Published var searchQuery: String = ""
     @Published var searchIncludeSummaries: Bool = true
+    /// When true, search covers every feed; when false, only `searchScopeFeedId`.
+    @Published var searchScopeIsGlobal: Bool = true
     @Published var currentTopics: [TopicInfo] = []
     @Published var savedSearches: [SavedSearch] = []
     @Published var isLoading: Bool = false
@@ -80,6 +82,10 @@ class AppState: ObservableObject {
     @Published var hasMoreArticles: Bool = true
     @Published var currentArticleOffset: Int = 0
     static let articlesPageSize: Int = 100
+
+    /// Shortest query that triggers a backend search. Must match the server's
+    /// own minimum in `/search`, which rejects anything shorter with a 400.
+    static let minSearchQueryLength: Int = 2
 
     // Server-side grouped articles (for topic/feed modes)
     @Published internal var serverGroupedArticles: [ArticleGroup] = []
@@ -150,6 +156,15 @@ class AppState: ObservableObject {
     }
 
     var groupedArticles: [ArticleGroup] {
+        // Search results arrive ranked by relevance. Date grouping and the
+        // sidebar sort would scatter the best matches, so keep the backend's
+        // order and present them as one list.
+        if isSearchActive {
+            let results = filteredArticles
+            guard !results.isEmpty else { return [] }
+            return [ArticleGroup(id: "search-results", title: "Best matches", articles: results)]
+        }
+
         if groupByMode != .date && !serverGroupedArticles.isEmpty {
             return serverGroupedArticles.map { group in
                 ArticleGroup(id: group.id, title: group.title, articles: sortArticles(group.articles))
@@ -180,7 +195,38 @@ class AppState: ObservableObject {
         }
     }
 
+    /// True when the article list is showing backend search results rather than
+    /// the contents of a sidebar selection.
+    var isSearchActive: Bool {
+        if case .savedSearch = selectedFilter { return true }
+        return searchQuery.trimmingCharacters(in: .whitespacesAndNewlines).count
+            >= Self.minSearchQueryLength
+    }
+
+    /// The feed the user could narrow the current search to, if any. Present
+    /// whenever a feed is selected in the sidebar, regardless of current scope.
+    var searchScopeFeed: Feed? {
+        guard case .feed(let id) = selectedFilter else { return nil }
+        return feeds.first { $0.id == id }
+    }
+
+    /// The feed a scoped search is restricted to, or nil when searching globally.
+    var searchScopeFeedId: Int? {
+        guard !searchScopeIsGlobal else { return nil }
+        return searchScopeFeed?.id
+    }
+
     var filteredArticles: [Article] {
+        // Search results are global and already ranked by the backend. Applying
+        // the sidebar filter on top would silently drop every match outside the
+        // selected feed — results would appear, then vanish when the response
+        // landed, which reads as "search only looks in the current folder".
+        // Scoping is opt-in and lives in the search request, not here.
+        if isSearchActive {
+            guard let feedId = searchScopeFeedId else { return articles }
+            return articles.filter { $0.feedId == feedId }
+        }
+
         var result = articles
 
         switch selectedFilter {

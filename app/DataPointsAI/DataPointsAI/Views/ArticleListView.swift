@@ -6,16 +6,24 @@ struct ArticleListView: View {
     @State private var listSelection: Set<Article.ID> = []
 
     var body: some View {
-        Group {
-            if appState.isLoading && appState.articles.isEmpty {
-                ProgressView("Loading articles...")
-            } else if appState.isClusteringLoading {
-                ProgressView("Clustering by topic...")
-            } else if appState.groupedArticles.isEmpty {
-                EmptyArticlesView()
-            } else {
-                articleList
+        VStack(spacing: 0) {
+            if appState.isSearchActive {
+                searchScopeBar
+                Divider()
             }
+
+            Group {
+                if appState.isLoading && appState.articles.isEmpty {
+                    ProgressView("Loading articles...")
+                } else if appState.isClusteringLoading {
+                    ProgressView("Clustering by topic...")
+                } else if appState.groupedArticles.isEmpty {
+                    EmptyArticlesView()
+                } else {
+                    articleList
+                }
+            }
+            .frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .navigationTitle(appState.currentFilterName)
         .navigationSubtitle(appState.statusSubtitle ?? "")
@@ -127,6 +135,44 @@ struct ArticleListView: View {
                 .helpLabel("More Actions")
             }
         }
+    }
+
+    /// Shows what the current search actually covered. Search is global by
+    /// default; narrowing to the selected feed is an explicit, visible choice
+    /// rather than something inferred from the sidebar.
+    private var searchScopeBar: some View {
+        let matchCount = appState.filteredArticles.count
+
+        return HStack(spacing: 10) {
+            Image(systemName: "magnifyingglass")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            Text(matchCount == 1 ? "1 result" : "\(matchCount) results")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+                .monospacedDigit()
+
+            if let scopedFeed = appState.searchScopeFeed {
+                Picker("Search scope", selection: $appState.searchScopeIsGlobal) {
+                    Text("All articles").tag(true)
+                    Text(scopedFeed.name).tag(false)
+                }
+                .pickerStyle(.segmented)
+                .labelsHidden()
+                .frame(maxWidth: 280)
+                .helpLabel("Choose whether this search covers every feed or just \(scopedFeed.name)")
+            } else {
+                Text("across all feeds")
+                    .font(.caption)
+                    .foregroundStyle(.tertiary)
+            }
+
+            Spacer()
+        }
+        .padding(.horizontal, 12)
+        .padding(.vertical, 6)
+        .background(.bar)
     }
 
     private var articleList: some View {
