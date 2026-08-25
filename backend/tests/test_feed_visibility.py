@@ -14,13 +14,18 @@ import pytest
 from fastapi.testclient import TestClient
 
 from backend.auth import get_current_user
+from backend.config import config
 from backend.server import app
 from backend.tests.conftest import isolated_test_state
 
 
 @pytest.fixture
-def vis(temp_db_path, temp_cache_dir):
+def vis(temp_db_path, temp_cache_dir, monkeypatch):
     """Isolated DB with a public feed, a private feed, and a featured private article."""
+    # Pin the admin allowlist: an empty ADMIN_EMAILS means "no restriction", which
+    # would make the reader below an admin and quietly void these assertions.
+    monkeypatch.setattr(config, "ADMIN_EMAILS", {"admin@example.com"})
+
     with isolated_test_state(temp_db_path, temp_cache_dir) as db:
         admin_id = db.users.get_or_create_api_user()  # provider "api_key" -> admin
         reader_id = db.users.get_or_create(

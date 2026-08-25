@@ -125,11 +125,11 @@ class Config:
     # Admin emails - comma-separated list of users with admin privileges
     # Admins can add/edit/delete feeds, change settings, manage notification rules
     # API key users always have admin access for backwards compatibility
+    # No default: the deployment environment is the single source of truth.
+    # Empty means "no restriction configured" - every authenticated user is
+    # treated as an admin (see auth.require_admin), so set this in production.
     ADMIN_EMAILS: set[str] = {
-        e.strip().lower() for e in os.getenv(
-            "ADMIN_EMAILS",
-            "timcarmody@deeplearning.ai,analytics@deeplearning.ai,datapoints@deeplearning.ai"
-        ).split(",")
+        e.strip().lower() for e in os.getenv("ADMIN_EMAILS", "").split(",")
         if e.strip()
     }
 
