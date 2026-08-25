@@ -145,3 +145,69 @@ failure, so the likely culprits are one of:
 
 **Effort:** ~half a day once the real error is captured. Step 1 is the gate —
 everything else depends on what the traceback says.
+
+---
+
+## Plan D — Make the admin web view responsive
+
+**Added 2026-08-25**, after fixing two bugs that each independently hid Settings
+on a phone (collapsed sidebar rail had no footer; `h-screen`/`100vh` pushed the
+expanded footer under the mobile browser chrome). Those are shipped, but they
+only restored one button — the admin shell itself still doesn't fit a phone.
+
+**Problem:** the admin shell is a fixed-minimum desktop layout rendered inside
+`h-dvh flex overflow-hidden` (`web/src/App.tsx:295`). The `react-resizable-panels`
+minimums add up well past a phone viewport:
+
+| Panel | File | `minSize` |
+| --- | --- | --- |
+| sidebar | `App.tsx:311` | 240 |
+| main | `App.tsx:315` | 420 |
+| article list (inside main) | `App.tsx:268` | 340 |
+| article detail (inside main) | `App.tsx:272` | 360 |
+
+So the real floor is **~940px** (sidebar 240 + list 340 + detail 360); the
+Library view has the same shape (`App.tsx:284`, `App.tsx:288`). On a ~390px
+screen the panes overflow and `overflow-hidden` clips them, and there is no
+breakpoint anywhere in the shell — no `md:` variants, no media query, no
+mobile branch. Collapsing the sidebar (`Sidebar.tsx:195`) frees 240px but still
+leaves a 700px two-pane group in a 390px viewport.
+
+`CasualApp` (`web/src/components/casual/CasualApp.tsx:42`) is the only shell that
+adapts: `flex-col` with a mobile top bar and bottom tabs, flipping to
+`md:flex-row` with a left rail. Admins are routed away from it (`App.tsx:239-242`)
+unless they opt into reader preview.
+
+**Goal:** an admin on a phone gets a usable version of the power UI — feeds,
+article list, article detail, search, settings — without needing reader preview.
+
+**Approach (phased):**
+1. **Phase 1 — a mobile branch for the shell.** Add a `useIsMobile()` hook
+   (`matchMedia('(max-width: 767px)')`, matching the `md:` breakpoint the casual
+   shell already uses) and, when it matches, render the panes as a **stack with
+   one visible at a time** instead of a `Group`: sidebar → list → detail, with
+   back navigation, driven by existing store state (`selectedArticleId` already
+   encodes "am I reading something"). This avoids touching the desktop layout at
+   all — the `Group`/`Panel` tree stays exactly as it is behind the branch.
+2. **Phase 2 — navigation chrome.** The sidebar can't be permanently on screen at
+   that width. Either a slide-over drawer triggered from a header button, or
+   reuse the casual `BottomNav` pattern for the top-level filters. Prefer the
+   drawer: the admin sidebar has far more in it (categories, topics, saved
+   searches) than a tab bar can hold.
+3. **Phase 3 — audit the other full-width views.** `DigestView`, `StatsView`,
+   `ArticleDetail`, and the dialogs (`SettingsDialog`, `FeedManagerDialog`) have
+   not been checked at phone width; they may have their own fixed minimums or
+   wide tables.
+
+**Risks / notes:** the panel layouts are **persisted to localStorage** via
+`useDefaultLayout` (`dp-shell-layout`, `dp-feeds-layout`, `dp-library-layout` —
+`App.tsx:107-109`), so a phone session must not write layout state that then
+follows the user back to desktop — scope persistence to the desktop branch. Also decide deliberately whether an admin on a phone should just
+get `CasualApp`: it already works, and "power UI is desktop-only" is a legitimate
+answer that costs zero engineering. Plan D is only worth doing if the answer is
+no.
+
+**Effort:** Phase 1 ≈ half a day. Phases 2–3 ≈ a day, mostly design decisions
+rather than code. Verify at 390px (iPhone) and 768px (iPad portrait) — the
+breakpoint boundary is where stacked/side-by-side flips and is the easiest thing
+to get wrong.
