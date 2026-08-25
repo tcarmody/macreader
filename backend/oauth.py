@@ -7,8 +7,9 @@ Uses signed cookies for session management.
 
 import logging
 import secrets
+import time
 from datetime import datetime, timedelta, timezone
-from typing import Optional
+from typing import Any, Optional
 
 from authlib.integrations.starlette_client import OAuth
 from fastapi import APIRouter, HTTPException, Request, Response, status
@@ -26,6 +27,14 @@ oauth = OAuth()
 # Session serializer for secure cookies
 _serializer: Optional[URLSafeTimedSerializer] = None
 
+# Serializer for the OAuth `state` parameter. Distinct salt so a state token can
+# never be replayed as a session token, even though both are signed with
+# SESSION_SECRET.
+_state_serializer: Optional[URLSafeTimedSerializer] = None
+
+# How long a login has to make it through the provider round-trip.
+STATE_MAX_AGE = 600
+
 
 def get_serializer() -> URLSafeTimedSerializer:
     """Get the session serializer, creating it if needed."""
@@ -38,6 +47,21 @@ def get_serializer() -> URLSafeTimedSerializer:
             )
         _serializer = URLSafeTimedSerializer(config.SESSION_SECRET)
     return _serializer
+
+
+def get_state_serializer() -> URLSafeTimedSerializer:
+    """Get the OAuth state serializer, creating it if needed."""
+    global _state_serializer
+    if _state_serializer is None:
+        if not config.SESSION_SECRET:
+            raise HTTPException(
+                status_code=500,
+                detail="SESSION_SECRET not configured"
+            )
+        _state_serializer = URLSafeTimedSerializer(
+            config.SESSION_SECRET, salt="datapoints-oauth-state"
+        )
+    return _state_serializer
 
 
 def setup_oauth():
@@ -144,12 +168,13 @@ def get_session_from_cookie(request: Request) -> Optional[UserSession]:
 
 def clear_session_cookie(response: Response) -> None:
     """Clear the session cookie."""
+    # Attributes must mirror create_session_cookie() so the deletion matches.
     response.delete_cookie(
         key="session",
         path="/",
         httponly=True,
-        secure=config.SESSION_SECURE,
-        samesite="lax",
+        secure=True,
+        samesite="none",
     )
 
 
@@ -228,10 +253,77 @@ async def login(provider: str, request: Request):
     if redirect_uri.startswith("http://") and not redirect_uri.startswith("http://localhost") and not redirect_uri.startswith("http://127.0.0.1"):
         redirect_uri = redirect_uri.replace("http://", "https://", 1)
 
-    # Store state for CSRF protection
-    state = secrets.token_urlsafe(32)
+    # Values authlib normally invents for itself and stashes in the session. We
+    # generate them up front so they can be sealed into `state` and recovered on
+    # the callback without the session cookie (see _restore_oauth_state).
+    extras: dict[str, Any] = {}
+    if provider == "google":
+        # Google is OIDC; authlib binds the id_token's nonce to this value.
+        extras["nonce"] = secrets.token_urlsafe(16)
+    if client.client_kwargs.get("code_challenge_method"):
+        extras["code_verifier"] = secrets.token_urlsafe(48)
 
-    return await client.authorize_redirect(request, redirect_uri, state=state)
+    # State doubles as CSRF protection: unguessable, signed, and timestamped.
+    state = get_state_serializer().dumps(
+        {"provider": provider, "redirect_uri": redirect_uri, **extras}
+    )
+
+    return await client.authorize_redirect(
+        request, redirect_uri, state=state, **extras
+    )
+
+
+def _restore_oauth_state(request: Request, provider: str) -> None:
+    """
+    Rebuild authlib's state entry from the signed `state` query parameter.
+
+    authlib keeps the pending login's state in the Starlette session cookie and
+    fails the callback with "CSRF Warning! State not equal in request and
+    response" when that cookie doesn't come back. The cookie has to survive a
+    cross-site redirect chain (frontend domain → API → provider → API), which
+    mobile browsers routinely break — the login then fails no matter how many
+    times it's retried.
+
+    Because `state` is minted in login() as a signed, timestamped token, the
+    callback can validate it on its own and re-seed the session with what
+    authlib expects. The cookie is still preferred when it does arrive.
+    """
+    state = request.query_params.get("state")
+    if not state:
+        return  # let authlib raise its own mismatch error
+
+    key = f"_state_{provider}_{state}"
+    if request.session.get(key):
+        return  # cookie survived; authlib's own entry is authoritative
+
+    try:
+        payload = get_state_serializer().loads(state, max_age=STATE_MAX_AGE)
+    except SignatureExpired:
+        raise HTTPException(
+            status_code=400,
+            detail="Login took too long to complete. Please try again.",
+        )
+    except Exception as e:  # BadSignature, or anything malformed
+        logger.warning(f"Rejected OAuth callback with unverifiable state: {e}")
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid login state. Please try again.",
+        )
+
+    if not isinstance(payload, dict) or payload.get("provider") != provider:
+        logger.warning(f"OAuth state provider mismatch on {provider} callback")
+        raise HTTPException(
+            status_code=400,
+            detail="Invalid login state. Please try again.",
+        )
+
+    data = {"redirect_uri": payload.get("redirect_uri")}
+    for field in ("nonce", "code_verifier"):
+        if payload.get(field):
+            data[field] = payload[field]
+
+    logger.info(f"OAuth state cookie missing on {provider} callback; using signed state")
+    request.session[key] = {"data": data, "exp": time.time() + STATE_MAX_AGE}
 
 
 @router.get("/callback/{provider}")
@@ -246,6 +338,8 @@ async def oauth_callback(provider: str, request: Request):
             status_code=400,
             detail=f"Provider {provider} not configured"
         )
+
+    _restore_oauth_state(request, provider)
 
     try:
         token = await client.authorize_access_token(request)
