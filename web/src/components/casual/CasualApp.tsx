@@ -39,7 +39,7 @@ export function CasualApp() {
   )
 
   return (
-    <div className="flex h-screen flex-col overflow-hidden bg-background md:flex-row">
+    <div className="flex h-dvh flex-col overflow-hidden bg-background md:flex-row">
       {/* Desktop left rail */}
       <aside className="hidden shrink-0 flex-col border-r border-border md:flex md:w-60">
         <div className="px-4 py-4">{brand}</div>

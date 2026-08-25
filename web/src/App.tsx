@@ -110,7 +110,7 @@ function AppContent() {
 
   if (needsSetup) {
     return (
-      <div className="h-screen flex items-center justify-center bg-background p-4 overflow-auto">
+      <div className="h-dvh flex items-center justify-center bg-background p-4 overflow-auto">
         <div className="max-w-2xl w-full py-8">
           <div className="text-center mb-8">
             <div className="inline-flex items-center justify-center w-16 h-16 rounded-full bg-primary/10 mb-4">
@@ -292,7 +292,7 @@ function AppContent() {
     )
 
   return (
-    <div className="h-screen flex overflow-hidden bg-background">
+    <div className="h-dvh flex overflow-hidden bg-background">
       {sidebarCollapsed ? (
         // Collapsed: fixed icon rail (not resizable) + content fills the rest.
         <>

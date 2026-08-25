@@ -194,7 +194,7 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds, onOpenHelp }
 
   if (sidebarCollapsed) {
     return (
-      <div className="w-12 border-r border-border flex flex-col items-center py-2 bg-card">
+      <div className="h-full w-12 border-r border-border flex flex-col items-center py-2 bg-card">
         <Button
           variant="ghost"
           size="icon"
@@ -217,6 +217,22 @@ export function Sidebar({ onOpenSettings, onAddFeed, onManageFeeds, onOpenHelp }
               <Icon className="h-4 w-4" />
             </Button>
           ))}
+        </div>
+
+        {/* Footer. Collapsing is the only way to see content on a narrow screen,
+            so Settings has to stay reachable from the rail — otherwise it's
+            unreachable on mobile, where the ⌘, shortcut isn't an option. */}
+        <div className="mt-auto flex flex-col items-center gap-1 pt-2">
+          <Tooltip content="Settings">
+            <Button variant="ghost" size="icon" aria-label="Settings" onClick={onOpenSettings}>
+              <Settings className="h-4 w-4" />
+            </Button>
+          </Tooltip>
+          <Tooltip content="Help Center">
+            <Button variant="ghost" size="icon" aria-label="Help Center" onClick={onOpenHelp}>
+              <HelpCircle className="h-4 w-4" />
+            </Button>
+          </Tooltip>
         </div>
       </div>
     )

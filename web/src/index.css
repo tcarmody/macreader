@@ -53,13 +53,18 @@
   * {
     @apply border-border;
   }
+  /* dvh, not vh: on mobile 100vh is the *large* viewport, so it runs under the
+     browser's toolbars and anything anchored to the bottom of the shell (the
+     sidebar footer, the casual bottom nav) ends up off-screen. */
   body {
     @apply bg-background text-foreground;
     margin: 0;
     min-height: 100vh;
+    min-height: 100dvh;
   }
   #root {
     min-height: 100vh;
+    min-height: 100dvh;
   }
 }
 

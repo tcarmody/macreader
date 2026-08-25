@@ -13,7 +13,7 @@ interface LoginScreenProps {
 export function LoginScreen({ authStatus, isLoading, error, onOpenSettings }: LoginScreenProps) {
   if (isLoading) {
     return (
-      <div className="h-screen flex items-center justify-center bg-background">
+      <div className="h-dvh flex items-center justify-center bg-background">
         <div className="text-center">
           <Loader2 className="h-8 w-8 animate-spin mx-auto text-muted-foreground" />
           <p className="mt-4 text-muted-foreground">Checking authentication...</p>
@@ -25,7 +25,7 @@ export function LoginScreen({ authStatus, isLoading, error, onOpenSettings }: Lo
   if (error) {
     const isCorsError = error.message === 'Failed to fetch' || error.message.includes('NetworkError')
     return (
-      <div className="h-screen flex items-center justify-center bg-background">
+      <div className="h-dvh flex items-center justify-center bg-background">
         <div className="max-w-md mx-auto text-center p-8">
           <AlertCircle className="h-12 w-12 mx-auto text-destructive mb-4" />
           <h1 className="text-xl font-semibold mb-2">Connection Error</h1>
@@ -50,7 +50,7 @@ export function LoginScreen({ authStatus, isLoading, error, onOpenSettings }: Lo
   }
 
   return (
-    <div className="h-screen flex items-center justify-center bg-background">
+    <div className="h-dvh flex items-center justify-center bg-background">
       <div className="max-w-md mx-auto text-center p-8">
         <div className="mb-8">
           <h1 className="text-3xl font-bold mb-2">Data Points</h1>
