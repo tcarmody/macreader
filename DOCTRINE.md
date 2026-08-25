@@ -140,7 +140,7 @@ Every feature must justify its existence. The redesign reduced backend code from
 
 **Feed Deletion Edge Case**: When a feed is deleted, SQLite's `ON DELETE CASCADE` removes articles, but some articles may be moved to the Archive feed first (protected because they're bookmarked or summarized). To avoid removing those from Tantivy, the facade records article IDs before deletion, then diffs against what still exists in SQLite afterward, and only removes the truly-deleted ones. Moved articles stay in the index under their new feed.
 
-**Index Storage**: The Tantivy index lives at `data/tantivy_index/` alongside the SQLite database. On first startup the index is rebuilt from all articles in SQLite; thereafter it is kept current by the write-path hooks. There is no background sync process.
+**Index Storage**: The Tantivy index lives at `data/tantivy_index/` alongside the SQLite database and is kept current by the write-path hooks. There is no background sync process. A full rebuild from SQLite is **not** automatic on startup — it runs only via `POST /admin/search/rebuild` or with `SEARCH_REBUILD_ON_START` set, because rebuilding the whole corpus on every boot is expensive on a constrained deployment. An empty or stale index degrades to the FTS5 fallback rather than returning nothing.
 
 **Schema**: Integer fields `id` and `feed_id` are stored and indexed (for targeted deletes). Text fields `title`, `summary_short`, `summary_full`, and `content` are indexed but not stored—content is fetched from SQLite by article ID after search, so there is no duplication of article text.
 
@@ -181,6 +181,12 @@ Every feature must justify its existence. The redesign reduced backend code from
 - Full RBAC framework (e.g., Casbin): Over-engineered for two tiers
 
 **Rationale**: DataPoints has a small, known set of administrators. A config-based email allowlist (`ADMIN_EMAILS` environment variable) is simpler than database-stored roles and can be changed without code deploys. The `require_admin` dependency chains on `get_current_user`, so it reuses existing authentication logic and adds authorization as a single `Depends()` annotation on protected routes.
+
+**No Hardcoded Default (2026-08-25)**: `ADMIN_EMAILS` originally carried a three-address default baked into `config.py`, so the deployed environment and the source tree each held a copy of the admin list and could drift. The default was removed — the deployment environment (the Railway `macreader` service variable) is now the single source of truth, and the source tree holds no admin identities.
+
+The tradeoff is that `require_admin` **fails open**: an empty `ADMIN_EMAILS` means "no restriction configured" and every authenticated user is treated as an admin. Previously the hardcoded default made that branch unreachable in production; now a deleted or misspelled variable silently promotes everyone who can log in. This is accepted because `OAUTH_ALLOWED_EMAILS` independently restricts who can authenticate at all, so the blast radius is the allowed domain rather than the internet. Fail-closed was considered and rejected for now because it would break local development, where the variable is unset by design.
+
+**Granting Admin**: Add the address to `ADMIN_EMAILS` on the Railway service — the list is replaced wholesale, so existing admins must be included. The user must also pass `OAUTH_ALLOWED_EMAILS`. No re-login is needed: `/auth/status` recomputes `is_admin` per request from the session email. Note that changing the variable forces a full redeploy with a few minutes of downtime, because the attached volume prevents Railway from running two instances at once.
 
 **Admin Privileges**:
 - Add, edit, delete feeds
@@ -249,16 +255,19 @@ Every feature must justify its existence. The redesign reduced backend code from
 
 **Rationale**: Different users have different API keys and preferences. Claude offers prompt caching (90% cost reduction for repeated prefixes). GPT-4o-mini is cheapest. Gemini Flash offers the best price/performance for simple summaries. Supporting all three maximizes user choice.
 
-### Primary Model: Claude Haiku
+### Primary Model: Claude Sonnet 5
 
-**Decision**: Default to Claude Haiku for most summarization.
+**Decision**: Default all summarization to Claude Sonnet 5 (the Anthropic STANDARD tier). Superseded the previous default of Claude Haiku, which reserved Sonnet for long or technical articles.
+
+**Tier Map** (`backend/providers/anthropic.py`): FAST → `claude-haiku-4-5`, STANDARD → `claude-sonnet-5`, ADVANCED → `claude-opus-5`.
 
 **Alternatives Considered**:
-- Claude Sonnet: Higher quality but 10x cost
-- GPT-4o: Comparable quality but no prompt caching
-- Local models: Would require significant compute and lose quality
+- **Haiku default with upgrade heuristics** (the previous design): cheapest, but the word-count/technical-term heuristic mis-classified plenty of articles that read better on Sonnet, and quality is the product.
+- **Opus for everything**: better still on hard articles, but not enough better on ordinary news to justify the cost.
 
-**Rationale**: Haiku provides excellent summary quality for news articles at the lowest cost. Complex technical articles automatically upgrade to Sonnet based on content analysis (word count, technical terms).
+**Rationale**: Summaries are the product (see Core Philosophy), so the default should be the model that produces the best ones rather than the cheapest one that clears a bar. The critic pass moved from FAST to STANDARD for the same reason — having Haiku rewrite Sonnet 5's prose was a downgrade — and the critic only fires on articles >2,000 words and newsletters, so the cost is bounded.
+
+**Request-Shape Constraint**: Sonnet 5 and Opus 5 reject `temperature` outright, and enable thinking by default sharing the `max_tokens` budget, which can truncate a summary mid-JSON. `AnthropicProvider._apply_sampling()` omits temperature and disables thinking for those models while leaving Haiku 4.5 untouched. Without this the app returns 400s on every call that passes a temperature — `chat_service` (0.7) and `brief_generator` (0.3) both route through the default. The summarizer's output budget is 2048 tokens to absorb the newer tokenizer's higher counts.
 
 ### Content Extraction: Trafilatura
 
@@ -606,6 +615,21 @@ This prevents "5 copies of the same arXiv paper" results common with naive seman
 
 **Rationale**: FTS5 column-restriction syntax (`title: "q" OR content: "q"`) makes this a one-line change to the query string. The toggle is persisted in client state (localStorage / AppState) so users set it once. The default `true` maximizes recall for new users; power users can narrow to body-only when they want precision.
 
+### Search: Global by Default, Forgiving in Matching
+
+**Decision**: Search results ignore the sidebar filter (narrowing is opt-in), and matching runs in three layers beyond exact terms — stemming, prefix, and fuzzy.
+
+**Why global**: Search was already global on the wire — `/search` never scoped by the sidebar selection — but `filteredArticles` re-applied `selectedFilter` on top of the response. Matches from outside the current feed would appear and then vanish when the response landed. Rather than push the filter down into the query, the client now bypasses the sidebar filter for search results entirely: you search the library, not the current view. Narrowing is available in a scope bar above the list, defaults to global, and resets on leaving search. Two adjacent bugs fell out of the same investigation: results were re-sorted by date, discarding relevance ranking outright, and were fetched with the browsing default of 20 rather than 100.
+
+**Matching Layers** (each boosted below exact matches, so precision still wins):
+- **`en_stem` tokenizer** on `title`, `summary_short`, `summary_full`, `content` — folds morphological variants at both index and query time.
+- **`phrase_prefix` on the final term** — makes as-you-type search useful before the word is finished.
+- **Fuzzy (edit distance)** against a separate unstemmed `keywords_raw` field. Stemming and fuzzing fight each other: "summarizng" is one edit from "summarizing" but four from the stem "summar". Limited to terms of 5+ characters, because at distance 1 short tokens like "ai" and "cat" match almost everything.
+
+**Cancellation Is Not Failure**: The macOS `search(query:)` treated every thrown error as a UI-visible failure, so the debounced request cancelled by the next keystroke raised an alert — correcting a typo reliably produced one. `Error.isCancellation` now covers the three shapes cancellation arrives in and those returns are silent. A `Task.isCancelled` check after the await also prevents a slow superseded request from overwriting newer results.
+
+**Schema Versioning**: The tokenizer change makes an existing index unreadable, so the index directory carries a `.schema_version` stamp (`_SCHEMA_VERSION`, currently 2) and a stale directory is discarded on startup. That leaves an empty index, which degrades to the FTS5 fallback — meaning the improved matching does not take effect until `POST /admin/search/rebuild` runs. This is deliberate: a silent wrong-schema read is worse than a known-degraded fallback, but it does mean a deploy carrying a schema bump needs a rebuild to finish the job.
+
 ### Topics Sidebar: Dedicated Lightweight Endpoint
 
 **Decision**: Add `GET /statistics/topics/current` that returns only the most recent clustering run's topics with article counts — a purpose-built subset of the heavy `/reading-stats` endpoint.
@@ -781,7 +805,7 @@ This setup requires no DevOps expertise and costs ~$0-5/month for personal use.
 - Critic step evaluates structure, readability, and style adherence
 - Rewrites headline with full context of generated summary
 - Triggers for long articles (>2,000 words) and newsletters
-- FAST tier (Haiku) for critic — pattern matching, not comprehension
+- STANDARD tier (Sonnet 5) for critic — moved off FAST, since Haiku rewriting Sonnet 5 prose was a downgrade
 - Graceful fallback to step 1 output on any failure
 - `critic_enabled` kill switch for cost control
 - 20 unit tests with MockProvider (no API keys required)
@@ -828,6 +852,17 @@ This setup requires no DevOps expertise and costs ~$0-5/month for personal use.
 - Count badge on AI button reflects total number of activated AI features per article
 - Scroll position resets on tab switch to avoid mid-page disorientation
 - UITODOS.md created to track remaining UI improvement backlog
+
+### Phase 15: Summary Quality, Search Recall, Config Hygiene
+- Summarization default moved from Haiku to Sonnet 5; tiers are Haiku 4.5 / Sonnet 5 / Opus 5
+- Critic pass promoted from FAST to STANDARD tier
+- `_apply_sampling()` omits temperature and disables thinking for Sonnet 5 / Opus 5 (they 400 otherwise)
+- Search matching gains stemming (`en_stem`), `phrase_prefix` on the trailing term, and fuzzy against an unstemmed `keywords_raw` field
+- Search results bypass the sidebar filter — global by default, narrowing opt-in via a scope bar
+- Relevance ranking preserved (results were being re-sorted by date) and result limit raised 20 → 100
+- macOS search treats cancellation as silent, not as a UI-visible error
+- Tantivy index directory is version-stamped; a stale schema is discarded and search degrades to FTS5 until `POST /admin/search/rebuild`
+- `ADMIN_EMAILS` hardcoded default removed — the deployment environment is the single source of truth for admin identities
 
 ### Current: Stable Platform
 - Native macOS app + Web PWA

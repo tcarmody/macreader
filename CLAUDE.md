@@ -18,7 +18,7 @@ Examples:
 ## Project Structure
 
 - **backend/**: Python FastAPI server (port 5005)
-  - `routes/`: API endpoints (articles, feeds, summarization, standalone, gmail, notifications, statistics, chat, digest, misc)
+  - `routes/`: API endpoints (articles, feeds, summarization, standalone, gmail, notifications, statistics, chat, digest, admin, misc)
   - `providers/`: LLM implementations (anthropic, openai, google) with abstract base class in `base.py`
   - `services/`: Business logic (article_service, feed_service, library_service, related_links, brief_generator, story_groups, auto_digest, chat_service)
   - `database/`: Repository pattern for SQLite operations; `connection.py` owns schema + migrations
@@ -45,7 +45,7 @@ Examples:
 - **Pydantic schemas**: Request/response validation in `backend/schemas.py`
 - **Async throughout**: All I/O operations use async/await
 - **Tiered caching**: Memory LRU + disk cache in `backend/cache.py`
-- **Full-text search**: Tantivy (Rust-based, via `tantivy-py`) as primary; SQLite FTS5 as fallback. Index rebuilt on startup, kept in sync on every article write. See DOCTRINE.md for rationale.
+- **Full-text search**: Tantivy (Rust-based, via `tantivy-py`) as primary; SQLite FTS5 as fallback. Kept in sync on every article write, but **not** rebuilt on startup — a full rebuild runs only via `POST /admin/search/rebuild` or with `SEARCH_REBUILD_ON_START=true` (off by default; a large rebuild can fill the volume and wedge SQLite). The index directory is version-stamped, so a schema change discards it and search silently degrades to FTS5 until a rebuild runs. Matching layers: `en_stem` stemming, `phrase_prefix` on the trailing term, and fuzzy against the unstemmed `keywords_raw` field. See DOCTRINE.md for rationale.
 - **Site extractors**: Per-site content extraction in `backend/site_extractors/`; auto-detected from URL
 - **Summarizer**: Two-pass critic pipeline in `backend/summarizer.py` (generate → critic for articles >2,000 words and newsletters)
 - **Background tasks**: FastAPI `BackgroundTasks` for related-link fetching and summarization; `backend/tasks.py` for task functions
@@ -88,6 +88,10 @@ Key tables:
 
 Supports Anthropic (Claude), OpenAI (GPT), and Google (Gemini). Provider implementations follow abstract base in `backend/providers/base.py`. Anthropic is preferred — it supports prompt caching which reduces cost ~90% on repeated prefix calls.
 
+Anthropic tiers (`backend/providers/anthropic.py`): FAST → `claude-haiku-4-5`, STANDARD → `claude-sonnet-5`, ADVANCED → `claude-opus-5`. Summarization and the critic pass both default to STANDARD; only cheap side-tasks (keyword extraction for related links) use FAST.
+
+**Sonnet 5 / Opus 5 request shape**: these models reject `temperature` outright and enable thinking by default out of the `max_tokens` budget. `AnthropicProvider._apply_sampling()` strips temperature and disables thinking for them while leaving Haiku 4.5 untouched. Don't reintroduce a `temperature` kwarg on a STANDARD-tier call path — it returns a 400.
+
 ## Key APIs
 
 Routes and their prefixes:
@@ -105,7 +109,8 @@ Routes and their prefixes:
 - `GET /digest/story-groups` — same-event article groupings
 - `POST /briefs/batch` — newsletter-ready blurbs (brief_generator)
 - `GET/POST /searches/saved` — per-user saved search queries
-- `GET /search` — full-text search (Tantivy primary, FTS5 fallback); supports `include_summaries` param
+- `GET /search` — full-text search (Tantivy primary, FTS5 fallback); supports `include_summaries` param. Always global — clients must not re-apply a sidebar/feed filter on top of the results
+- `GET /admin/search/status`, `POST /admin/search/rebuild` — index health and full rebuild (API-key gated via `verify_api_key`)
 - `GET/PUT /settings` — application settings
 
 ## Testing
@@ -115,7 +120,10 @@ Tests use pytest with pytest-asyncio. Test files in `backend/tests/`:
 - `test_summarizer.py` — two-pass critic pipeline tests with `MockProvider` (no API keys needed)
 - `test_related_links.py` — Exa search service unit tests
 - `test_auto_digest.py`, `test_brief_generator.py`, `test_story_groups.py` — newsletter pipeline tests
+- `test_feed_visibility.py` — admin vs. reader feed/article visibility
 - Fixtures in `conftest.py` provide in-memory test database and test client
+
+**Admin-sensitive tests must pin `ADMIN_EMAILS`.** It is empty by default, which means "no restriction" — every user, including one meant to stand in for a reader, resolves as admin and the assertions pass vacuously. Set it explicitly in the fixture (`monkeypatch.setattr(config, "ADMIN_EMAILS", {...})`), as `test_feed_visibility.py` does.
 
 ### Bug Fix Workflow
 
@@ -129,7 +137,8 @@ When a bug is reported:
 Key variables (see `.env.example`):
 - `AUTH_API_KEY`: Shared API key for macOS app and direct API access
 - `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`: LLM providers
-- `ADMIN_EMAILS`: Comma-separated emails that get admin privileges (OAuth users)
+- `ADMIN_EMAILS`: Comma-separated emails that get admin privileges (OAuth users). **No default, and fails open** — empty means every authenticated user is an admin. The deployment environment (Railway service variable) is the single source of truth; never reintroduce a hardcoded default in `config.py`. API-key clients are always admin.
+- `SEARCH_REBUILD_ON_START`: Rebuild the Tantivy index at startup (default false)
 - `CORS_ORIGINS`: Allowed origins for web frontend
 - `PORT`: Server port (default 5005)
 - `DB_PATH`: SQLite database path (default `./data/articles.db`)

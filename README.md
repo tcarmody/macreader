@@ -12,12 +12,13 @@ A modern RSS reader with AI-powered summarization, available as a native macOS a
 
 ### Core
 - **RSS Feed Management** - Subscribe to feeds, organize by category, import/export OPML
-- **AI Summarization** - Automatic article summaries with key points extraction
+- **AI Summarization** - Automatic article summaries with key points extraction, defaulting to Claude Sonnet 5
 - **Related Links** - Neural search-powered discovery of semantically related articles via Exa
 - **Multi-Provider LLM Support** - Choose between Anthropic Claude, OpenAI GPT, or Google Gemini
 - **Library** - Save URLs and upload documents (PDF, DOCX, TXT) for summarization
-- **Full-Text Search** - Fast search across all articles with SQLite FTS5
+- **Full-Text Search** - Tantivy-backed search across all articles with stemming, as-you-type prefix matching, and typo tolerance (SQLite FTS5 as fallback)
 - **Multi-User Support** - Per-user read/bookmark state and library items with OAuth
+- **Role-Based Access** - Admin/reader tiers via an email allowlist; readers get a simplified casual UI
 
 ### Reading Experience
 - **Article Themes (macOS)** - 7 reading themes: Auto, Manuscript, Noir, Ember, Forest, Ocean, Midnight
@@ -136,6 +137,15 @@ LOG_LEVEL=INFO
 # AUTH_API_KEY=your-secret-key   # Simple API key auth
 # See DEPLOYMENT.md for OAuth setup (Google/GitHub login)
 
+# Access control (OAuth users)
+# OAUTH_ALLOWED_EMAILS=you@example.com,*@example.com   # Who may log in at all
+# ADMIN_EMAILS=you@example.com,teammate@example.com    # Who gets admin privileges
+#   There is no default. Empty means NO restriction — every logged-in user is an
+#   admin. Set this in any deployment with more than one user. API key clients
+#   are always admin. In production, set it in the hosting environment (Railway),
+#   which is the single source of truth; the value is replaced wholesale, so
+#   include existing admins when adding one.
+
 # Advanced features (optional)
 ENABLE_JS_RENDER=true       # JavaScript rendering for dynamic content
 ENABLE_ARCHIVE=true         # Archive service for paywalled content
@@ -149,6 +159,8 @@ DataPoints supports multiple authentication methods for production deployment:
 - **API Key** - Simple shared key via `AUTH_API_KEY` environment variable
 - **OAuth** - User login via Google and/or GitHub (recommended for multi-user)
 - **Both** - API key for programmatic access + OAuth for user login
+
+Authorization is a second, separate layer. `OAUTH_ALLOWED_EMAILS` controls who may log in (exact addresses or `*@domain` wildcards); `ADMIN_EMAILS` controls who gets admin privileges — managing feeds, settings, and notification rules. Non-admins get a read-focused UI and see only public feeds plus individually featured articles. **`ADMIN_EMAILS` has no default and fails open: if it is empty, every authenticated user is an admin.**
 
 Additional security features:
 - **Rate Limiting** - Configurable requests per minute per IP
@@ -195,7 +207,9 @@ macreader/
 | `GET /feeds/export-opml` | Export OPML |
 | `GET /standalone` | List library items |
 | `POST /standalone/url` | Add URL to library |
-| `GET /search` | Full-text search |
+| `GET /search` | Full-text search (global; `include_summaries` toggles summary fields) |
+| `GET /admin/search/status` | Search index health and document count (API key) |
+| `POST /admin/search/rebuild` | Rebuild the Tantivy index from SQLite (API key) |
 | `GET /statistics/reading-stats` | Reading and summarization statistics |
 | `POST /statistics/topics/cluster` | Trigger topic clustering |
 | `GET /statistics/topics/trends` | Historical topic trends |
