@@ -376,7 +376,10 @@ struct AddToLibraryView: View {
     }
 }
 
+// #Preview needs Xcode's macro plugin; off by default. See Scripts/README.md.
+#if PREVIEWS
 #Preview {
     AddToLibraryView()
         .environmentObject(AppState())
 }
+#endif

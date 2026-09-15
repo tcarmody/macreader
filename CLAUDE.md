@@ -26,7 +26,7 @@ Examples:
   - `advanced/`: Optional JS rendering (Playwright) and archive.org fallback
   - `tests/`: Pytest test suite
 - **web/**: React PWA frontend (Vite + Tailwind + TanStack Query + Zustand)
-- **app/**: macOS SwiftUI application (Xcode project in `app/DataPointsAI/`)
+- **app/**: macOS SwiftUI application — a SwiftPM package in `app/DataPointsAI/` (no `.xcodeproj`)
 - **data/**: SQLite database (`articles.db`) and Tantivy full-text search index (`tantivy_index/`)
 
 ## Building & Running
@@ -34,7 +34,7 @@ Examples:
 - Backend: `source rss_venv/bin/activate && python -m uvicorn backend.server:app --reload --port 5005`
 - Backend tests: `source rss_venv/bin/activate && pytest backend/tests/ -v`
 - Web dev server: `cd web && npm run dev` (runs on localhost:3000)
-- Swift app: `cd app/DataPointsAI && xcodebuild -scheme DataPointsAI -destination 'platform=macOS' build`
+- Swift app: `make app` (build + sign), then `make app-run`. Builds with SwiftPM on the standalone Command Line Tools — Xcode.app is not required. See `app/DataPointsAI/Scripts/README.md`.
 
 ## Architecture Patterns
 

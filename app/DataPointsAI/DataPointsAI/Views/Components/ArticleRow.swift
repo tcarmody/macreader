@@ -359,6 +359,8 @@ struct ArticleRow: View {
     }
 }
 
+// #Preview needs Xcode's macro plugin; off by default. See Scripts/README.md.
+#if PREVIEWS
 #Preview {
     let article = Article(
         id: 1,
@@ -383,3 +385,4 @@ struct ArticleRow: View {
         .padding()
         .frame(width: 350)
 }
+#endif

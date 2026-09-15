@@ -225,7 +225,10 @@ struct ImportOPMLView: View {
     }
 }
 
+// #Preview needs Xcode's macro plugin; off by default. See Scripts/README.md.
+#if PREVIEWS
 #Preview {
     ImportOPMLView()
         .environmentObject(AppState())
 }
+#endif

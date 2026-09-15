@@ -731,8 +731,11 @@ struct LibraryItemDetailView: View {
     }
 }
 
+// #Preview needs Xcode's macro plugin; off by default. See Scripts/README.md.
+#if PREVIEWS
 #Preview {
     LibraryItemDetailView()
         .environmentObject(AppState())
         .frame(width: 500, height: 600)
 }
+#endif

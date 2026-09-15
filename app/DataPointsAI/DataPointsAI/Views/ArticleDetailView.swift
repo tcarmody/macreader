@@ -1015,9 +1015,12 @@ struct ArticleDetailView: View {
     }
 }
 
+// #Preview needs Xcode's macro plugin; off by default. See Scripts/README.md.
+#if PREVIEWS
 #Preview {
     @Previewable @StateObject var scrollState = ArticleScrollState()
     ArticleDetailView(scrollState: scrollState)
         .environmentObject(AppState())
         .frame(width: 500, height: 600)
 }
+#endif

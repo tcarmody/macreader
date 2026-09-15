@@ -98,12 +98,18 @@ See [DEPLOYMENT.md](DEPLOYMENT.md) for deploying to Railway (backend) and Vercel
 
 ### macOS App
 
+A SwiftPM package — Xcode is not required, only the Command Line Tools
+(`xcode-select --install`) and Swift 6.2+.
+
 ```bash
-cd app/DataPointsAI
-open DataPointsAI.xcodeproj
+make app        # compile + assemble + sign build/DataPointsAI.app
+make app-run    # launch it, with logs on the terminal
 ```
 
-Build and run from Xcode. On first launch, configure API keys via the setup wizard.
+On first launch, configure API keys via the setup wizard.
+
+Build options (universal binaries, signing identity, `#Preview` support) are
+documented in [app/DataPointsAI/Scripts/README.md](app/DataPointsAI/Scripts/README.md).
 
 ### Web PWA
 

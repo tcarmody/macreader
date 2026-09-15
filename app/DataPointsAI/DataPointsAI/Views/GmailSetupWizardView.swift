@@ -591,9 +591,12 @@ struct GmailSetupWizardView: View {
     }
 }
 
+// #Preview needs Xcode's macro plugin; off by default. See Scripts/README.md.
+#if PREVIEWS
 #Preview {
     GmailSetupWizardView {
         print("Setup complete!")
     }
     .environmentObject(AppState())
 }
+#endif

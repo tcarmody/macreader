@@ -587,8 +587,11 @@ struct FeedListView: View {
 
 // MARK: - Preview
 
+// #Preview needs Xcode's macro plugin; off by default. See Scripts/README.md.
+#if PREVIEWS
 #Preview {
     FeedListView()
         .environmentObject(AppState())
         .frame(width: 250)
 }
+#endif

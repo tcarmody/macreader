@@ -355,9 +355,12 @@ struct QuickOpenArticleRow: View {
     }
 }
 
+// #Preview needs Xcode's macro plugin; off by default. See Scripts/README.md.
+#if PREVIEWS
 #Preview {
     QuickOpenView()
         .environmentObject(AppState())
         .padding(40)
         .background(.black.opacity(0.5))
 }
+#endif

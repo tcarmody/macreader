@@ -89,6 +89,8 @@ struct FeedFaviconView: View {
     }
 }
 
+// #Preview needs Xcode's macro plugin; off by default. See Scripts/README.md.
+#if PREVIEWS
 #Preview {
     VStack(spacing: 20) {
         FaviconView(url: URL(string: "https://news.ycombinator.com")!, size: 32)
@@ -97,3 +99,4 @@ struct FeedFaviconView: View {
     }
     .padding()
 }
+#endif

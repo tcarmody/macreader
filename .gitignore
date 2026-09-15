@@ -39,6 +39,10 @@ env/
 .LSOverride
 ._*
 
+# SwiftPM (macOS app — build/ is already covered above)
+.build/
+Package.resolved
+
 # Xcode
 *.xcuserdata/
 *.xcworkspace/xcuserdata/

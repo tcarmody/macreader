@@ -274,8 +274,11 @@ struct EmptyLibraryView: View {
     }
 }
 
+// #Preview needs Xcode's macro plugin; off by default. See Scripts/README.md.
+#if PREVIEWS
 #Preview {
     LibraryView()
         .environmentObject(AppState())
         .frame(width: 350)
 }
+#endif

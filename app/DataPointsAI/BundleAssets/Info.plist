@@ -1,0 +1,60 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<!--
+  Hand-authored replacement for what GENERATE_INFOPLIST_FILE used to synthesize
+  from the .xcodeproj build settings. Scripts/build-app.sh copies this verbatim
+  into DataPointsAI.app/Contents/Info.plist.
+
+  Edit versions here — CFBundleShortVersionString replaces MARKETING_VERSION and
+  CFBundleVersion replaces CURRENT_PROJECT_VERSION.
+-->
+<plist version="1.0">
+<dict>
+	<key>CFBundleDevelopmentRegion</key>
+	<string>en</string>
+
+	<key>CFBundleExecutable</key>
+	<string>DataPointsAI</string>
+
+	<key>CFBundleIdentifier</key>
+	<string>com.tcarmody.DataPointsAI</string>
+
+	<key>CFBundleInfoDictionaryVersion</key>
+	<string>6.0</string>
+
+	<key>CFBundleName</key>
+	<string>DataPointsAI</string>
+
+	<key>CFBundlePackageType</key>
+	<string>APPL</string>
+
+	<!-- was MARKETING_VERSION -->
+	<key>CFBundleShortVersionString</key>
+	<string>1.0</string>
+
+	<!-- was CURRENT_PROJECT_VERSION -->
+	<key>CFBundleVersion</key>
+	<string>1</string>
+
+	<!-- AppIcon.icns, rendered from Assets.xcassets by build-app.sh.
+	     CFBundleIconFile (not CFBundleIconName) because there is no compiled
+	     asset catalog in the bundle for the name to resolve against. -->
+	<key>CFBundleIconFile</key>
+	<string>AppIcon</string>
+
+	<!-- was MACOSX_DEPLOYMENT_TARGET -->
+	<key>LSMinimumSystemVersion</key>
+	<string>15.7</string>
+
+	<key>NSHumanReadableCopyright</key>
+	<string></string>
+
+	<!-- Required: without this the bundle launches as a faceless tool with no
+	     menu bar, Dock tile, or window server connection. -->
+	<key>NSPrincipalClass</key>
+	<string>NSApplication</string>
+
+	<key>NSHighResolutionCapable</key>
+	<true/>
+</dict>
+</plist>

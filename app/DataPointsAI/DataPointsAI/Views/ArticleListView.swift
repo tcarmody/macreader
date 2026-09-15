@@ -707,8 +707,11 @@ struct GroupSectionHeader: View {
     }
 }
 
+// #Preview needs Xcode's macro plugin; off by default. See Scripts/README.md.
+#if PREVIEWS
 #Preview {
     ArticleListView()
         .environmentObject(AppState())
         .frame(width: 350)
 }
+#endif

@@ -453,9 +453,12 @@ struct ProviderOptionButton: View {
     }
 }
 
+// #Preview needs Xcode's macro plugin; off by default. See Scripts/README.md.
+#if PREVIEWS
 #Preview {
     SetupWizardView {
         print("Setup complete!")
     }
     .environmentObject(AppState())
 }
+#endif

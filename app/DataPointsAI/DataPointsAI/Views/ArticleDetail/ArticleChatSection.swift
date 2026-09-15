@@ -384,6 +384,8 @@ struct ArticleChatSection: View {
     }
 }
 
+// #Preview needs Xcode's macro plugin; off by default. See Scripts/README.md.
+#if PREVIEWS
 #Preview {
     struct PreviewWrapper: View {
         @State private var isExpanded = false
@@ -407,3 +409,4 @@ struct ArticleChatSection: View {
 
     return PreviewWrapper()
 }
+#endif

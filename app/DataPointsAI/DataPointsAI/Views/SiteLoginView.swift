@@ -228,9 +228,12 @@ struct LoginWebViewRepresentable: NSViewRepresentable {
     }
 }
 
+// #Preview needs Xcode's macro plugin; off by default. See Scripts/README.md.
+#if PREVIEWS
 #Preview {
     SiteLoginView(
         initialURL: URL(string: "https://www.bloomberg.com")!,
         siteTitle: "Bloomberg"
     )
 }
+#endif

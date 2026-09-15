@@ -219,6 +219,8 @@ struct HTMLContentView: NSViewRepresentable {
     }
 }
 
+// #Preview needs Xcode's macro plugin; off by default. See Scripts/README.md.
+#if PREVIEWS
 #Preview {
     ScrollView {
         HTMLContentView(
@@ -238,3 +240,4 @@ struct HTMLContentView: NSViewRepresentable {
         .padding()
     }
 }
+#endif

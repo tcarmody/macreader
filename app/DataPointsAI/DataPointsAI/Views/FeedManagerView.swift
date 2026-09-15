@@ -665,7 +665,10 @@ struct EditFeedSheet: View {
     }
 }
 
+// #Preview needs Xcode's macro plugin; off by default. See Scripts/README.md.
+#if PREVIEWS
 #Preview {
     FeedManagerView()
         .environmentObject(AppState())
 }
+#endif

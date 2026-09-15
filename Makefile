@@ -1,4 +1,4 @@
-.PHONY: setup run test clean init-db rebuild
+.PHONY: setup run test clean init-db rebuild app app-build app-sign app-run app-clean
 
 # Setup development environment
 setup:
@@ -32,6 +32,22 @@ init-db:
 # Full rebuild
 rebuild: clean setup init-db
 	@echo "Rebuild complete."
+
+# macOS app (SwiftPM — no Xcode required, see app/DataPointsAI/Scripts/README.md)
+app: app-build app-sign
+	@echo "Built and signed app/DataPointsAI/build/DataPointsAI.app"
+
+app-build:
+	cd app/DataPointsAI && ./Scripts/build-app.sh
+
+app-sign:
+	cd app/DataPointsAI && ./Scripts/sign-app.sh
+
+app-run:
+	cd app/DataPointsAI && ./Scripts/run-app.sh
+
+app-clean:
+	rm -rf app/DataPointsAI/.build app/DataPointsAI/build
 
 # Format code
 format:
