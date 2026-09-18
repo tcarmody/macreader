@@ -20,6 +20,12 @@ final class ReaderInteractionTests: XCTestCase {
         XCTAssertEqual(service.authorizationStatus, .notDetermined)
     }
 
+    func testReaderThemeAddsHighContrastAndOpaqueSurfaceOverrides() {
+        let styles = ArticleTheme.ember.cssStyles(accessibilityContrast: true, reduceTransparency: true)
+        XCTAssertTrue(styles.contains("text-decoration-thickness: 2px"))
+        XCTAssertTrue(styles.contains("--code-bg: var(--bg-color)"))
+    }
+
     private func makeLibraryItem(content: String) -> LibraryItemDetail {
         LibraryItemDetail(
             id: 1, url: URL(string: "https://example.com")!, title: "Test",

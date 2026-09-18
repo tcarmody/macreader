@@ -335,12 +335,13 @@ the drop target and its accepted content types.
 
 ### 11. Make appearance themes accessibility-aware
 
-**Status:** ☐ open
+**Status:** ☑ implementation complete; manual settings verification remains
 
-The reader themes still contain fixed palette values. Add explicit Increase
-Contrast and Reduce Transparency handling, and verify every theme in light,
-dark, high-contrast, and reduced-transparency settings. Keep the system
-accent for controls and reserve theme colors for the reading canvas.
+The reader themes retain their palettes while adding explicit Increase
+Contrast and Reduce Transparency overrides at the shared HTML reader boundary.
+Manual verification across every theme and system appearance combination
+remains. Keep the system accent for controls and reserve theme colors for the
+reading canvas.
 
 **Acceptance:** text and links remain readable in all themes with Increase
 Contrast enabled; no reading surface depends on translucency for contrast.

@@ -115,7 +115,9 @@ struct ReaderDetailView: View {
             if let content = item.content, !content.isEmpty {
                 HTMLContentView(html: item.renderedContent, dynamicHeight: $contentHeight,
                     fontSize: fontSize.bodyFontSize, lineHeight: lineSpacing.multiplier,
-                    fontFamily: appState.settings.contentTypeface.cssFontFamily, theme: theme)
+                    fontFamily: appState.settings.contentTypeface.cssFontFamily, theme: theme,
+                    accessibilityContrast: NSWorkspace.shared.accessibilityDisplayShouldIncreaseContrast,
+                    reduceTransparency: NSWorkspace.shared.accessibilityDisplayShouldReduceTransparency)
                     .frame(height: contentHeight)
             } else {
                 ContentUnavailableView {

@@ -17,6 +17,8 @@ struct HTMLContentView: NSViewRepresentable {
     var lineHeight: CGFloat = 1.6
     var fontFamily: String = "-apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif"
     var theme: ArticleTheme = .auto
+    var accessibilityContrast: Bool = false
+    var reduceTransparency: Bool = false
 
     func makeNSView(context: Context) -> WKWebView {
         let configuration = WKWebViewConfiguration()
@@ -53,7 +55,7 @@ struct HTMLContentView: NSViewRepresentable {
             <meta charset="UTF-8">
             <meta name="viewport" content="width=device-width, initial-scale=1.0">
             <style>
-                \(theme.cssStyles)
+                \(theme.cssStyles(accessibilityContrast: accessibilityContrast, reduceTransparency: reduceTransparency))
                 body {
                     font-family: \(fontFamily);
                     font-size: \(Int(fontSize))px;

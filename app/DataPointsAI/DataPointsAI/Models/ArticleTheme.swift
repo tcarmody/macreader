@@ -176,6 +176,33 @@ enum ArticleTheme: String, Codable, CaseIterable, Sendable {
         }
     }
 
+    /// Adds system accessibility adjustments without replacing the selected
+    /// reading palette. The base colors remain stable for normal reading.
+    func cssStyles(accessibilityContrast: Bool, reduceTransparency: Bool) -> String {
+        var styles = cssStyles
+        if accessibilityContrast {
+            styles += """
+                body {
+                    --secondary-color: var(--text-color);
+                    --link-color: var(--text-color);
+                    --border-color: var(--text-color);
+                    --blockquote-border: var(--text-color);
+                    --blockquote-color: var(--text-color);
+                }
+                a { text-decoration-thickness: 2px; }
+            """
+        }
+        if reduceTransparency {
+            styles += """
+                body {
+                    --code-bg: var(--bg-color);
+                    --border-color: var(--text-color);
+                }
+            """
+        }
+        return styles
+    }
+
     /// SwiftUI background color for the theme
     var backgroundColor: Color {
         switch self {
