@@ -383,7 +383,7 @@ extension AppState {
     // MARK: - Search
 
     func search(query: String) async {
-        if showLibrary {
+        if searchScope == .library {
             await loadLibraryItems()
             return
         }
@@ -405,7 +405,7 @@ extension AppState {
             // A newer keystroke may have superseded us while the request was in
             // flight; that task owns the results now.
             guard !Task.isCancelled else { return }
-            guard !showLibrary, searchQuery.trimmingCharacters(in: .whitespacesAndNewlines) == trimmed else { return }
+            guard searchScope == .articles, searchQuery.trimmingCharacters(in: .whitespacesAndNewlines) == trimmed else { return }
             articles = results
         } catch {
             // Editing the query cancels the in-flight request. That's the system

@@ -309,13 +309,11 @@ unification. They are ordered by user impact and testability.
 
 ### 9. Add native search scopes for Articles and Library
 
-**Status:** ☐ open
+**Status:** ☑ implemented; pane/search interaction verification remains
 
-The search field now searches the active collection, but the title-bar
-search does not yet expose a native scope control. Add `.searchScopes` for
-`Articles`, `Library`, and (where useful) `All`, preserving the active scope
-when switching panes. The scope must change the query source rather than
-filtering already-returned results locally.
+The title-bar search now exposes native Articles and Library scopes. Changing
+scope switches to the matching pane and changes the query source; results are
+not filtered locally after returning from the server.
 
 **Acceptance:** the scope is visible in the macOS search UI, ⌘F focuses the
 same field, and changing scope never shows results from the wrong corpus.

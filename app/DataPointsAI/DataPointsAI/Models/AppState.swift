@@ -15,6 +15,11 @@ import CoreSpotlight
 /// - AppState+Spotlight.swift - macOS integration (Spotlight, notifications, dock badge)
 @MainActor
 class AppState: ObservableObject {
+    enum SearchScope: String, CaseIterable, Identifiable {
+        case articles, library
+        var id: Self { self }
+        var label: String { rawValue.capitalized }
+    }
     enum SyncFeedback: Equatable {
         case newArticles(Int)
         case noChanges
@@ -38,6 +43,7 @@ class AppState: ObservableObject {
     @Published var selectedArticle: Article?
     @Published var selectedArticleDetail: ArticleDetail?
     @Published var searchQuery: String = ""
+    @Published var searchScope: SearchScope = .articles
     @Published var searchIncludeSummaries: Bool = true
     /// When true, search covers every feed; when false, only `searchScopeFeedId`.
     @Published var searchScopeIsGlobal: Bool = true

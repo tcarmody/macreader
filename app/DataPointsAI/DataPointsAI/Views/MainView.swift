@@ -33,7 +33,12 @@ struct MainView: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
-        .searchable(text: $appState.searchQuery, prompt: appState.showLibrary ? "Search Library" : "Search Articles")
+        .searchable(text: $appState.searchQuery, prompt: appState.searchScope == .library ? "Search Library" : "Search Articles")
+        .searchScopes($appState.searchScope) {
+            ForEach(AppState.SearchScope.allCases) { scope in
+                Text(scope.label).tag(scope)
+            }
+        }
         .focused($isSearchFocused)
         .onChange(of: appState.searchQuery) { _, newValue in
             // Cancel any in-flight search before starting a new one.
@@ -46,6 +51,12 @@ struct MainView: View {
                 guard !Task.isCancelled else { return }
                 await appState.search(query: newValue)
             }
+        }
+        .onChange(of: appState.searchScope) { _, scope in
+            if scope == .library, !appState.showLibrary { appState.selectLibrary() }
+            if scope == .articles, appState.showLibrary { appState.deselectLibrary() }
+            searchTask?.cancel()
+            searchTask = Task { await appState.search(query: appState.searchQuery) }
         }
         .sheet(isPresented: $appState.showAddFeed) {
             AddFeedView()
