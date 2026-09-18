@@ -14,6 +14,14 @@ struct ReaderRow: View {
     var hasRelated = false
     var hasChat = false
     @EnvironmentObject private var appState: AppState
+    @State private var isPreviewPresented = false
+    @State private var hoverTask: Task<Void, Never>?
+
+    private var hoverPreviewAllowed: Bool {
+        !NSWorkspace.shared.accessibilityDisplayShouldReduceMotion &&
+        !NSWorkspace.shared.isVoiceOverEnabled &&
+        preview?.isEmpty == false
+    }
 
     private var highlightedTitle: AttributedString {
         var result = AttributedString(title)
@@ -64,6 +72,39 @@ struct ReaderRow: View {
         }
         .padding(.vertical, appState.settings.listDensity.verticalPadding)
         .contentShape(Rectangle())
+        .onHover { hovering in
+            hoverTask?.cancel()
+            guard hoverPreviewAllowed else {
+                isPreviewPresented = false
+                return
+            }
+            if hovering {
+                hoverTask = Task { @MainActor in
+                    try? await Task.sleep(nanoseconds: 450_000_000)
+                    guard !Task.isCancelled else { return }
+                    isPreviewPresented = true
+                }
+            } else {
+                isPreviewPresented = false
+            }
+        }
+        .popover(isPresented: $isPreviewPresented, arrowEdge: .leading) {
+            VStack(alignment: .leading, spacing: 8) {
+                Text(title).font(.headline).lineLimit(3)
+                Text(preview ?? "").font(.body).foregroundStyle(.secondary)
+                Text("Select the item to open the full reader.")
+                    .font(.caption).foregroundStyle(.tertiary)
+            }
+            .padding(14)
+            .frame(width: 320, alignment: .leading)
+            .textSelection(.enabled)
+            .accessibilityElement(children: .combine)
+            .accessibilityLabel("Preview: \(title). \(preview ?? "")")
+        }
+        .onDisappear {
+            hoverTask?.cancel()
+            isPreviewPresented = false
+        }
         .accessibilityElement(children: .ignore)
         .accessibilityLabel([title, source, time, isRead ? "Read" : "Unread",
                              isBookmarked ? "Bookmarked" : nil, isFeatured ? "Featured" : nil,

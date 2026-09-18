@@ -384,12 +384,12 @@ position; switching users or deleting an item removes its saved state.
 
 ### 15. Add a hover quick preview for dense lists
 
-**Status:** ☐ open
+**Status:** ☑ implemented; manual pointer/accessibility verification remains
 
-The shared row makes scanning consistent, but users still need to select an
-item to inspect more summary text. Add an optional hover popover for pointer
-users, while keeping selection and keyboard navigation unchanged. Do not make
-the preview the only way to access content.
+The shared row now shows a delayed preview popover for pointer users while
+keeping selection and keyboard navigation unchanged. The preview is disabled
+when Reduce Motion or VoiceOver is active, and the full item remains available
+through the row.
 
 **Acceptance:** the preview is delayed, dismisses predictably, does not steal
 keyboard focus, and is disabled or simplified for Reduce Motion / VoiceOver.
