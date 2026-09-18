@@ -82,9 +82,10 @@ struct RSSReaderApp: App {
 
                 Divider()
 
-                Button("Refresh Feeds") {
+                Button(appState.showLibrary ? "Refresh Library" : "Refresh Feeds") {
                     Task {
-                        try? await appState.refreshFeeds()
+                        if appState.showLibrary { await appState.loadLibraryItems() }
+                        else { try? await appState.refreshFeeds() }
                     }
                 }
                 .keyboardShortcut("r", modifiers: [.command, .shift])
@@ -101,17 +102,17 @@ struct RSSReaderApp: App {
 
                 Divider()
 
-                Button("Next Article") {
+                Button("Next Item") {
                     appState.navigateToNextArticle()
                 }
                 .keyboardShortcut("]", modifiers: .command)
-                .disabled(appState.groupedArticles.flatMap { $0.articles }.isEmpty)
+                .disabled(appState.showLibrary ? appState.visibleLibraryItems.isEmpty : appState.groupedArticles.flatMap { $0.articles }.isEmpty)
 
-                Button("Previous Article") {
+                Button("Previous Item") {
                     appState.navigateToPreviousArticle()
                 }
                 .keyboardShortcut("[", modifiers: .command)
-                .disabled(appState.groupedArticles.flatMap { $0.articles }.isEmpty)
+                .disabled(appState.showLibrary ? appState.visibleLibraryItems.isEmpty : appState.groupedArticles.flatMap { $0.articles }.isEmpty)
             }
 
             // View menu
@@ -180,9 +181,10 @@ struct RSSReaderApp: App {
 
                 // Sorting options
                 Picker("Sort By", selection: Binding(
-                    get: { appState.sortOption },
+                    get: { appState.showLibrary ? appState.librarySortOption : appState.sortOption },
                     set: { newOption in
-                        appState.sortOption = newOption
+                        if appState.showLibrary { appState.librarySortOption = newOption }
+                        else { appState.sortOption = newOption }
                     }
                 )) {
                     ForEach(ArticleSortOption.allCases, id: \.self) { option in
@@ -214,13 +216,13 @@ struct RSSReaderApp: App {
                     appState.increaseFontSize()
                 }
                 .keyboardShortcut("+", modifiers: .command)
-                .disabled(!appState.settings.articleFontSize.canIncrease)
+                .disabled(!(appState.readerModeEnabled ? appState.settings.readerModeFontSize : appState.settings.articleFontSize).canIncrease)
 
                 Button("Decrease Font Size") {
                     appState.decreaseFontSize()
                 }
                 .keyboardShortcut("-", modifiers: .command)
-                .disabled(!appState.settings.articleFontSize.canDecrease)
+                .disabled(!(appState.readerModeEnabled ? appState.settings.readerModeFontSize : appState.settings.articleFontSize).canDecrease)
 
                 Button("Reset Font Size") {
                     appState.resetFontSize()
@@ -232,7 +234,7 @@ struct RSSReaderApp: App {
             CommandGroup(after: .pasteboard) {
                 Divider()
 
-                Button("Select All Articles") {
+                Button("Select All Items") {
                     selectAllArticles()
                 }
                 .keyboardShortcut("a", modifiers: .command)
@@ -241,10 +243,11 @@ struct RSSReaderApp: App {
                     DispatchQueue.main.async {
                         appState.selectedArticleIds.removeAll()
                         appState.selectedFeedIds.removeAll()
+                        appState.setLibrarySelection([])
                     }
                 }
                 .keyboardShortcut(.escape)
-                .disabled(appState.selectedArticleIds.isEmpty && appState.selectedFeedIds.isEmpty)
+                .disabled(appState.selectedArticleIds.isEmpty && appState.selectedFeedIds.isEmpty && appState.selectedLibraryItemIds.isEmpty)
             }
 
             // Article menu — wrapped in Groups so the top level stays
@@ -253,12 +256,14 @@ struct RSSReaderApp: App {
             CommandMenu("Article") {
                 Group {
                     Button("Open in Browser") {
-                        if let article = appState.selectedArticle {
-                            NSWorkspace.shared.open(article.url)
+                        if appState.showLibrary {
+                            if let item = appState.selectedLibraryItem, item.type == .url { NSWorkspace.shared.open(item.url) }
+                        } else if let article = appState.selectedArticle {
+                            NSWorkspace.shared.open(article.originalUrl)
                         }
                     }
                     .keyboardShortcut(.return, modifiers: .command)
-                    .disabled(appState.selectedArticle == nil)
+                    .disabled(appState.showLibrary ? appState.selectedLibraryItem?.type != .url : appState.selectedArticle == nil)
 
                     Divider()
 
@@ -323,13 +328,13 @@ struct RSSReaderApp: App {
                         markSelectedAsRead(true)
                     }
                     .keyboardShortcut("r", modifiers: .command)
-                    .disabled(appState.selectedArticle == nil && appState.selectedArticleIds.isEmpty)
+                    .disabled(appState.showLibrary ? appState.selectedLibraryItemIds.isEmpty : (appState.selectedArticle == nil && appState.selectedArticleIds.isEmpty))
 
                     Button("Mark as Unread") {
                         markSelectedAsRead(false)
                     }
                     .keyboardShortcut("u", modifiers: .command)
-                    .disabled(appState.selectedArticle == nil && appState.selectedArticleIds.isEmpty)
+                    .disabled(appState.showLibrary ? appState.selectedLibraryItemIds.isEmpty : (appState.selectedArticle == nil && appState.selectedArticleIds.isEmpty))
 
                     Divider()
 
@@ -477,6 +482,26 @@ struct RSSReaderApp: App {
                 }
             }
 
+            CommandMenu("Reader") {
+                Menu("Section") {
+                    ForEach(DetailTab.allCases, id: \.self) { tab in
+                        Button(tab.rawValue) { appState.pendingDetailTab = tab }
+                    }
+                }.disabled(appState.activeReaderItem == nil)
+                Group {
+                    Button("Generate Summary") { appState.pendingReaderCommand = .summarize }
+                    Button("Find Related Articles") { appState.pendingReaderCommand = .findRelated }
+                    Button("Send to Composer") { appState.pendingReaderCommand = .promote }
+                        .disabled(appState.activeReaderItem?.isPromoted == true)
+                }.disabled(appState.activeReaderItem == nil)
+                Divider()
+                Group {
+                    Button("Extract Article") { appState.pendingReaderCommand = .extract }
+                    Button("Extract with App Session") { appState.pendingReaderCommand = .extractAuthenticated }
+                    Button("Log in to Site…") { appState.pendingReaderCommand = .login }
+                }.disabled(appState.activeReaderItem?.origin != .feed)
+            }
+
             // Help menu
             CommandGroup(replacing: .help) {
                 Button("AI Setup Wizard...") {
@@ -501,6 +526,10 @@ struct RSSReaderApp: App {
     }
 
     private func selectAllArticles() {
+        if appState.showLibrary {
+            appState.setLibrarySelection(Set(appState.visibleLibraryItems.map(\.id)))
+            return
+        }
         let allIds = appState.groupedArticles.flatMap { $0.articles }.map { $0.id }
         DispatchQueue.main.async {
             appState.selectedArticleIds = Set(allIds)
@@ -509,6 +538,10 @@ struct RSSReaderApp: App {
 
     private func markSelectedAsRead(_ isRead: Bool) {
         Task {
+            if appState.showLibrary {
+                await appState.markLibraryItemsRead(ids: appState.selectedLibraryItemIds, isRead: isRead)
+                return
+            }
             if !appState.selectedArticleIds.isEmpty {
                 try? await appState.bulkMarkRead(
                     articleIds: Array(appState.selectedArticleIds),
@@ -525,6 +558,8 @@ struct RSSReaderApp: App {
 
     private func markCurrentFilterAsRead() async throws {
         switch appState.selectedFilter {
+        case .library:
+            await appState.markLibraryItemsRead(ids: Set(appState.visibleLibraryItems.map(\.id)), isRead: true)
         case .all, .unread:
             try await appState.markAllRead()
         case .today, .bookmarked, .featured, .summarized, .unsummarized, .topic, .savedSearch:

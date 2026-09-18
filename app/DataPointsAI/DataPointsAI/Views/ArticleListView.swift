@@ -3,7 +3,10 @@ import SwiftUI
 /// Middle pane: article list with multi-select support
 struct ArticleListView: View {
     @EnvironmentObject var appState: AppState
-    @State private var listSelection: Set<Article.ID> = []
+    private var listSelection: Set<Article.ID> {
+        get { appState.selectedArticleIds }
+        nonmutating set { appState.selectedArticleIds = newValue }
+    }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -27,7 +30,7 @@ struct ArticleListView: View {
         }
         .navigationTitle(appState.currentFilterName)
         .navigationSubtitle(appState.statusSubtitle ?? "")
-        .onChange(of: listSelection) { oldSelection, newSelection in
+        .onChange(of: appState.selectedArticleIds) { oldSelection, newSelection in
             handleSelectionChange(from: oldSelection, to: newSelection)
         }
         .refreshable {
@@ -85,16 +88,9 @@ struct ArticleListView: View {
 
                 // Sort menu
                 Menu {
-                    ForEach(ArticleSortOption.allCases, id: \.self) { option in
-                        Button {
-                            appState.sortOption = option
-                        } label: {
-                            HStack {
-                                if appState.sortOption == option {
-                                    Image(systemName: "checkmark")
-                                }
-                                Label(option.label, systemImage: option.iconName)
-                            }
+                    Picker("Sort", selection: $appState.sortOption) {
+                        ForEach(ArticleSortOption.allCases, id: \.self) { option in
+                            Text(option.label).tag(option)
                         }
                     }
                 } label: {
@@ -177,7 +173,7 @@ struct ArticleListView: View {
 
     private var articleList: some View {
         ScrollViewReader { proxy in
-            List(selection: $listSelection) {
+            List(selection: $appState.selectedArticleIds) {
                 ForEach(appState.groupedArticles) { group in
                     Section {
                         ForEach(group.articles) { article in
@@ -258,13 +254,15 @@ struct ArticleListView: View {
         if newSelection.count == 1, let selectedId = newSelection.first {
             let allArticles = appState.groupedArticles.flatMap { $0.articles }
             if let article = allArticles.first(where: { $0.id == selectedId }) {
+                guard appState.selectedArticle?.id != article.id else { return }
                 appState.selectedArticle = article
                 Task {
                     await appState.loadArticleDetail(for: article)
                 }
             }
-        } else if newSelection.isEmpty {
+        } else {
             appState.selectedArticle = nil
+            appState.selectedArticleDetail = nil
         }
     }
 
@@ -303,6 +301,7 @@ struct ArticleListView: View {
 
     private func markCurrentFilterRead() async throws {
         switch appState.selectedFilter {
+        case .library: return
         case .all:
             try await appState.markAllRead()
         case .unread:
@@ -376,13 +375,14 @@ struct EmptyArticlesView: View {
             SparklesIllustration()
         case .summarized, .unsummarized, .topic:
             SparklesIllustration()
-        case .feed, .savedSearch:
+        case .feed, .savedSearch, .library:
             NoArticlesIllustration()
         }
     }
 
     private var emptyTitle: String {
         switch appState.selectedFilter {
+        case .library: return "Library Empty"
         case .all:
             return appState.feeds.isEmpty ? "No Feeds" : "No Articles"
         case .unread:
@@ -408,6 +408,7 @@ struct EmptyArticlesView: View {
 
     private var emptyDescription: String {
         switch appState.selectedFilter {
+        case .library: return "Add a URL or document to read it here."
         case .all:
             return appState.feeds.isEmpty
                 ? "Add some feeds to get started."

@@ -31,7 +31,7 @@ struct ArticleRelatedLinksSection: View {
             HStack {
                 Label("Related Articles", systemImage: "link.badge.plus")
                     .font(appTypeface.font(size: fontSize.bodyFontSize + 2, weight: .semibold))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(.secondary)
 
                 Spacer()
 
@@ -47,7 +47,7 @@ struct ArticleRelatedLinksSection: View {
             }
         }
         .padding()
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: 8))
     }
 
     @ViewBuilder

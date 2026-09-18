@@ -87,8 +87,9 @@ async def list_standalone_items(
     user_id: Annotated[int, Depends(get_current_user)],
     content_type: str | None = None,
     bookmarked_only: bool = False,
-    limit: int = Query(default=100, le=500),
-    offset: int = 0
+    limit: int = Query(default=100, ge=1, le=500),
+    offset: int = Query(default=0, ge=0),
+    search: str | None = Query(default=None, max_length=500)
 ) -> StandaloneListResponse:
     """List all standalone items in the library."""
     items = db.get_standalone_items(
@@ -96,7 +97,8 @@ async def list_standalone_items(
         content_type=content_type,
         bookmarked_only=bookmarked_only,
         limit=limit,
-        offset=offset
+        offset=offset,
+        search=search
     )
     total = db.get_standalone_count(user_id)
     return StandaloneListResponse(

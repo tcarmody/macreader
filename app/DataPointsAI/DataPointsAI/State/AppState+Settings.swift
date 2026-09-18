@@ -114,23 +114,26 @@ extension AppState {
 
     /// Increases the article font size if possible
     func increaseFontSize() {
-        if let larger = settings.articleFontSize.larger {
-            settings.articleFontSize = larger
+        if let larger = (readerModeEnabled ? settings.readerModeFontSize : settings.articleFontSize).larger {
+            if readerModeEnabled { settings.readerModeFontSize = larger }
+            else { settings.articleFontSize = larger }
             saveLocalSettings()
         }
     }
 
     /// Decreases the article font size if possible
     func decreaseFontSize() {
-        if let smaller = settings.articleFontSize.smaller {
-            settings.articleFontSize = smaller
+        if let smaller = (readerModeEnabled ? settings.readerModeFontSize : settings.articleFontSize).smaller {
+            if readerModeEnabled { settings.readerModeFontSize = smaller }
+            else { settings.articleFontSize = smaller }
             saveLocalSettings()
         }
     }
 
     /// Resets the article font size to the default (medium)
     func resetFontSize() {
-        settings.articleFontSize = .medium
+        if readerModeEnabled { settings.readerModeFontSize = .medium }
+        else { settings.articleFontSize = .medium }
         saveLocalSettings()
     }
 

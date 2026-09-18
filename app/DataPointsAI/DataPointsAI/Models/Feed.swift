@@ -118,6 +118,7 @@ struct FeedTransfer: Codable, Transferable {
 
 /// Filter options for article list
 enum ArticleFilter: Hashable, Codable {
+    case library
     case all
     case unread
     case today
@@ -138,6 +139,7 @@ enum ArticleFilter: Hashable, Codable {
         let container = try decoder.container(keyedBy: CodingKeys.self)
         let type = try container.decode(String.self, forKey: .type)
         switch type {
+        case "library": self = .library
         case "all": self = .all
         case "unread": self = .unread
         case "today": self = .today
@@ -163,6 +165,7 @@ enum ArticleFilter: Hashable, Codable {
     func encode(to encoder: Encoder) throws {
         var container = encoder.container(keyedBy: CodingKeys.self)
         switch self {
+        case .library: try container.encode("library", forKey: .type)
         case .all: try container.encode("all", forKey: .type)
         case .unread: try container.encode("unread", forKey: .type)
         case .today: try container.encode("today", forKey: .type)
@@ -186,6 +189,7 @@ enum ArticleFilter: Hashable, Codable {
 
     var displayName: String {
         switch self {
+        case .library: return "Library"
         case .all: return "All Articles"
         case .unread: return "Unread"
         case .today: return "Today"
@@ -201,6 +205,7 @@ enum ArticleFilter: Hashable, Codable {
 
     var systemImage: String {
         switch self {
+        case .library: return "books.vertical"
         case .all: return "tray.full"
         case .unread: return "circle.fill"
         case .today: return "sun.max.fill"

@@ -44,7 +44,7 @@ struct ArticleChatSection: View {
                 }
             }
         }
-        .background(.thinMaterial, in: RoundedRectangle(cornerRadius: 8))
+        .background(Color.primary.opacity(0.03), in: RoundedRectangle(cornerRadius: 8))
         .overlay(
             RoundedRectangle(cornerRadius: 8)
                 .strokeBorder(Color(.separatorColor), lineWidth: 1)
@@ -86,7 +86,7 @@ struct ArticleChatSection: View {
             HStack {
                 Label(headerLabel, systemImage: "message")
                     .font(appTypeface.font(size: fontSize.bodyFontSize, weight: .semibold))
-                    .foregroundStyle(.blue)
+                    .foregroundStyle(.secondary)
 
                 if hasChat {
                     Text("\(messages.count) messages")

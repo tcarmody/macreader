@@ -19,6 +19,35 @@ class ArticleScrollState: ObservableObject {
 
     /// Observer for scroll position changes
     private var scrollObserver: NSObjectProtocol?
+    private var pendingOffset: CGFloat?
+
+    var offset: CGFloat { scrollView?.contentView.bounds.origin.y ?? 0 }
+
+    func attach(_ view: NSScrollView) {
+        if scrollView !== view {
+            stopObservingScroll()
+            scrollView = view
+            scrollProgress = 0
+        }
+        startObservingScroll()
+        updateScrollProgress()
+        finishRestoringOffset()
+    }
+
+    func restoreOffset(_ offset: CGFloat) {
+        pendingOffset = offset
+        DispatchQueue.main.async { [weak self] in self?.finishRestoringOffset() }
+    }
+
+    func finishRestoringOffset() {
+        guard let target = pendingOffset, let view = scrollView,
+              let document = view.documentView else { return }
+        let maximum = max(0, document.frame.height - view.contentView.bounds.height)
+        view.contentView.scroll(to: NSPoint(x: 0, y: min(target, maximum)))
+        view.reflectScrolledClipView(view.contentView)
+        if maximum >= target { pendingOffset = nil }
+        updateScrollProgress()
+    }
 
     /// Whether we can scroll down (content below visible area)
     var canScrollDown: Bool {
@@ -45,6 +74,7 @@ class ArticleScrollState: ObservableObject {
 
     /// Scroll down by one page using NSScrollView's built-in method
     func scrollDown() {
+        pendingOffset = nil
         guard let scrollView = scrollView else {
             print("scrollDown: No scroll view!")
             return
@@ -56,6 +86,7 @@ class ArticleScrollState: ObservableObject {
 
     /// Scroll up by one page using NSScrollView's built-in method
     func scrollUp() {
+        pendingOffset = nil
         guard let scrollView = scrollView else {
             print("scrollUp: No scroll view!")
             return
@@ -73,11 +104,11 @@ class ArticleScrollState: ObservableObject {
 
     /// Start observing scroll position changes
     func startObservingScroll() {
-        guard scrollObserver == nil else { return }
+        guard scrollObserver == nil, let scrollView else { return }
 
         scrollObserver = NotificationCenter.default.addObserver(
             forName: NSView.boundsDidChangeNotification,
-            object: scrollView?.contentView,
+            object: scrollView.contentView,
             queue: .main
         ) { [weak self] _ in
             Task { @MainActor [weak self] in
@@ -86,7 +117,7 @@ class ArticleScrollState: ObservableObject {
         }
 
         // Enable bounds change notifications
-        scrollView?.contentView.postsBoundsChangedNotifications = true
+        scrollView.contentView.postsBoundsChangedNotifications = true
     }
 
     /// Stop observing scroll position
@@ -150,7 +181,7 @@ struct ScrollViewAccessor: NSViewRepresentable {
         var current: NSView? = view
         while let v = current {
             if let scrollView = v as? NSScrollView {
-                scrollState.scrollView = scrollView
+                scrollState.attach(scrollView)
                 return
             }
             current = v.superview

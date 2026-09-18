@@ -12,6 +12,14 @@ enum ArticleTheme: String, Codable, CaseIterable, Sendable {
     case ocean = "ocean"
     case midnight = "midnight"
 
+    var preferredColorScheme: ColorScheme? {
+        switch self {
+        case .auto: return nil
+        case .manuscript, .forest, .ocean: return .light
+        case .noir, .ember, .midnight: return .dark
+        }
+    }
+
     var label: String {
         switch self {
         case .auto: return "Auto"

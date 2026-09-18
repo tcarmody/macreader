@@ -8,10 +8,13 @@ struct MainView: View {
     @State private var searchTask: Task<Void, Never>? = nil
     @StateObject private var keyboardManager = KeyboardShortcutManager.shared
     @StateObject private var articleScrollState = ArticleScrollState()
+    @State private var keyboardMonitor: Any?
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
 
     var body: some View {
         NavigationSplitView(columnVisibility: $columnVisibility) {
             FeedListView()
+                .navigationSplitViewColumnWidth(min: 220, ideal: 240, max: 320)
         } content: {
             if appState.showLibrary {
                 LibraryView()
@@ -22,7 +25,7 @@ struct MainView: View {
         } detail: {
             if appState.showLibrary {
                 // Library items use their own detail view
-                LibraryItemDetailView()
+                LibraryItemDetailView(scrollState: articleScrollState)
             } else {
                 // Both RSS feeds and newsletters use ArticleDetailView
                 // (newsletters are now stored as regular articles in feeds)
@@ -30,7 +33,7 @@ struct MainView: View {
             }
         }
         .navigationSplitViewStyle(.balanced)
-        .searchable(text: $appState.searchQuery, prompt: "Search articles (press / to focus)")
+        .searchable(text: $appState.searchQuery, prompt: appState.showLibrary ? "Search Library" : "Search Articles")
         .focused($isSearchFocused)
         .onChange(of: appState.searchQuery) { _, newValue in
             // Cancel any in-flight search before starting a new one.
@@ -98,16 +101,28 @@ struct MainView: View {
         .onAppear {
             setupKeyboardMonitor()
         }
+        .onDisappear {
+            if let keyboardMonitor { NSEvent.removeMonitor(keyboardMonitor) }
+            keyboardMonitor = nil
+            searchTask?.cancel()
+        }
+        .onChange(of: appState.showLibrary) { _, _ in
+            searchTask?.cancel()
+            appState.pendingDetailTab = nil
+            if !appState.showLibrary && !appState.searchQuery.isEmpty {
+                searchTask = Task { await appState.search(query: appState.searchQuery) }
+            }
+        }
         .onChange(of: appState.selectedFilter) { _, _ in
             appState.saveWindowState()
         }
         .onChange(of: appState.readerModeEnabled) { _, isEnabled in
-            withAnimation(.easeInOut(duration: 0.25)) {
-                columnVisibility = isEnabled ? .detailOnly : .all
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) {
+                columnVisibility = isEnabled ? .detailOnly : (appState.sidebarVisible ? .all : .doubleColumn)
             }
         }
         .onChange(of: appState.sidebarVisible) { _, isVisible in
-            withAnimation(.easeInOut(duration: 0.25)) {
+            withAnimation(reduceMotion ? nil : .easeInOut(duration: 0.25)) {
                 if appState.readerModeEnabled {
                     // Don't override reader mode
                     return
@@ -118,65 +133,23 @@ struct MainView: View {
     }
 
     private func setupKeyboardMonitor() {
-        NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
-            // Don't intercept if a text field is focused
-            if let window = NSApp.keyWindow,
-               let firstResponder = window.firstResponder,
-               firstResponder is NSTextView {
-                // Check if this is the search field
-                if event.charactersIgnoringModifiers == "\u{1B}" {
-                    // Escape pressed - blur search
-                    Task { @MainActor in
-                        isSearchFocused = false
-                        appState.searchQuery = ""
-                    }
-                    return nil
-                }
-                return event
-            }
-
+        guard keyboardMonitor == nil else { return }
+        keyboardMonitor = NSEvent.addLocalMonitorForEvents(matching: .keyDown) { event in
+            guard let window = NSApp.keyWindow, window.attachedSheet == nil else { return event }
+            // Text input, selection, and editing retain the platform's key behavior.
+            if let textView = window.firstResponder as? NSTextView, textView.isEditable { return event }
+            if let responder = window.firstResponder,
+               String(describing: type(of: responder)).contains("WK") { return event }
             if let action = keyboardManager.processKeyEvent(event) {
-                // Special handling for scroll actions
                 if action == .scrollDown {
-                    let canScroll = articleScrollState.canScrollDown
-                    print("Space pressed - canScrollDown: \(canScroll), hasScrollView: \(articleScrollState.scrollView != nil)")
-                    if appState.selectedArticleDetail == nil {
-                        // No article selected, navigate to first
-                        print("  -> No article selected, going to next")
-                        Task { @MainActor in
-                            await handleKeyboardAction(.nextArticle)
-                        }
-                    } else if canScroll {
-                        // Scroll down within the article
-                        print("  -> Scrolling down (pageDown)")
-                        articleScrollState.scrollDown()
-                    } else {
-                        // At bottom of article, navigate to next
-                        print("  -> At bottom, going to next article")
-                        Task { @MainActor in
-                            await handleKeyboardAction(.nextArticle)
-                        }
-                    }
-                    return nil // Always consume space bar
+                    if articleScrollState.canScrollDown { articleScrollState.scrollDown() }
+                    else { Task { await handleKeyboardAction(.nextArticle) } }
+                } else if action == .scrollUp {
+                    articleScrollState.scrollUp()
+                } else {
+                    Task { await handleKeyboardAction(action) }
                 }
-
-                if action == .scrollUp {
-                    let canScroll = articleScrollState.canScrollUp
-                    print("Shift+Space pressed - canScrollUp: \(canScroll)")
-                    if appState.selectedArticleDetail != nil && canScroll {
-                        // Scroll up within the article
-                        print("  -> Scrolling up (pageUp)")
-                        articleScrollState.scrollUp()
-                    } else {
-                        print("  -> At top or no article, not scrolling")
-                    }
-                    return nil // Consume shift+space
-                }
-
-                Task { @MainActor in
-                    await handleKeyboardAction(action)
-                }
-                return nil // Consume the event
+                return nil
             }
             return event
         }
@@ -184,6 +157,10 @@ struct MainView: View {
 
     @MainActor
     private func handleKeyboardAction(_ action: KeyboardAction) async {
+        if appState.showLibrary {
+            await handleLibraryKeyboardAction(action)
+            return
+        }
         switch action {
         case .nextArticle:
             navigateToArticle(direction: .next)
@@ -252,6 +229,50 @@ struct MainView: View {
 
         case .toggleReaderMode:
             appState.readerModeEnabled.toggle()
+        }
+    }
+
+    @MainActor
+    private func handleLibraryKeyboardAction(_ action: KeyboardAction) async {
+        let items = appState.visibleLibraryItems
+        let current = items.firstIndex { $0.id == appState.selectedLibraryItem?.id }
+        func select(_ index: Int) {
+            guard items.indices.contains(index) else { return }
+            appState.setLibrarySelection([items[index].id])
+        }
+        switch action {
+        case .nextArticle: select(min((current ?? -1) + 1, items.count - 1))
+        case .previousArticle: select(max((current ?? items.count) - 1, 0))
+        case .goToTop: select(0)
+        case .goToBottom: select(items.count - 1)
+        case .nextUnread:
+            let start = (current ?? -1) + 1
+            let indices = Array(items.indices.dropFirst(start)) + Array(items.indices.prefix(start))
+            if let index = indices.first(where: { !items[$0].isRead }) { select(index) }
+        case .openArticle:
+            if let item = appState.selectedLibraryItem { await appState.loadLibraryItemDetail(for: item) }
+        case .openInBrowser:
+            if let item = appState.selectedLibraryItem, item.type == .url { NSWorkspace.shared.open(item.url) }
+        case .toggleRead, .markAsUnread:
+            let ids = appState.selectedLibraryItemIds
+            let markRead = action == .toggleRead && !(appState.selectedLibraryItem?.isRead ?? false)
+            await appState.markLibraryItemsRead(ids: ids, isRead: markRead)
+        case .toggleBookmark:
+            if let item = appState.selectedLibraryItem {
+                do { try await appState.toggleLibraryItemBookmark(itemId: item.id) }
+                catch { appState.error = error.localizedDescription }
+            }
+        case .markAllRead: await appState.markLibraryItemsRead(ids: Set(items.map(\.id)), isRead: true)
+        case .refresh: await appState.loadLibraryItems()
+        case .escape:
+            isSearchFocused = false
+            appState.searchQuery = ""
+            appState.setLibrarySelection([])
+        case .focusSearch: isSearchFocused = true
+        case .toggleReaderMode: appState.readerModeEnabled.toggle()
+        case .collapseAllFolders: appState.collapseAllCategories()
+        case .expandAllFolders: appState.expandAllCategories()
+        case .scrollDown, .scrollUp: break
         }
     }
 

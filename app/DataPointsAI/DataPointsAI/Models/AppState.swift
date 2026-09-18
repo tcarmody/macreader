@@ -76,6 +76,14 @@ class AppState: ObservableObject {
     // article loads. Used by the article-row context menu to open an article
     // directly on a specific tab (e.g. Chat, Related, AI Summary).
     @Published var pendingDetailTab: DetailTab?
+    @Published var pendingReaderCommand: ReaderCommand?
+
+    var activeReaderItem: ReaderItem? {
+        if showLibrary { return selectedLibraryItemDetail.map(ReaderItem.init(libraryItem:)) }
+        return selectedArticleDetail.map { article in
+            ReaderItem(article: article, source: feeds.first { $0.id == article.feedId }?.name ?? "Article")
+        }
+    }
 
     // Pagination state
     @Published var isLoadingMore: Bool = false
@@ -103,6 +111,13 @@ class AppState: ObservableObject {
     // Library state
     @Published var libraryItems: [LibraryItem] = []
     @Published var libraryItemCount: Int = 0
+    @Published var selectedLibraryItemIds: Set<Int> = []
+    @Published var libraryFilterType: LibraryContentType?
+    @Published var librarySortOption: ArticleSortOption = .newestFirst
+    @Published var isLoadingLibrary = false
+    @Published var isLoadingLibraryDetail = false
+    internal var libraryLoadID = UUID()
+    internal var libraryDetailLoadID = UUID()
     @Published var selectedLibraryItem: LibraryItem?
     @Published var selectedLibraryItemDetail: LibraryItemDetail?
     @Published var showAddToLibrary: Bool = false
@@ -132,6 +147,8 @@ class AppState: ObservableObject {
             return "Search: \"\(searchQuery)\""
         }
         switch selectedFilter {
+        case .library:
+            return "Library"
         case .all:
             return "All Articles"
         case .unread:
@@ -230,6 +247,8 @@ class AppState: ObservableObject {
         var result = articles
 
         switch selectedFilter {
+        case .library:
+            return []
         case .all:
             break
         case .unread:
@@ -322,8 +341,8 @@ class AppState: ObservableObject {
 
     // MARK: - Initialization
 
-    init() {
-        self.apiClient = APIClient()
+    init(apiClient: APIClient? = nil) {
+        self.apiClient = apiClient ?? APIClient()
         self.server = PythonServer()
 
         loadLocalSettings()

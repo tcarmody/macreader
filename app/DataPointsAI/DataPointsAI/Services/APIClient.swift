@@ -9,20 +9,23 @@ final class APIClient {
 
     /// The hosted backend that both this app and the web app share. Featuring,
     /// reading state, etc. all write here so they're visible to every user.
-    static let defaultBaseURL = URL(string: "https://macreader-production.up.railway.app")!
+    nonisolated static let defaultBaseURL = URL(string: "https://macreader-production.up.railway.app")!
 
     /// - Parameters:
     ///   - baseURL: backend to talk to (defaults to the shared hosted backend).
     ///   - apiKey: the shared `AUTH_API_KEY`; attached as `X-API-Key` on every
     ///     request. Defaults to the value stored in the Keychain.
-    init(baseURL: URL = APIClient.defaultBaseURL,
-         apiKey: String? = KeychainService.shared.backendAPIKey()) {
+    convenience init(baseURL: URL = APIClient.defaultBaseURL) {
+        self.init(baseURL: baseURL, apiKey: KeychainService.shared.backendAPIKey())
+    }
+
+    init(baseURL: URL = APIClient.defaultBaseURL, apiKey: String?, session: URLSession? = nil) {
         self.baseURL = baseURL
         let config = URLSessionConfiguration.default
         if let apiKey, !apiKey.isEmpty {
             config.httpAdditionalHeaders = ["X-API-Key": apiKey]
         }
-        self.session = URLSession(configuration: config)
+        self.session = session ?? URLSession(configuration: config)
     }
 
     // MARK: - Health
@@ -333,10 +336,13 @@ final class APIClient {
     func getLibraryItems(
         contentType: String? = nil,
         bookmarkedOnly: Bool = false,
-        limit: Int = 100
+        limit: Int = 100,
+        offset: Int = 0,
+        search: String? = nil
     ) async throws -> LibraryListResponse {
         var queryItems: [URLQueryItem] = [
-            URLQueryItem(name: "limit", value: String(limit))
+            URLQueryItem(name: "limit", value: String(limit)),
+            URLQueryItem(name: "offset", value: String(offset))
         ]
 
         if let contentType = contentType {
@@ -344,6 +350,10 @@ final class APIClient {
         }
         if bookmarkedOnly {
             queryItems.append(URLQueryItem(name: "bookmarked_only", value: "true"))
+        }
+
+        if let search, !search.isEmpty {
+            queryItems.append(URLQueryItem(name: "search", value: search))
         }
 
         return try await get(path: "/standalone", queryItems: queryItems)

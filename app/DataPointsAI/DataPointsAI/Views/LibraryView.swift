@@ -1,284 +1,149 @@
 import SwiftUI
 
-/// Middle pane: library items list
 struct LibraryView: View {
     @EnvironmentObject var appState: AppState
-    @State private var listSelection: Set<LibraryItem.ID> = []
-    @State private var filterType: String? = nil
+    @State private var deleteIDs: Set<Int> = []
+    @State private var showDelete = false
 
     var body: some View {
-        Group {
-            if appState.isLoading && appState.libraryItems.isEmpty {
-                ProgressView("Loading library...")
-            } else if filteredItems.isEmpty {
-                EmptyLibraryView()
-            } else {
-                libraryList
+        VStack(spacing: 0) {
+            if !appState.searchQuery.isEmpty || appState.libraryFilterType != nil {
+                HStack {
+                    Text("\(appState.visibleLibraryItems.count) results in Library")
+                    Spacer()
+                    Button("Clear Filters") {
+                        appState.searchQuery = ""
+                        appState.libraryFilterType = nil
+                    }.buttonStyle(.borderless)
+                }
+                .font(.caption).foregroundStyle(.secondary).padding(10).background(.bar)
             }
+            Group {
+                if appState.isLoadingLibrary {
+                    ProgressView("Loading library…")
+                } else if appState.visibleLibraryItems.isEmpty {
+                    emptyView
+                } else {
+                    ScrollViewReader { proxy in
+                        List(selection: $appState.selectedLibraryItemIds) {
+                            ForEach(appState.visibleLibraryItems) { item in
+                                ReaderRow(title: item.displayName, source: item.type == .url ? (item.url.host ?? "URL") : item.type.label,
+                                    sourceSymbol: item.type.iconName, time: item.timeAgo, preview: item.summaryShort,
+                                    isRead: item.isRead, isBookmarked: item.isBookmarked, hasSummary: item.summaryShort != nil)
+                                    .tag(item.id).id(item.id)
+                                    .contextMenu { contextMenu(item) }
+                            }
+                        }
+                        .listStyle(.inset)
+                        .onChange(of: appState.selectedLibraryItem?.id) { _, id in
+                            if let id { proxy.scrollTo(id) }
+                        }
+                    }
+                }
+            }.frame(maxWidth: .infinity, maxHeight: .infinity)
         }
         .navigationTitle("Library")
-        .onChange(of: listSelection) { oldSelection, newSelection in
-            handleSelectionChange(from: oldSelection, to: newSelection)
+        .navigationSubtitle(appState.statusSubtitle ?? "")
+        .refreshable { await appState.loadLibraryItems() }
+        .onChange(of: appState.selectedLibraryItemIds) { _, ids in appState.setLibrarySelection(ids) }
+        .onChange(of: appState.libraryFilterType) { _, _ in
+            appState.selectedLibraryItemIds.formIntersection(Set(appState.visibleLibraryItems.map(\.id)))
         }
+        .onAppear { appState.setLibrarySelection(appState.selectedLibraryItemIds) }
         .toolbar {
             ToolbarItemGroup {
-                // Filter by type
-                Menu {
+                if appState.selectedLibraryItemIds.count > 1 {
                     Button {
-                        filterType = nil
-                    } label: {
-                        HStack {
-                            if filterType == nil {
-                                Image(systemName: "checkmark")
-                            }
-                            Text("All Types")
+                        Task { await appState.markLibraryItemsRead(ids: appState.selectedLibraryItemIds, isRead: true) }
+                    } label: { Label("Mark Selected as Read", systemImage: "envelope.open") }
+                        .helpLabel("Mark \(appState.selectedLibraryItemIds.count) Items as Read")
+                }
+                Menu {
+                    Picker("Type", selection: $appState.libraryFilterType) {
+                        Text("All Types").tag(nil as LibraryContentType?)
+                        ForEach(LibraryContentType.allCases, id: \.self) { type in
+                            Label(type.label, systemImage: type.iconName).tag(Optional(type))
                         }
                     }
-
+                } label: { Label("Filter", systemImage: appState.libraryFilterType == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill") }
+                    .helpLabel("Filter by Type")
+                Menu {
+                    Picker("Sort", selection: $appState.librarySortOption) {
+                        ForEach(ArticleSortOption.allCases, id: \.self) { option in Text(option.label).tag(option) }
+                    }
+                } label: { Label("Sort", systemImage: "arrow.up.arrow.down.circle") }
+                    .helpLabel("Sort: \(appState.librarySortOption.label)")
+                Menu {
+                    Button("Select All") { appState.selectedLibraryItemIds = Set(appState.visibleLibraryItems.map(\.id)) }
+                        .keyboardShortcut("a", modifiers: .command)
+                    Button("Clear Selection") { appState.selectedLibraryItemIds.removeAll() }
+                        .disabled(appState.selectedLibraryItemIds.isEmpty)
+                    Button("Mark All as Read") {
+                        Task { await appState.markLibraryItemsRead(ids: Set(appState.visibleLibraryItems.map(\.id)), isRead: true) }
+                    }
                     Divider()
-
-                    ForEach(LibraryContentType.allCases, id: \.self) { type in
-                        Button {
-                            filterType = type.rawValue
-                        } label: {
-                            HStack {
-                                if filterType == type.rawValue {
-                                    Image(systemName: "checkmark")
-                                }
-                                Label(type.label, systemImage: type.iconName)
-                            }
-                        }
-                    }
-                } label: {
-                    Label("Filter by Type", systemImage: filterType != nil ? "line.3.horizontal.decrease.circle.fill" : "line.3.horizontal.decrease.circle")
+                    Button("Delete Selected…", role: .destructive) {
+                        deleteIDs = appState.selectedLibraryItemIds
+                        showDelete = true
+                    }.disabled(appState.selectedLibraryItemIds.isEmpty)
+                } label: { Label("Library Actions", systemImage: "ellipsis.circle") }.helpLabel("Library Actions")
+                Button { appState.showAddToLibrary = true } label: { Label("Add to Library", systemImage: "plus") }
+                    .helpLabel("Add to Library")
+            }
+        }
+        .alert("Delete \(deleteIDs.count) Library Items?", isPresented: $showDelete) {
+            Button("Cancel", role: .cancel) {}
+            Button("Delete", role: .destructive) {
+                let ids = deleteIDs
+                Task {
+                    do { for id in ids { try await appState.deleteLibraryItem(itemId: id) } }
+                    catch { appState.error = error.localizedDescription }
                 }
-                .helpLabel(filterType != nil ? "Filtering by \(LibraryContentType(rawValue: filterType!)?.label ?? "")" : "Filter by Type")
+            }
+        } message: { Text("Their saved content will be deleted.") }
+    }
 
-                // Add to library button
-                Button {
-                    appState.showAddToLibrary = true
-                } label: {
-                    Label("Add to Library", systemImage: "plus")
-                }
-                .helpLabel("Add to Library")
+    private var emptyView: some View {
+        ContentUnavailableView {
+            Label(appState.libraryItemCount == 0 ? "Library Empty" : "No Matching Items", systemImage: "books.vertical")
+        } description: {
+            Text(appState.libraryItemCount == 0 ? "Add a URL or document to read it here." : "Try another search or content type.")
+        } actions: {
+            if appState.libraryItemCount == 0 {
+                Button("Add to Library") { appState.showAddToLibrary = true }
+            } else {
+                Button("Clear Filters") { appState.searchQuery = ""; appState.libraryFilterType = nil }
             }
         }
     }
 
-    private var filteredItems: [LibraryItem] {
-        if let type = filterType {
-            return appState.libraryItems.filter { $0.contentType == type }
+    @ViewBuilder private func contextMenu(_ item: LibraryItem) -> some View {
+        let ids = appState.selectedLibraryItemIds.contains(item.id) ? appState.selectedLibraryItemIds : [item.id]
+        Button(ids.count > 1 ? "Mark \(ids.count) as Read" : item.isRead ? "Mark as Unread" : "Mark as Read") {
+            Task { await appState.markLibraryItemsRead(ids: ids, isRead: ids.count > 1 || !item.isRead) }
         }
-        return appState.libraryItems
-    }
-
-    private var libraryList: some View {
-        List(selection: $listSelection) {
-            ForEach(filteredItems) { item in
-                LibraryItemRow(item: item)
-                    .tag(item.id)
-                    .contextMenu {
-                        itemContextMenu(for: item)
-                    }
+        if ids.count > 1 {
+            Button("Mark \(ids.count) as Unread") {
+                Task { await appState.markLibraryItemsRead(ids: ids, isRead: false) }
             }
-        }
-        .listStyle(.inset)
-    }
-
-    private func handleSelectionChange(from oldSelection: Set<LibraryItem.ID>, to newSelection: Set<LibraryItem.ID>) {
-        // If exactly one item is selected, load its detail
-        if newSelection.count == 1, let selectedId = newSelection.first {
-            if let item = appState.libraryItems.first(where: { $0.id == selectedId }) {
-                appState.selectedLibraryItem = item
+        } else {
+            Button(item.isBookmarked ? "Remove Bookmark" : "Bookmark", systemImage: "bookmark") {
+                Task {
+                    do { try await appState.toggleLibraryItemBookmark(itemId: item.id) }
+                    catch { appState.error = error.localizedDescription }
+                }
+            }
+            Button("Summary", systemImage: "sparkles") {
                 Task {
                     await appState.loadLibraryItemDetail(for: item)
+                    if appState.selectedLibraryItemDetail?.id == item.id { appState.pendingDetailTab = .ai }
                 }
             }
-        } else if newSelection.isEmpty {
-            appState.selectedLibraryItem = nil
-        }
-    }
-
-    @ViewBuilder
-    private func itemContextMenu(for item: LibraryItem) -> some View {
-        Button {
-            Task {
-                try? await appState.toggleLibraryItemBookmark(itemId: item.id)
+            if item.type == .url {
+                Button("Open in Browser", systemImage: "safari") { NSWorkspace.shared.open(item.url) }
             }
-        } label: {
-            Label(item.isBookmarked ? "Remove Bookmark" : "Bookmark", systemImage: item.isBookmarked ? "star.fill" : "star")
         }
-
-        Button {
-            Task {
-                try? await appState.markLibraryItemRead(itemId: item.id, isRead: !item.isRead)
-            }
-        } label: {
-            Label(item.isRead ? "Mark as Unread" : "Mark as Read", systemImage: item.isRead ? "envelope.badge" : "envelope.open")
-        }
-
         Divider()
-
-        Button {
-            Task {
-                try? await appState.summarizeLibraryItem(itemId: item.id)
-            }
-        } label: {
-            Label("Summarize", systemImage: "sparkles")
-        }
-
-        Divider()
-
-        Button(role: .destructive) {
-            Task {
-                try? await appState.deleteLibraryItem(itemId: item.id)
-            }
-        } label: {
-            Label("Delete", systemImage: "trash")
-        }
+        Button("Delete…", role: .destructive) { deleteIDs = ids; showDelete = true }
     }
 }
-
-/// Row for a library item
-struct LibraryItemRow: View {
-    let item: LibraryItem
-    @EnvironmentObject var appState: AppState
-
-    var body: some View {
-        HStack(spacing: 12) {
-            // Type icon
-            Image(systemName: item.type.iconName)
-                .font(.title2)
-                .foregroundStyle(item.isRead ? Color.secondary : Color.accentColor)
-                .frame(width: 28)
-
-            VStack(alignment: .leading, spacing: 4) {
-                // Title
-                Text(item.displayName)
-                    .font(appState.settings.listDensity == .compact ? .subheadline : .headline)
-                    .fontWeight(item.isRead ? .regular : .semibold)
-                    .foregroundStyle(item.isRead ? .secondary : .primary)
-                    .lineLimit(appState.settings.listDensity == .compact ? 1 : 2)
-
-                // Summary preview if available
-                if let summary = item.summaryShort, !summary.isEmpty {
-                    Text(summary)
-                        .font(.caption)
-                        .foregroundStyle(.secondary)
-                        .lineLimit(appState.settings.listDensity == .compact ? 1 : 2)
-                }
-
-                // Metadata row
-                HStack(spacing: 8) {
-                    Text(item.type.label)
-                        .font(.caption2)
-                        .foregroundStyle(.white)
-                        .padding(.horizontal, 6)
-                        .padding(.vertical, 2)
-                        .background(Color.accentColor.opacity(0.8), in: Capsule())
-
-                    Text(item.timeAgo)
-                        .font(.caption2)
-                        .foregroundStyle(.tertiary)
-
-                    if item.isBookmarked {
-                        Image(systemName: "star.fill")
-                            .font(.caption2)
-                            .foregroundStyle(.yellow)
-                    }
-
-                    if item.summaryShort != nil {
-                        Image(systemName: "sparkles")
-                            .font(.caption2)
-                            .foregroundStyle(.purple)
-                    }
-                }
-            }
-
-            Spacer()
-        }
-        .padding(.vertical, appState.settings.listDensity == .compact ? 4 : 8)
-        .contentShape(Rectangle())
-        .accessibilityElement(children: .combine)
-        .accessibilityLabel(accessibilityRowLabel)
-    }
-
-    private var accessibilityRowLabel: String {
-        var parts: [String] = [item.displayName, item.type.label, item.timeAgo]
-        parts.append(item.isRead ? "Read" : "Unread")
-        if item.isBookmarked { parts.append("Bookmarked") }
-        if item.summaryShort != nil { parts.append("has summary") }
-        return parts.joined(separator: ", ")
-    }
-}
-
-/// Empty state for library with custom illustration
-struct EmptyLibraryView: View {
-    @EnvironmentObject var appState: AppState
-
-    var body: some View {
-        VStack(spacing: 24) {
-            // Library illustration
-            ZStack {
-                Circle()
-                    .fill(Color.indigo.opacity(0.1))
-                    .frame(width: 120, height: 120)
-
-                // Stack of books
-                HStack(spacing: 3) {
-                    ForEach(0..<3, id: \.self) { i in
-                        RoundedRectangle(cornerRadius: 2)
-                            .fill(bookColor(for: i))
-                            .frame(width: 12, height: 50 - CGFloat(i * 5))
-                    }
-                }
-
-                // Bookshelf
-                RoundedRectangle(cornerRadius: 2)
-                    .fill(Color.brown.opacity(0.4))
-                    .frame(width: 60, height: 4)
-                    .offset(y: 27)
-
-                // Plus badge
-                Image(systemName: "plus.circle.fill")
-                    .font(.system(size: 24))
-                    .foregroundStyle(.indigo)
-                    .offset(x: 35, y: 25)
-            }
-
-            VStack(spacing: 8) {
-                Text("Library Empty")
-                    .font(.title2)
-                    .fontWeight(.semibold)
-
-                Text("Add URLs or upload files to save them for later reading and summarization.")
-                    .font(.body)
-                    .foregroundStyle(.secondary)
-                    .multilineTextAlignment(.center)
-                    .frame(maxWidth: 280)
-            }
-
-            Button {
-                appState.showAddToLibrary = true
-            } label: {
-                Label("Add to Library", systemImage: "plus")
-            }
-            .buttonStyle(.borderedProminent)
-        }
-        .frame(maxWidth: .infinity, maxHeight: .infinity)
-    }
-
-    private func bookColor(for index: Int) -> Color {
-        let colors: [Color] = [.indigo.opacity(0.6), .purple.opacity(0.5), .blue.opacity(0.5)]
-        return colors[index % colors.count]
-    }
-}
-
-// #Preview needs Xcode's macro plugin; off by default. See Scripts/README.md.
-#if PREVIEWS
-#Preview {
-    LibraryView()
-        .environmentObject(AppState())
-        .frame(width: 350)
-}
-#endif

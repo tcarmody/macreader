@@ -203,9 +203,10 @@ class Database:
         content_type: str | None = None,
         bookmarked_only: bool = False,
         limit: int = 100,
-        offset: int = 0
+        offset: int = 0,
+        search: str | None = None
     ) -> list[DBArticle]:
-        return self.library.get_all(user_id, content_type, bookmarked_only, limit, offset)
+        return self.library.get_all(user_id, content_type, bookmarked_only, limit, offset, search)
 
     def get_standalone_count(self, user_id: int) -> int:
         return self.library.get_count(user_id)

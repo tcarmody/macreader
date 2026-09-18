@@ -13,6 +13,45 @@ from backend.config import state
 from backend.fetcher import FetchResult
 
 
+class TestLibrarySearch:
+    def test_searches_body_filename_and_summary_without_leaking_other_users(self, client_with_data):
+        client, data = client_with_data
+        db = state.db
+        user = data["user_id"]
+        body = db.add_standalone_item(user, "https://example.com/body", "Body", "needle in body")
+        filename = db.add_standalone_item(user, "local://filename", "Upload", "other", "pdf", "needle.pdf")
+        summary = db.add_standalone_item(user, "https://example.com/summary", "Summary", "other")
+        db.update_summary(summary, "Brief", "needle in summary", [], "test")
+        other_user = db.users.get_or_create(email="other@example.com", name="Other", provider="google")
+        db.add_standalone_item(other_user, "https://example.com/private", "needle private", "needle")
+        response = client.get("/standalone", params={"search": "needle"})
+        assert response.status_code == 200
+        assert {item["id"] for item in response.json()["items"]} == {body, filename, summary}
+        response = client.get("/standalone", params={"search": "needle", "content_type": "pdf"})
+        assert [item["id"] for item in response.json()["items"]] == [filename]
+
+    def test_search_is_applied_before_pagination_and_terms_are_literal(self, client_with_data):
+        client, data = client_with_data
+        db = state.db
+        user = data["user_id"]
+        target = db.add_standalone_item(user, "local://target", "100% complete_report", "distinctive body")
+        for index in range(105):
+            db.add_standalone_item(user, f"local://filler/{index}", f"Filler {index}", "ordinary content")
+        response = client.get("/standalone", params={"search": "distinctive body", "limit": 1})
+        assert [item["id"] for item in response.json()["items"]] == [target]
+        for term in ("100%", "complete_", "%", "_"):
+            response = client.get("/standalone", params={"search": term})
+            assert [item["id"] for item in response.json()["items"]] == [target]
+        response = client.get("/standalone", params={"search": "Filler", "limit": 10, "offset": 10})
+        first = client.get("/standalone", params={"search": "Filler", "limit": 10})
+        assert len(response.json()["items"]) == 10
+        assert not ({item["id"] for item in first.json()["items"]} & {item["id"] for item in response.json()["items"]})
+
+    @pytest.mark.parametrize("params", [{"limit": 0}, {"offset": -1}, {"search": "x" * 501}])
+    def test_invalid_search_pagination(self, client, params):
+        assert client.get("/standalone", params=params).status_code == 422
+
+
 def make_fetch_result(url: str, title: str = "Test Article", content: str = "Some content") -> FetchResult:
     """Helper to create a mock FetchResult."""
     result = FetchResult.__new__(FetchResult)

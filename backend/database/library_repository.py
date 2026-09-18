@@ -110,7 +110,8 @@ class LibraryRepository:
         content_type: str | None = None,
         bookmarked_only: bool = False,
         limit: int = 100,
-        offset: int = 0
+        offset: int = 0,
+        search: str | None = None
     ) -> list[DBArticle]:
         """
         Get all library items for a user.
@@ -134,7 +135,15 @@ class LibraryRepository:
         if bookmarked_only:
             query += " AND is_bookmarked = 1"
 
-        query += " ORDER BY created_at DESC LIMIT ? OFFSET ?"
+        # Bind literal terms and escape LIKE metacharacters. Ownership remains
+        # part of the query, including when only body or summary text matches.
+        for term in (search or "").split():
+            pattern = "%" + term.replace("\\", "\\\\").replace("%", "\\%").replace("_", "\\_") + "%"
+            columns = ("title", "file_name", "content", "summary_short", "summary_full")
+            query += " AND (" + " OR ".join(f"{column} LIKE ? ESCAPE '\\'" for column in columns) + ")"
+            params.extend([pattern] * len(columns))
+
+        query += " ORDER BY created_at DESC, id DESC LIMIT ? OFFSET ?"
         params.extend([limit, offset])
 
         with self._db.conn() as conn:

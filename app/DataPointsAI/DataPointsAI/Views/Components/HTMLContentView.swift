@@ -31,6 +31,9 @@ struct HTMLContentView: NSViewRepresentable {
 
     func updateNSView(_ webView: WKWebView, context: Context) {
         let styledHTML = wrapHTMLWithStyles(html)
+        context.coordinator.parent = self
+        guard context.coordinator.lastHTML != styledHTML else { return }
+        context.coordinator.lastHTML = styledHTML
         webView.loadHTMLString(styledHTML, baseURL: nil)
     }
 
@@ -171,6 +174,7 @@ struct HTMLContentView: NSViewRepresentable {
 
     class Coordinator: NSObject, WKNavigationDelegate, WKScriptMessageHandler {
         var parent: HTMLContentView
+        var lastHTML: String?
 
         init(_ parent: HTMLContentView) {
             self.parent = parent

@@ -9,6 +9,7 @@ extension AppState {
         let limit = Self.articlesPageSize
 
         switch selectedFilter {
+        case .library: return []
         case .all:
             return try await apiClient.getArticles(hideDuplicates: hideDupes, limit: limit, offset: offset)
         case .unread:
@@ -82,8 +83,11 @@ extension AppState {
     }
 
     func loadArticleDetail(for article: Article) async {
+        guard !showLibrary, selectedArticle?.id == article.id else { return }
+        selectedArticleDetail = nil
         do {
             let detail = try await apiClient.getArticle(id: article.id)
+            guard !Task.isCancelled, !showLibrary, selectedArticle?.id == article.id else { return }
 
             if let content = detail.content, !content.isEmpty {
                 Task.detached {
@@ -97,7 +101,10 @@ extension AppState {
                 try await markRead(articleId: article.id)
             }
         } catch {
-            self.error = error.localizedDescription
+            if selectedArticle?.id == article.id && !error.isCancellation {
+                selectedArticle = nil
+                self.error = error.localizedDescription
+            }
         }
     }
 
@@ -181,7 +188,7 @@ extension AppState {
 
     func fetchArticleContent(articleId: Int) async throws {
         let detail = try await apiClient.fetchArticleContent(articleId: articleId)
-        selectedArticleDetail = detail
+        if selectedArticle?.id == articleId && !showLibrary { selectedArticleDetail = detail }
     }
 
     func fetchArticleContentAuthenticated(articleId: Int, url: URL) async throws {
@@ -194,7 +201,7 @@ extension AppState {
                 html: result.html,
                 url: result.finalURL.absoluteString
             )
-            selectedArticleDetail = detail
+            if selectedArticle?.id == articleId && !showLibrary { selectedArticleDetail = detail }
         } else {
             throw APIError.networkError(result.error ?? "Failed to fetch page with authentication")
         }
@@ -376,6 +383,10 @@ extension AppState {
     // MARK: - Search
 
     func search(query: String) async {
+        if showLibrary {
+            await loadLibraryItems()
+            return
+        }
         let trimmed = query.trimmingCharacters(in: .whitespacesAndNewlines)
         guard trimmed.count >= Self.minSearchQueryLength else {
             // Leaving search returns to global scope, so the next search doesn't
@@ -394,6 +405,7 @@ extension AppState {
             // A newer keystroke may have superseded us while the request was in
             // flight; that task owns the results now.
             guard !Task.isCancelled else { return }
+            guard !showLibrary, searchQuery.trimmingCharacters(in: .whitespacesAndNewlines) == trimmed else { return }
             articles = results
         } catch {
             // Editing the query cancels the in-flight request. That's the system
@@ -407,6 +419,7 @@ extension AppState {
 
     /// Navigate to the next article in the list
     func navigateToNextArticle() {
+        if showLibrary { navigateLibrary(by: 1); return }
         let allArticles = groupedArticles.flatMap { $0.articles }
         guard !allArticles.isEmpty else { return }
 
@@ -432,6 +445,7 @@ extension AppState {
 
     /// Navigate to the previous article in the list
     func navigateToPreviousArticle() {
+        if showLibrary { navigateLibrary(by: -1); return }
         let allArticles = groupedArticles.flatMap { $0.articles }
         guard !allArticles.isEmpty else { return }
 

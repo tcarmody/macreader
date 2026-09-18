@@ -6,25 +6,103 @@ import UniformTypeIdentifiers
 extension AppState {
 
     func loadLibraryItems() async {
+        let requestID = UUID()
+        libraryLoadID = requestID
+        isLoadingLibrary = true
+        defer { if libraryLoadID == requestID { isLoadingLibrary = false } }
+        let query = searchQuery.trimmingCharacters(in: .whitespacesAndNewlines)
         do {
-            let response = try await apiClient.getLibraryItems()
-            libraryItems = response.items
-            libraryItemCount = response.total
+            var items: [LibraryItem] = []
+            var offset = 0
+            while true {
+                let response = try await apiClient.getLibraryItems(limit: 500, offset: offset,
+                    search: query.count >= Self.minSearchQueryLength ? query : nil)
+                guard !Task.isCancelled, libraryLoadID == requestID else { return }
+                items.append(contentsOf: response.items)
+                libraryItemCount = response.total
+                if response.items.count < 500 { break }
+                offset += response.items.count
+            }
+            libraryItems = items
+            selectedLibraryItemIds.formIntersection(Set(visibleLibraryItems.map(\.id)))
         } catch {
-            self.error = error.localizedDescription
+            if !error.isCancellation && libraryLoadID == requestID { self.error = error.localizedDescription }
         }
     }
 
     func loadLibraryItemDetail(for item: LibraryItem) async {
+        let requestID = UUID()
+        libraryDetailLoadID = requestID
+        selectedLibraryItem = item
+        selectedLibraryItemIds = [item.id]
+        selectedLibraryItemDetail = nil
+        isLoadingLibraryDetail = true
+        defer { if libraryDetailLoadID == requestID { isLoadingLibraryDetail = false } }
         do {
-            selectedLibraryItemDetail = try await apiClient.getLibraryItem(id: item.id)
+            let detail = try await apiClient.getLibraryItem(id: item.id)
+            guard libraryDetailLoadID == requestID, selectedLibraryItem?.id == item.id,
+                  showLibrary, !Task.isCancelled else { return }
+            selectedLibraryItemDetail = detail
 
             if settings.markReadOnOpen && !item.isRead {
                 try await markLibraryItemRead(itemId: item.id)
             }
         } catch {
-            self.error = error.localizedDescription
+            if libraryDetailLoadID == requestID && !error.isCancellation {
+                selectedLibraryItem = nil
+                self.error = error.localizedDescription
+            }
         }
+    }
+
+    var visibleLibraryItems: [LibraryItem] {
+        libraryItems.filter { libraryFilterType == nil || $0.type == libraryFilterType }
+            .sorted { lhs, rhs in
+                switch librarySortOption {
+                case .newestFirst: return lhs.createdAt == rhs.createdAt ? lhs.id > rhs.id : lhs.createdAt > rhs.createdAt
+                case .oldestFirst: return lhs.createdAt == rhs.createdAt ? lhs.id < rhs.id : lhs.createdAt < rhs.createdAt
+                case .unreadFirst:
+                    if lhs.isRead != rhs.isRead { return !lhs.isRead }
+                    return lhs.createdAt == rhs.createdAt ? lhs.id > rhs.id : lhs.createdAt > rhs.createdAt
+                case .titleAZ: return lhs.displayName.localizedStandardCompare(rhs.displayName) == .orderedAscending
+                case .titleZA: return lhs.displayName.localizedStandardCompare(rhs.displayName) == .orderedDescending
+                }
+            }
+    }
+
+    func clearLibrarySelection() {
+        libraryDetailLoadID = UUID()
+        selectedLibraryItem = nil
+        selectedLibraryItemDetail = nil
+        isLoadingLibraryDetail = false
+    }
+
+    func setLibrarySelection(_ ids: Set<Int>) {
+        selectedLibraryItemIds = ids
+        guard ids.count == 1, let id = ids.first,
+              let item = libraryItems.first(where: { $0.id == id }) else {
+            clearLibrarySelection()
+            return
+        }
+        guard selectedLibraryItem?.id != id else { return }
+        Task {
+            guard selectedLibraryItemIds == [item.id], showLibrary else { return }
+            await loadLibraryItemDetail(for: item)
+        }
+    }
+
+    func navigateLibrary(by step: Int) {
+        let items = visibleLibraryItems
+        guard !items.isEmpty else { return }
+        let current = items.firstIndex { $0.id == selectedLibraryItem?.id }
+        let index = min(max((current ?? (step > 0 ? -1 : items.count)) + step, 0), items.count - 1)
+        setLibrarySelection([items[index].id])
+    }
+
+    func markLibraryItemsRead(ids: Set<Int>, isRead: Bool) async {
+        do {
+            for id in ids { try await markLibraryItemRead(itemId: id, isRead: isRead) }
+        } catch { self.error = error.localizedDescription }
     }
 
     /// Returns true if the URL already existed in the database (and was bookmarked), false if newly added.
@@ -45,6 +123,7 @@ extension AppState {
             createdAt: item.createdAt
         )
         selectedLibraryItemDetail = item
+        selectedLibraryItemIds = [item.id]
         return item.alreadyExisted
     }
 
@@ -64,12 +143,14 @@ extension AppState {
             createdAt: item.createdAt
         )
         selectedLibraryItemDetail = item
+        selectedLibraryItemIds = [item.id]
     }
 
     func deleteLibraryItem(itemId: Int) async throws {
         try await apiClient.deleteLibraryItem(id: itemId)
 
         libraryItems.removeAll { $0.id == itemId }
+        selectedLibraryItemIds.remove(itemId)
         libraryItemCount = max(0, libraryItemCount - 1)
 
         if selectedLibraryItem?.id == itemId {
@@ -84,6 +165,7 @@ extension AppState {
         if let index = libraryItems.firstIndex(where: { $0.id == itemId }) {
             libraryItems[index].isRead = isRead
         }
+        if selectedLibraryItem?.id == itemId { selectedLibraryItem?.isRead = isRead }
         if selectedLibraryItemDetail?.id == itemId {
             selectedLibraryItemDetail?.isRead = isRead
         }
@@ -95,6 +177,7 @@ extension AppState {
         if let index = libraryItems.firstIndex(where: { $0.id == itemId }) {
             libraryItems[index].isBookmarked = result.isBookmarked
         }
+        if selectedLibraryItem?.id == itemId { selectedLibraryItem?.isBookmarked = result.isBookmarked }
         if selectedLibraryItemDetail?.id == itemId {
             selectedLibraryItemDetail?.isBookmarked = result.isBookmarked
         }
@@ -167,10 +250,11 @@ extension AppState {
 
     func selectLibrary() {
         showLibrary = true
-        // Don't change selectedFilter - it triggers onChange handler which interferes
-        // with library mode. The filter is separate from library view.
+        selectedFilter = .library
         selectedArticle = nil
         selectedArticleDetail = nil
+        selectedArticleIds.removeAll()
+        pendingDetailTab = nil
         Task {
             await loadLibraryItems()
         }
@@ -178,8 +262,9 @@ extension AppState {
 
     func deselectLibrary() {
         showLibrary = false
-        selectedLibraryItem = nil
-        selectedLibraryItemDetail = nil
+        clearLibrarySelection()
+        selectedLibraryItemIds.removeAll()
+        if selectedFilter == .library { selectedFilter = .all }
     }
 
     // MARK: - File Operations

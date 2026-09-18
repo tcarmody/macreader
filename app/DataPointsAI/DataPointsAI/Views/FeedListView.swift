@@ -211,11 +211,7 @@ struct FeedListView: View {
 
             // Library (content type) — bottom of sidebar
             Section {
-                LibrarySidebarRow(isSelected: appState.showLibrary, count: appState.libraryItemCount)
-                    .contentShape(Rectangle())
-                    .onTapGesture {
-                        appState.selectLibrary()
-                    }
+                FilterRow(filter: .library, count: appState.libraryItemCount)
             }
 
         }
@@ -289,6 +285,10 @@ struct FeedListView: View {
         .onChange(of: appState.selectedFilter) { oldValue, newValue in
             // Only react to actual filter changes
             guard oldValue != newValue else { return }
+            if newValue == .library {
+                if !appState.showLibrary { appState.selectLibrary() }
+                return
+            }
 
             // If library is showing and user selects a different filter, deselect library
             if appState.showLibrary {
@@ -299,6 +299,9 @@ struct FeedListView: View {
             Task {
                 await appState.reloadArticles()
             }
+        }
+        .onAppear {
+            if appState.selectedFilter == .library && !appState.showLibrary { appState.selectLibrary() }
         }
         .alert("Delete Feeds?", isPresented: $showDeleteConfirmation) {
             Button("Cancel", role: .cancel) {

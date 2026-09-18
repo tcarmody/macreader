@@ -299,3 +299,123 @@ was no longer doing anything so collapsed it to just the `HStack`.
   flags this but the alternative (multi-select-aware row context
   menus + ⌫ key handler + Edit menu actions) is bigger than a
   smaller-batch fix. Current UX is reasonable.
+
+---
+
+## Follow-up backlog after the shared-reader pass (2026-09-18)
+
+The items below remain intentionally open after the feed/Library
+unification. They are ordered by user impact and testability.
+
+### 9. Add native search scopes for Articles and Library
+
+**Status:** ☐ open
+
+The search field now searches the active collection, but the title-bar
+search does not yet expose a native scope control. Add `.searchScopes` for
+`Articles`, `Library`, and (where useful) `All`, preserving the active scope
+when switching panes. The scope must change the query source rather than
+filtering already-returned results locally.
+
+**Acceptance:** the scope is visible in the macOS search UI, ⌘F focuses the
+same field, and changing scope never shows results from the wrong corpus.
+
+### 10. Add a first-class Library drop target
+
+**Status:** ☐ open
+
+MACUX.md calls for drag-and-drop alongside the file picker. Accept dropped
+URLs and supported documents in the Library list, show a visible drop state,
+and reuse the existing upload/add URL flows. Reject unsupported types with a
+recoverable message instead of silently ignoring them.
+
+**Acceptance:** a URL dragged from Safari and a PDF dragged from Finder both
+reach the same add flow as the corresponding menu commands; VoiceOver exposes
+the drop target and its accepted content types.
+
+### 11. Make appearance themes accessibility-aware
+
+**Status:** ☐ open
+
+The reader themes still contain fixed palette values. Add explicit Increase
+Contrast and Reduce Transparency handling, and verify every theme in light,
+dark, high-contrast, and reduced-transparency settings. Keep the system
+accent for controls and reserve theme colors for the reading canvas.
+
+**Acceptance:** text and links remain readable in all themes with Increase
+Contrast enabled; no reading surface depends on translucency for contrast.
+
+### 12. Complete VoiceOver and keyboard-focus QA for the new reader
+
+**Status:** ☐ open
+
+The unified rows and toolbars have labels, but the custom segmented reader
+tabs, status bar, empty states, and asynchronous progress states still need a
+full accessibility pass. Add hints where an action has a side effect (for
+example, “opens the Summary section and starts generation”), confirm a visible
+focus ring, and ensure Tab reaches every action in reading order.
+
+**Acceptance:** VoiceOver announces the selected reader tab, loading/error
+state, source, read state, and available actions without relying on color;
+keyboard focus can reach every toolbar and tab control.
+
+### 13. Verify macOS 27 toolbar and menu behavior on a signed app
+
+**Status:** ☐ open
+
+Build and run the signed bundle on macOS 27 with the 27 SDK. Check toolbar
+overflow, menu symbol visibility, title-bar search placement, sidebar widths,
+scroll-edge behavior, dark mode, and window restoration. SwiftUI 27 changes
+menu symbol rendering, so each action must remain understandable when its
+symbol is hidden.
+
+**Acceptance:** no primary action disappears into overflow at the minimum
+window size; all menu items retain clear text labels; the app works with both
+standard and customized toolbar configurations.
+
+### 14. Persist reader state per item and restore it safely
+
+**Status:** ☐ open
+
+The reader currently resets the active section when a new item is selected.
+Persist the selected section and reading offset per article/library item with
+a bounded cache, invalidate entries when content changes, and avoid restoring
+an offset beyond the new document length.
+
+**Acceptance:** returning to an item restores its section and approximate
+position; switching users or deleting an item removes its saved state.
+
+### 15. Add a hover quick preview for dense lists
+
+**Status:** ☐ open
+
+The shared row makes scanning consistent, but users still need to select an
+item to inspect more summary text. Add an optional hover popover for pointer
+users, while keeping selection and keyboard navigation unchanged. Do not make
+the preview the only way to access content.
+
+**Acceptance:** the preview is delayed, dismisses predictably, does not steal
+keyboard focus, and is disabled or simplified for Reduce Motion / VoiceOver.
+
+### 16. Improve transient sync feedback
+
+**Status:** ☐ open
+
+The window subtitle communicates broad status, but refresh completion and new
+article counts are easy to miss. Add a subtle, non-blocking status treatment
+for “N new articles,” failed sync, and retry, with an accessible announcement
+and no permanent banner.
+
+**Acceptance:** users can tell whether refresh succeeded, failed, or added
+nothing without opening Settings or reading logs.
+
+### 17. Add interaction tests around the shared reader
+
+**Status:** ☐ open
+
+The backend Library search tests cover pagination, literal matching, and user
+isolation. Add UI-level tests once the macOS test host can initialize
+UserNotifications safely (the current command-line XCTest host crashes while
+constructing the app's global NotificationService). Cover active-tab parity,
+Library/feed keyboard routing, stale selection responses, and accessibility
+labels.
