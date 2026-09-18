@@ -15,6 +15,21 @@ import CoreSpotlight
 /// - AppState+Spotlight.swift - macOS integration (Spotlight, notifications, dock badge)
 @MainActor
 class AppState: ObservableObject {
+    enum SyncFeedback: Equatable {
+        case newArticles(Int)
+        case noChanges
+        case failed(String)
+
+        var subtitle: String {
+            switch self {
+            case .newArticles(let count):
+                let label = count == 1 ? "article" : "articles"
+                return "\(count) new \(label)"
+            case .noChanges: return "Refresh complete — no new articles"
+            case .failed(let message): return "Refresh failed — \(message). Retry"
+            }
+        }
+    }
     // MARK: - Published Properties
 
     @Published var feeds: [Feed] = []
@@ -39,6 +54,8 @@ class AppState: ObservableObject {
     @Published var lastRefreshTime: Date?
     @Published var newArticlesSinceLastCheck: Int = 0
     @Published var isSyncing: Bool = false
+    @Published var syncFeedback: SyncFeedback?
+    private var syncFeedbackTask: Task<Void, Never>?
 
     // Network state
     let networkMonitor = NetworkMonitor.shared
@@ -51,8 +68,19 @@ class AppState: ObservableObject {
         if !serverRunning { return "Connecting…" }
         if isOffline { return "Offline — reading cached articles" }
         if isSyncing { return "Refreshing feeds…" }
+        if let syncFeedback { return syncFeedback.subtitle }
         if isClusteringLoading { return "Clustering topics…" }
         return nil
+    }
+
+    func showSyncFeedback(_ feedback: SyncFeedback) {
+        syncFeedbackTask?.cancel()
+        syncFeedback = feedback
+        syncFeedbackTask = Task { [weak self] in
+            try? await Task.sleep(nanoseconds: 6_000_000_000)
+            guard !Task.isCancelled else { return }
+            self?.syncFeedback = nil
+        }
     }
 
     internal var healthCheckTask: Task<Void, Never>?

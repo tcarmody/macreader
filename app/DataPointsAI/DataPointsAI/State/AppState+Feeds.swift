@@ -56,7 +56,12 @@ extension AppState {
 
         defer { isSyncing = false }
 
-        try await apiClient.refreshFeeds()
+        do {
+            try await apiClient.refreshFeeds()
+        } catch {
+            showSyncFeedback(.failed(error.localizedDescription))
+            throw error
+        }
 
         let maxAttempts = 60
         for attempt in 0..<maxAttempts {
@@ -79,6 +84,9 @@ extension AppState {
         let newArticleCount = totalUnreadCount - previousUnreadCount
         if newArticleCount > 0 {
             newArticlesSinceLastCheck = newArticleCount
+            showSyncFeedback(.newArticles(newArticleCount))
+        } else {
+            showSyncFeedback(.noChanges)
         }
 
         // Check for smart notifications (articles matching rules)

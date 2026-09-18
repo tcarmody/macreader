@@ -398,12 +398,11 @@ keyboard focus, and is disabled or simplified for Reduce Motion / VoiceOver.
 
 ### 16. Improve transient sync feedback
 
-**Status:** ☐ open
+**Status:** ☑ implemented; live refresh verification remains
 
-The window subtitle communicates broad status, but refresh completion and new
-article counts are easy to miss. Add a subtle, non-blocking status treatment
-for “N new articles,” failed sync, and retry, with an accessible announcement
-and no permanent banner.
+The window subtitle now shows “N new articles,” successful no-change refresh,
+or a failed refresh with retry guidance. Each message expires automatically;
+no permanent banner is added.
 
 **Acceptance:** users can tell whether refresh succeeded, failed, or added
 nothing without opening Settings or reading logs.

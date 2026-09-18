@@ -33,6 +33,12 @@ final class ReaderInteractionTests: XCTestCase {
         XCTAssertNil(ReaderPositionStore.shared.restore(itemID: id, contentLength: 11))
     }
 
+    func testSyncFeedbackUsesAccessibleTransientMessages() {
+        XCTAssertEqual(AppState.SyncFeedback.newArticles(2).subtitle, "2 new articles")
+        XCTAssertEqual(AppState.SyncFeedback.noChanges.subtitle, "Refresh complete — no new articles")
+        XCTAssertTrue(AppState.SyncFeedback.failed("Network unavailable").subtitle.contains("Retry"))
+    }
+
     private func makeLibraryItem(content: String) -> LibraryItemDetail {
         LibraryItemDetail(
             id: 1, url: URL(string: "https://example.com")!, title: "Test",
