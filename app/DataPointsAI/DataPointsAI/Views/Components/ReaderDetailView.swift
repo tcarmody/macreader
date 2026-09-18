@@ -26,6 +26,7 @@ struct ReaderDetailView: View {
         appState.readerModeEnabled ? appState.settings.readerModeLineSpacing : appState.settings.articleLineSpacing
     }
     private var theme: ArticleTheme { appState.settings.articleTheme }
+    private var contentLength: Int { item.content?.utf8.count ?? 0 }
 
     var body: some View {
         VStack(spacing: 0) {
@@ -68,6 +69,8 @@ struct ReaderDetailView: View {
         .toolbar { readerToolbar }
         .onChange(of: activeTab) { oldTab, newTab in
             scrollOffsets[oldTab] = scrollState.offset
+            ReaderPositionStore.shared.save(itemID: item.id, contentLength: contentLength,
+                                            tab: newTab, offsets: scrollOffsets)
             scrollState.restoreOffset(scrollOffsets[newTab] ?? 0)
             announce("Showing \(newTab.rawValue)")
         }
@@ -88,8 +91,18 @@ struct ReaderDetailView: View {
             case .delete: showDelete = true
             }
         }
-        .onAppear { consumePendingTab() }
+        .onAppear {
+            if let saved = ReaderPositionStore.shared.restore(itemID: item.id, contentLength: contentLength) {
+                activeTab = saved.0
+                scrollOffsets = saved.1
+                scrollState.restoreOffset(scrollOffsets[activeTab] ?? 0)
+            }
+            consumePendingTab()
+        }
         .onDisappear {
+            scrollOffsets[activeTab] = scrollState.offset
+            ReaderPositionStore.shared.save(itemID: item.id, contentLength: contentLength,
+                                            tab: activeTab, offsets: scrollOffsets)
             summaryTask?.cancel()
             scrollState.stopObservingScroll()
         }

@@ -26,6 +26,13 @@ final class ReaderInteractionTests: XCTestCase {
         XCTAssertTrue(styles.contains("--code-bg: var(--bg-color)"))
     }
 
+    func testReaderPositionStoreRejectsChangedContent() {
+        let id = "test-reader-position"
+        ReaderPositionStore.shared.save(itemID: id, contentLength: 10, tab: .ai, offsets: [.ai: 140])
+        XCTAssertEqual(ReaderPositionStore.shared.restore(itemID: id, contentLength: 10)?.0, .ai)
+        XCTAssertNil(ReaderPositionStore.shared.restore(itemID: id, contentLength: 11))
+    }
+
     private func makeLibraryItem(content: String) -> LibraryItemDetail {
         LibraryItemDetail(
             id: 1, url: URL(string: "https://example.com")!, title: "Test",

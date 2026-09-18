@@ -376,12 +376,11 @@ standard and customized toolbar configurations.
 
 ### 14. Persist reader state per item and restore it safely
 
-**Status:** ☐ open
+**Status:** ☑ implemented; manual navigation verification remains
 
-The reader currently resets the active section when a new item is selected.
-Persist the selected section and reading offset per article/library item with
-a bounded cache, invalidate entries when content changes, and avoid restoring
-an offset beyond the new document length.
+The reader now persists the selected section and per-section reading offset per
+article/library item in a bounded cache, invalidates entries when content
+length changes, and clamps offsets through the existing scroll-state restore.
 
 **Acceptance:** returning to an item restores its section and approximate
 position; switching users or deleting an item removes its saved state.

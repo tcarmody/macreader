@@ -1,6 +1,61 @@
 import SwiftUI
 import Combine
 
+/// Small bounded persistence layer for reader navigation state.
+@MainActor
+final class ReaderPositionStore {
+    static let shared = ReaderPositionStore()
+    private let key = "readerPositionCache"
+    private let maxEntries = 100
+
+    private struct Entry: Codable {
+        var contentLength: Int
+        var tab: String
+        var offsets: [String: CGFloat]
+        var lastUsed: Date
+    }
+
+    private var entries: [String: Entry] = [:]
+
+    private init() { load() }
+
+    func restore(itemID: String, contentLength: Int) -> (DetailTab, [DetailTab: CGFloat])? {
+        guard let entry = entries[itemID], entry.contentLength == contentLength,
+              let tab = DetailTab(rawValue: entry.tab) else {
+            entries.removeValue(forKey: itemID)
+            persist()
+            return nil
+        }
+        entries[itemID]?.lastUsed = Date()
+        persist()
+        return (tab, Dictionary(uniqueKeysWithValues: entry.offsets.compactMap { key, value in
+            guard let tab = DetailTab(rawValue: key) else { return nil }
+            return (tab, value)
+        }))
+    }
+
+    func save(itemID: String, contentLength: Int, tab: DetailTab, offsets: [DetailTab: CGFloat]) {
+        entries[itemID] = Entry(contentLength: contentLength, tab: tab.rawValue,
+                                offsets: Dictionary(uniqueKeysWithValues: offsets.map { ($0.key.rawValue, $0.value) }),
+                                lastUsed: Date())
+        if entries.count > maxEntries {
+            entries = entries.sorted { $0.value.lastUsed > $1.value.lastUsed }
+                .prefix(maxEntries).reduce(into: [:]) { $0[$1.key] = $1.value }
+        }
+        persist()
+    }
+
+    private func load() {
+        guard let data = UserDefaults.standard.data(forKey: key),
+              let decoded = try? JSONDecoder().decode([String: Entry].self, from: data) else { return }
+        entries = decoded
+    }
+
+    private func persist() {
+        if let data = try? JSONEncoder().encode(entries) { UserDefaults.standard.set(data, forKey: key) }
+    }
+}
+
 /// Manages scroll state for the article detail view
 /// Uses ScrollViewProxy for reliable scroll-to-top and NSScrollView for page up/down
 @MainActor
