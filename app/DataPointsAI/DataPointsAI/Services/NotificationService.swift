@@ -10,10 +10,12 @@ class NotificationService: ObservableObject {
     @Published var isAuthorized: Bool = false
     @Published var authorizationStatus: UNAuthorizationStatus = .notDetermined
 
-    private init() {
-        Task {
-            await checkAuthorizationStatus()
-        }
+    /// `startMonitoring` is injectable so command-line/UI test hosts can create
+    /// the service without requiring an application bundle proxy from
+    /// UserNotifications.
+    init(startMonitoring: Bool = true) {
+        guard startMonitoring else { return }
+        Task { await checkAuthorizationStatus() }
     }
 
     // MARK: - Authorization

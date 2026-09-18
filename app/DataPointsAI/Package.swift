@@ -35,6 +35,11 @@ let package = Package(
                 .enableUpcomingFeature("InferIsolatedConformances"),
                 .enableUpcomingFeature("MemberImportVisibility"),
             ]
+        ),
+        .testTarget(
+            name: "DataPointsAITests",
+            dependencies: ["DataPointsAI"],
+            path: "DataPointsAITests"
         )
     ]
 )

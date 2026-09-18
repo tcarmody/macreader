@@ -35,6 +35,8 @@ struct ReaderDetailView: View {
             .pickerStyle(.segmented)
             .padding(.horizontal, 16)
             .padding(.vertical, 8)
+            .accessibilityLabel("Reader sections")
+            .accessibilityHint("Choose Article, Summary, Related, or Chat")
             ScrollViewReader { proxy in
                 ScrollView {
                     VStack(alignment: .leading, spacing: 24) {
@@ -42,7 +44,10 @@ struct ReaderDetailView: View {
                         ReaderHeader(item: item, fontSize: fontSize)
                         if let operationError {
                             Label(operationError, systemImage: "exclamationmark.triangle")
-                                .font(.callout).textSelection(.enabled)
+                                .font(.callout)
+                                .textSelection(.enabled)
+                                .foregroundStyle(.red)
+                                .accessibilityAddTraits(.isStaticText)
                         }
                         tabContent
                     }
@@ -64,6 +69,7 @@ struct ReaderDetailView: View {
         .onChange(of: activeTab) { oldTab, newTab in
             scrollOffsets[oldTab] = scrollState.offset
             scrollState.restoreOffset(scrollOffsets[newTab] ?? 0)
+            announce("Showing \(newTab.rawValue)")
         }
         .onChange(of: contentHeight) { _, _ in
             if activeTab == .article { scrollState.finishRestoringOffset() }
@@ -161,13 +167,27 @@ struct ReaderDetailView: View {
         }
         .font(.caption).foregroundStyle(.secondary).lineLimit(1)
         .padding(.horizontal, 12).padding(.vertical, 6).background(.bar)
+        .accessibilityElement(children: .combine)
+        .accessibilityLabel(statusAccessibilityLabel)
+    }
+
+    private var statusAccessibilityLabel: String {
+        let progress = Int(scrollState.scrollProgress * 100)
+        if isSummarizing { return "Generating summary. Reading progress, \(progress) percent." }
+        if isFetching { return "Extracting content. Reading progress, \(progress) percent." }
+        if isPromoting { return "Sending to Composer. Reading progress, \(progress) percent." }
+        if isFindingRelated { return "Finding related articles. Reading progress, \(progress) percent." }
+        let readState = item.isRead ? "Read" : "Unread"
+        return "Reading progress, \(progress) percent. \(readState)."
     }
 
     @ToolbarContentBuilder private var readerToolbar: some ToolbarContent {
         ToolbarItem(placement: .navigation) {
             Button { appState.readerModeEnabled.toggle() } label: {
                 Label("Reader Mode", systemImage: appState.readerModeEnabled ? "book.fill" : "book")
-            }.helpLabel(appState.readerModeEnabled ? "Exit Reader Mode (f)" : "Enter Reader Mode (f)")
+            }
+            .helpLabel(appState.readerModeEnabled ? "Exit Reader Mode (f)" : "Enter Reader Mode (f)")
+            .accessibilityHint(appState.readerModeEnabled ? "Uses the reader typography settings" : "Uses the reader typography settings")
         }
         ToolbarItemGroup {
             Button { updateRead() } label: {
@@ -214,6 +234,13 @@ struct ReaderDetailView: View {
         activeTab = tab
         if tab == .ai && item.summaryFull == nil { summarize() }
         if tab == .related && item.relatedLinks.isEmpty { findRelated() }
+    }
+
+    private func announce(_ message: String) {
+        NSAccessibility.post(element: NSApplication.shared, notification: .announcementRequested, userInfo: [
+            .announcement: message,
+            .priority: 90
+        ])
     }
     private func updateRead() {
         Task {

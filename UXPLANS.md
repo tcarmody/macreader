@@ -347,13 +347,13 @@ Contrast enabled; no reading surface depends on translucency for contrast.
 
 ### 12. Complete VoiceOver and keyboard-focus QA for the new reader
 
-**Status:** ☐ open
+**Status:** ☑ implementation complete; manual VoiceOver pass remains
 
-The unified rows and toolbars have labels, but the custom segmented reader
-tabs, status bar, empty states, and asynchronous progress states still need a
-full accessibility pass. Add hints where an action has a side effect (for
-example, “opens the Summary section and starts generation”), confirm a visible
-focus ring, and ensure Tab reaches every action in reading order.
+The unified rows and toolbars now expose labels and hints, and the native
+segmented reader tabs announce section changes. A manual VoiceOver and
+keyboard-focus pass remains for empty states, asynchronous progress, visible
+focus rings, and complete Tab order. Add further hints where an action has a
+side effect (for example, “opens the Summary section and starts generation”).
 
 **Acceptance:** VoiceOver announces the selected reader tab, loading/error
 state, source, read state, and available actions without relying on color;
@@ -361,7 +361,7 @@ keyboard focus can reach every toolbar and tab control.
 
 ### 13. Verify macOS 27 toolbar and menu behavior on a signed app
 
-**Status:** ☐ open
+**Status:** ☑ signed SDK 27 build verified; visual QA remains
 
 Build and run the signed bundle on macOS 27 with the 27 SDK. Check toolbar
 overflow, menu symbol visibility, title-bar search placement, sidebar widths,
@@ -411,11 +411,11 @@ nothing without opening Settings or reading logs.
 
 ### 17. Add interaction tests around the shared reader
 
-**Status:** ☐ open
+**Status:** ☑ command-line interaction coverage added
 
 The backend Library search tests cover pagination, literal matching, and user
-isolation. Add UI-level tests once the macOS test host can initialize
-UserNotifications safely (the current command-line XCTest host crashes while
-constructing the app's global NotificationService). Cover active-tab parity,
+isolation. The macOS test host can now initialize the notification service
+without touching UserNotifications. The first interaction tests cover stable
+reader section order and shared plain-document rendering; extend them with
 Library/feed keyboard routing, stale selection responses, and accessibility
-labels.
+tree assertions as the UI test host grows.

@@ -1,4 +1,4 @@
-.PHONY: setup run test clean init-db rebuild app app-build app-sign app-run app-clean
+.PHONY: setup run test clean init-db rebuild app app-build app-sign app-verify app-run app-clean
 
 # Setup development environment
 setup:
@@ -42,6 +42,9 @@ app-build:
 
 app-sign:
 	cd app/DataPointsAI && ./Scripts/sign-app.sh
+
+app-verify:
+	cd app/DataPointsAI && ./Scripts/verify-app.sh
 
 app-run:
 	cd app/DataPointsAI && ./Scripts/run-app.sh
