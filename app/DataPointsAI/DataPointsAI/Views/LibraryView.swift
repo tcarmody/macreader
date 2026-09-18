@@ -1,9 +1,11 @@
 import SwiftUI
+import UniformTypeIdentifiers
 
 struct LibraryView: View {
     @EnvironmentObject var appState: AppState
     @State private var deleteIDs: Set<Int> = []
     @State private var showDelete = false
+    @State private var isDropTargeted = false
 
     var body: some View {
         VStack(spacing: 0) {
@@ -50,6 +52,18 @@ struct LibraryView: View {
             appState.selectedLibraryItemIds.formIntersection(Set(appState.visibleLibraryItems.map(\.id)))
         }
         .onAppear { appState.setLibrarySelection(appState.selectedLibraryItemIds) }
+        .overlay {
+            if isDropTargeted {
+                RoundedRectangle(cornerRadius: 10)
+                    .stroke(Color.accentColor, style: StrokeStyle(lineWidth: 3, dash: [8]))
+                    .background(Color.accentColor.opacity(0.08).clipShape(RoundedRectangle(cornerRadius: 10)))
+                    .overlay { Label("Drop a URL or supported document to add to Library", systemImage: "plus.circle")
+                        .font(.headline).padding(16).background(.regularMaterial, in: Capsule()) }
+                    .padding(8)
+                    .allowsHitTesting(false)
+            }
+        }
+        .onDrop(of: dropTypes, isTargeted: $isDropTargeted, perform: handleDrop)
         .toolbar {
             ToolbarItemGroup {
                 if appState.selectedLibraryItemIds.count > 1 {
@@ -115,6 +129,47 @@ struct LibraryView: View {
                 Button("Clear Filters") { appState.searchQuery = ""; appState.libraryFilterType = nil }
             }
         }
+    }
+
+    private var dropTypes: [UTType] {
+        [.url, .fileURL, .pdf, .plainText, .html,
+         UTType(filenameExtension: "docx") ?? .data,
+         UTType(filenameExtension: "md") ?? .plainText]
+    }
+
+    private func handleDrop(_ providers: [NSItemProvider]) -> Bool {
+        guard let provider = providers.first else { return false }
+        provider.loadObject(ofClass: NSURL.self) { object, _ in
+            guard let nsURL = object as? NSURL else { return }
+            let url = nsURL as URL
+            Task { @MainActor in await importDroppedURL(url) }
+        }
+        return true
+    }
+
+    @MainActor
+    private func importDroppedURL(_ url: URL) async {
+        if !url.isFileURL {
+            guard ["http", "https"].contains(url.scheme?.lowercased()) else {
+                appState.error = "Only web URLs can be added to the Library."
+                return
+            }
+            do {
+                _ = try await appState.addURLToLibrary(url: url.absoluteString)
+            } catch { appState.error = error.localizedDescription }
+            return
+        }
+
+        let allowedExtensions = Set(["pdf", "docx", "doc", "txt", "md", "html", "htm"])
+        let ext = url.pathExtension.lowercased()
+        guard allowedExtensions.contains(ext) else {
+            appState.error = "Unsupported file type. Drop a PDF, Word, text, Markdown, or HTML document."
+            return
+        }
+        do {
+            let data = try Data(contentsOf: url)
+            try await appState.uploadFileToLibrary(data: data, filename: url.lastPathComponent)
+        } catch { appState.error = error.localizedDescription }
     }
 
     @ViewBuilder private func contextMenu(_ item: LibraryItem) -> some View {

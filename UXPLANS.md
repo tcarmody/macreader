@@ -322,12 +322,11 @@ same field, and changing scope never shows results from the wrong corpus.
 
 ### 10. Add a first-class Library drop target
 
-**Status:** ☐ open
+**Status:** ☑ implemented; manual Safari/Finder verification remains
 
-MACUX.md calls for drag-and-drop alongside the file picker. Accept dropped
-URLs and supported documents in the Library list, show a visible drop state,
-and reuse the existing upload/add URL flows. Reject unsupported types with a
-recoverable message instead of silently ignoring them.
+The Library list now accepts dropped web URLs and supported documents,
+provides a visible drop target, reuses the existing add/upload flows, and
+reports unsupported types through the recoverable app error surface.
 
 **Acceptance:** a URL dragged from Safari and a PDF dragged from Finder both
 reach the same add flow as the corresponding menu commands; VoiceOver exposes
