@@ -174,31 +174,89 @@ struct LibraryView: View {
 
     @ViewBuilder private func contextMenu(_ item: LibraryItem) -> some View {
         let ids = appState.selectedLibraryItemIds.contains(item.id) ? appState.selectedLibraryItemIds : [item.id]
-        Button(ids.count > 1 ? "Mark \(ids.count) as Read" : item.isRead ? "Mark as Unread" : "Mark as Read") {
+        let isInSelection = appState.selectedLibraryItemIds.contains(item.id)
+        let count = ids.count
+
+        if count == 1, item.type == .url {
+            Button("Open in Browser", systemImage: "safari") { NSWorkspace.shared.open(item.url) }
+            Divider()
+        }
+
+        Button(count > 1 ? "Mark \(count) as Read" : item.isRead ? "Mark as Unread" : "Mark as Read") {
             Task { await appState.markLibraryItemsRead(ids: ids, isRead: ids.count > 1 || !item.isRead) }
         }
-        if ids.count > 1 {
-            Button("Mark \(ids.count) as Unread") {
+        if count > 1 {
+            Button("Mark \(count) as Unread") {
                 Task { await appState.markLibraryItemsRead(ids: ids, isRead: false) }
             }
         } else {
-            Button(item.isBookmarked ? "Remove Bookmark" : "Bookmark", systemImage: "bookmark") {
+            Button(item.isBookmarked ? "Remove Bookmark" : "Bookmark", systemImage: item.isBookmarked ? "bookmark.slash" : "bookmark") {
                 Task {
                     do { try await appState.toggleLibraryItemBookmark(itemId: item.id) }
                     catch { appState.error = error.localizedDescription }
                 }
             }
-            Button("Summary", systemImage: "sparkles") {
+            Divider()
+            if item.type == .url {
+                Button("Copy Link", systemImage: "link") { copy(item.url.absoluteString) }
+                ShareLink(item: item.url) { Label("Share", systemImage: "square.and.arrow.up") }
+            }
+            Divider()
+            Button(item.summaryShort == nil ? "Summarize" : "Regenerate Summary", systemImage: item.summaryShort == nil ? "sparkles" : "arrow.clockwise") {
                 Task {
                     await appState.loadLibraryItemDetail(for: item)
                     if appState.selectedLibraryItemDetail?.id == item.id { appState.pendingDetailTab = .ai }
                 }
             }
-            if item.type == .url {
-                Button("Open in Browser", systemImage: "safari") { NSWorkspace.shared.open(item.url) }
+            Button("Chat with Item", systemImage: "bubble.left.and.bubble.right") {
+                Task {
+                    await appState.loadLibraryItemDetail(for: item)
+                    if appState.selectedLibraryItemDetail?.id == item.id { appState.pendingDetailTab = .chat }
+                }
+            }
+            Button("Find Related Articles", systemImage: "link.circle") {
+                Task {
+                    await appState.loadLibraryItemDetail(for: item)
+                    if appState.selectedLibraryItemDetail?.id == item.id { appState.pendingDetailTab = .related }
+                }
+            }
+            Button("Send to Composer", systemImage: "paperplane") {
+                Task {
+                    do { try await appState.promoteLibraryItemToComposer(itemId: item.id) }
+                    catch { appState.error = error.localizedDescription }
+                }
+            }
+        }
+        Divider()
+        Button("Mark Above as Read", systemImage: "arrow.up.to.line") { markLibraryItems(above: item) }
+        Button("Mark Below as Read", systemImage: "arrow.down.to.line") { markLibraryItems(below: item) }
+        if !isInSelection {
+            Divider()
+            Button("Add to Selection", systemImage: "plus.circle") {
+                appState.selectedLibraryItemIds.insert(item.id)
             }
         }
         Divider()
         Button("Delete…", role: .destructive) { deleteIDs = ids; showDelete = true }
+    }
+
+    private func copy(_ value: String) {
+        NSPasteboard.general.clearContents()
+        NSPasteboard.general.setString(value, forType: .string)
+    }
+
+    private func markLibraryItems(above item: LibraryItem) {
+        guard let index = appState.visibleLibraryItems.firstIndex(where: { $0.id == item.id }) else { return }
+        let ids = Set(appState.visibleLibraryItems[..<index].filter { !$0.isRead }.map(\.id))
+        guard !ids.isEmpty else { return }
+        Task { await appState.markLibraryItemsRead(ids: ids, isRead: true) }
+    }
+
+    private func markLibraryItems(below item: LibraryItem) {
+        guard let index = appState.visibleLibraryItems.firstIndex(where: { $0.id == item.id }) else { return }
+        let start = appState.visibleLibraryItems.index(after: index)
+        let ids = Set(appState.visibleLibraryItems[start...].filter { !$0.isRead }.map(\.id))
+        guard !ids.isEmpty else { return }
+        Task { await appState.markLibraryItemsRead(ids: ids, isRead: true) }
     }
 }
