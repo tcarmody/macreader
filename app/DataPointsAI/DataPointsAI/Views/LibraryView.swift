@@ -64,14 +64,16 @@ struct LibraryView: View {
             }
         }
         .onDrop(of: dropTypes, isTargeted: $isDropTargeted, perform: handleDrop)
-        .toolbar {
-            ToolbarItemGroup {
-                if appState.selectedLibraryItemIds.count > 1 {
+        .toolbar(id: "library-toolbar") {
+            if appState.selectedLibraryItemIds.count > 1 {
+                ToolbarItem(id: "library-mark-selected", placement: .primaryAction, showsByDefault: true) {
                     Button {
                         Task { await appState.markLibraryItemsRead(ids: appState.selectedLibraryItemIds, isRead: true) }
                     } label: { Label("Mark Selected as Read", systemImage: "envelope.open") }
                         .helpLabel("Mark \(appState.selectedLibraryItemIds.count) Items as Read")
                 }
+            }
+            ToolbarItem(id: "library-filter", placement: .primaryAction, showsByDefault: true) {
                 Menu {
                     Picker("Type", selection: $appState.libraryFilterType) {
                         Text("All Types").tag(nil as LibraryContentType?)
@@ -81,12 +83,16 @@ struct LibraryView: View {
                     }
                 } label: { Label("Filter", systemImage: appState.libraryFilterType == nil ? "line.3.horizontal.decrease.circle" : "line.3.horizontal.decrease.circle.fill") }
                     .helpLabel("Filter by Type")
+            }
+            ToolbarItem(id: "library-sort", placement: .primaryAction, showsByDefault: true) {
                 Menu {
                     Picker("Sort", selection: $appState.librarySortOption) {
                         ForEach(ArticleSortOption.allCases, id: \.self) { option in Text(option.label).tag(option) }
                     }
                 } label: { Label("Sort", systemImage: "arrow.up.arrow.down.circle") }
                     .helpLabel("Sort: \(appState.librarySortOption.label)")
+            }
+            ToolbarItem(id: "library-actions", placement: .primaryAction, showsByDefault: true) {
                 Menu {
                     Button("Select All") { appState.selectedLibraryItemIds = Set(appState.visibleLibraryItems.map(\.id)) }
                         .keyboardShortcut("a", modifiers: .command)
@@ -101,10 +107,13 @@ struct LibraryView: View {
                         showDelete = true
                     }.disabled(appState.selectedLibraryItemIds.isEmpty)
                 } label: { Label("Library Actions", systemImage: "ellipsis.circle") }.helpLabel("Library Actions")
+            }
+            ToolbarItem(id: "library-add", placement: .primaryAction, showsByDefault: true) {
                 Button { appState.showAddToLibrary = true } label: { Label("Add to Library", systemImage: "plus") }
                     .helpLabel("Add to Library")
             }
         }
+        .toolbarRole(.editor)
         .alert("Delete \(deleteIDs.count) Library Items?", isPresented: $showDelete) {
             Button("Cancel", role: .cancel) {}
             Button("Delete", role: .destructive) {

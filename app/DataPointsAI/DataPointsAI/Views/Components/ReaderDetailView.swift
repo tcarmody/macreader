@@ -66,7 +66,8 @@ struct ReaderDetailView: View {
             }
             statusBar
         }
-        .toolbar { readerToolbar }
+        .toolbar(id: "reader-toolbar") { readerToolbar.customizationBehavior(.reorderable) }
+        .toolbarRole(.editor)
         .onChange(of: activeTab) { oldTab, newTab in
             scrollOffsets[oldTab] = scrollState.offset
             ReaderPositionStore.shared.save(itemID: item.id, contentLength: contentLength,
@@ -196,21 +197,25 @@ struct ReaderDetailView: View {
         return "Reading progress, \(progress) percent. \(readState)."
     }
 
-    @ToolbarContentBuilder private var readerToolbar: some ToolbarContent {
-        ToolbarItem(placement: .navigation) {
+    @ToolbarContentBuilder private var readerToolbar: some CustomizableToolbarContent {
+        ToolbarItem(id: "reader-mode", placement: .navigation, showsByDefault: true) {
             Button { appState.readerModeEnabled.toggle() } label: {
                 Label("Reader Mode", systemImage: appState.readerModeEnabled ? "book.fill" : "book")
             }
             .helpLabel(appState.readerModeEnabled ? "Exit Reader Mode (f)" : "Enter Reader Mode (f)")
             .accessibilityHint(appState.readerModeEnabled ? "Uses the reader typography settings" : "Uses the reader typography settings")
         }
-        ToolbarItemGroup {
+        ToolbarItem(id: "mark-read", placement: .primaryAction, showsByDefault: true) {
             Button { updateRead() } label: {
                 Label(item.isRead ? "Mark as Unread" : "Mark as Read", systemImage: item.isRead ? "envelope.badge" : "envelope.open")
             }.helpLabel(item.isRead ? "Mark as Unread" : "Mark as Read")
+        }
+        ToolbarItem(id: "bookmark", placement: .primaryAction, showsByDefault: true) {
             Button { toggleBookmark() } label: {
                 Label(item.isBookmarked ? "Remove Bookmark" : "Bookmark", systemImage: item.isBookmarked ? "bookmark.fill" : "bookmark")
             }.helpLabel(item.isBookmarked ? "Remove Bookmark" : "Bookmark")
+        }
+        ToolbarItem(id: "share", placement: .primaryAction, showsByDefault: true) {
             Menu {
                 if let url = item.url { ShareLink(item: url) { Label("Share Link", systemImage: "link") } }
                 ShareLink(item: item.shareText) { Label("Share with Summary", systemImage: "text.quote") }
@@ -221,6 +226,8 @@ struct ReaderDetailView: View {
                 if let url = item.url { Button("Copy Link") { copy(url.absoluteString) } }
             } label: { Label("Share", systemImage: "square.and.arrow.up") }
                 .helpLabel("Share")
+        }
+        ToolbarItem(id: "more-actions", placement: .primaryAction, showsByDefault: true) {
             Menu {
                 if let url = item.url {
                     Button("Open in Browser", systemImage: "safari") { NSWorkspace.shared.open(url) }
