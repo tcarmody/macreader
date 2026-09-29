@@ -51,6 +51,7 @@ struct ReaderDetailView: View {
                                 .accessibilityAddTraits(.isStaticText)
                         }
                         tabContent
+                        if showsActionFooter { actionFooter }
                     }
                     .padding(.horizontal, 24)
                     .padding(.bottom, 24)
@@ -66,7 +67,13 @@ struct ReaderDetailView: View {
             }
             statusBar
         }
-        .toolbar(id: "reader-toolbar") { readerToolbar.customizationBehavior(.reorderable) }
+        // Fully customizable, not `.reorderable`: the pinnable action items
+        // below are hidden by default and only reachable if the user can add
+        // them in View ▸ Customize Toolbar. Removing an item is safe now that
+        // the Reader menu carries every action with a chord.
+        //
+        // Shares the window's one toolbar identity — see ToolbarIdentity.swift.
+        .toolbar(id: mainWindowToolbarID) { readerToolbar }
         .toolbarRole(.editor)
         .onChange(of: activeTab) { oldTab, newTab in
             scrollOffsets[oldTab] = scrollState.offset
@@ -82,15 +89,7 @@ struct ReaderDetailView: View {
         .onChange(of: appState.pendingReaderCommand) { _, command in
             guard let command else { return }
             appState.pendingReaderCommand = nil
-            switch command {
-            case .extract: fetchContent()
-            case .extractAuthenticated: fetchContent(authenticated: true)
-            case .login: showLogin = true
-            case .summarize: summarize()
-            case .findRelated: activeTab = .related; findRelated()
-            case .promote: promote()
-            case .delete: showDelete = true
-            }
+            perform(command)
         }
         .onAppear {
             if let saved = ReaderPositionStore.shared.restore(itemID: item.id, contentLength: contentLength) {
@@ -139,8 +138,13 @@ struct ReaderDetailView: View {
                 } description: {
                     Text(item.origin == .feed ? "Extract the article to read it here." : "This item has no extracted text.")
                 } actions: {
+                    // Paywalled sites are exactly where plain extraction
+                    // fails, so offer the session-backed paths here rather
+                    // than making the user find them in a toolbar menu.
                     if item.origin == .feed {
-                        Button("Extract Article") { fetchContent() }.disabled(isFetching)
+                        actionButton(.extractArticle, showsIcon: false)
+                        actionButton(.extractWithSession, showsIcon: false)
+                        actionButton(.logInToSite, showsIcon: false)
                     }
                 }
             }
@@ -164,6 +168,44 @@ struct ReaderDetailView: View {
                 actions: { Button("Generate Summary") { summarize() }.disabled(isSummarizing) }
             }
         }
+    }
+
+    /// Only under the article itself, and only when there's something to have
+    /// read — the empty state already offers the extraction actions inline,
+    /// and repeating them under a "No Content Available" placeholder would
+    /// just be the same three buttons twice.
+    private var showsActionFooter: Bool {
+        activeTab == .article && !(item.content?.isEmpty ?? true)
+    }
+
+    /// End-of-article actions. These are also in the toolbar and the Reader
+    /// menu; this surface exists because finishing the article is when most
+    /// of them actually get used, and the cursor is already down here.
+    ///
+    /// Deliberately *not* a floating control strip — it sits after the text,
+    /// scrolls with it, and is separated by a rule, so it reads as the end of
+    /// the document rather than the in-content button bar MACUX.md rules out.
+    private var actionFooter: some View {
+        VStack(alignment: .leading, spacing: 10) {
+            Divider()
+            Text("Actions")
+                .font(.caption.weight(.semibold))
+                .foregroundStyle(.secondary)
+            LazyVGrid(columns: [GridItem(.adaptive(minimum: 210), spacing: 8, alignment: .leading)],
+                      alignment: .leading, spacing: 8) {
+                ForEach(ReaderAction.sections(for: item).flatMap { $0 }) { action in
+                    Button(action.title(for: item), systemImage: action.systemImage,
+                           role: action.role) { perform(action.command) }
+                        .buttonStyle(.bordered)
+                        .controlSize(.large)
+                        .frame(maxWidth: .infinity, alignment: .leading)
+                        .disabled(!action.isEnabled(for: item, activity: activity))
+                }
+            }
+        }
+        .padding(.top, 8)
+        .accessibilityElement(children: .contain)
+        .accessibilityLabel("Article actions")
     }
 
     private var statusBar: some View {
@@ -205,17 +247,17 @@ struct ReaderDetailView: View {
             .helpLabel(appState.readerModeEnabled ? "Exit Reader Mode (f)" : "Enter Reader Mode (f)")
             .accessibilityHint(appState.readerModeEnabled ? "Uses the reader typography settings" : "Uses the reader typography settings")
         }
-        ToolbarItem(id: "mark-read", placement: .primaryAction, showsByDefault: true) {
+        ToolbarItem(id: "reader-mark-read", placement: .primaryAction, showsByDefault: true) {
             Button { updateRead() } label: {
                 Label(item.isRead ? "Mark as Unread" : "Mark as Read", systemImage: item.isRead ? "envelope.badge" : "envelope.open")
             }.helpLabel(item.isRead ? "Mark as Unread" : "Mark as Read")
         }
-        ToolbarItem(id: "bookmark", placement: .primaryAction, showsByDefault: true) {
+        ToolbarItem(id: "reader-bookmark", placement: .primaryAction, showsByDefault: true) {
             Button { toggleBookmark() } label: {
                 Label(item.isBookmarked ? "Remove Bookmark" : "Bookmark", systemImage: item.isBookmarked ? "bookmark.fill" : "bookmark")
             }.helpLabel(item.isBookmarked ? "Remove Bookmark" : "Bookmark")
         }
-        ToolbarItem(id: "share", placement: .primaryAction, showsByDefault: true) {
+        ToolbarItem(id: "reader-share", placement: .primaryAction, showsByDefault: true) {
             Menu {
                 if let url = item.url { ShareLink(item: url) { Label("Share Link", systemImage: "link") } }
                 ShareLink(item: item.shareText) { Label("Share with Summary", systemImage: "text.quote") }
@@ -227,26 +269,84 @@ struct ReaderDetailView: View {
             } label: { Label("Share", systemImage: "square.and.arrow.up") }
                 .helpLabel("Share")
         }
-        ToolbarItem(id: "more-actions", placement: .primaryAction, showsByDefault: true) {
+        ToolbarItem(id: "reader-more-actions", placement: .primaryAction, showsByDefault: true) {
             Menu {
                 if let url = item.url {
                     Button("Open in Browser", systemImage: "safari") { NSWorkspace.shared.open(url) }
                 }
-                if item.origin == .feed {
-                    Button("Extract Article", systemImage: "arrow.down.doc") { fetchContent() }.disabled(isFetching)
-                    Button("Extract with App Session", systemImage: "key") { fetchContent(authenticated: true) }.disabled(isFetching)
-                    Button("Log in to Site…", systemImage: "person.badge.key") { showLogin = true }
-                }
-                Divider()
-                Button(item.summaryFull == nil ? "Generate Summary" : "Regenerate Summary", systemImage: "sparkles") { summarize() }.disabled(isSummarizing)
-                Button("Find Related Articles", systemImage: "link") { activeTab = .related; findRelated() }.disabled(isFindingRelated)
-                Button(item.isPromoted ? "In Composer" : "Send to Composer", systemImage: "paperplane") { promote() }.disabled(item.isPromoted || isPromoting)
-                if item.origin == .library {
-                    Divider()
-                    Button("Delete from Library…", systemImage: "trash", role: .destructive) { showDelete = true }
-                }
+                overflowActions
             } label: { Label("More Actions", systemImage: "ellipsis.circle") }
                 .helpLabel("More Actions")
+        }
+        pinnableToolbarItems
+    }
+
+    /// Hidden by default so the row stays scannable (MACUX.md caps it at
+    /// ~5–7), but available in View ▸ Customize Toolbar for anyone who runs
+    /// one of these on every article.
+    ///
+    /// Listed explicitly because `ForEach` isn't `CustomizableToolbarContent`
+    /// — SwiftUI resolves it as a `ViewBuilder`. `ReaderAction.isPinnable`
+    /// stays the source of truth and `ReaderInteractionTests` asserts this
+    /// list matches it. Grouping them here also keeps `readerToolbar` at 6
+    /// elements instead of 10, the point where the builder silently truncates.
+    @ToolbarContentBuilder private var pinnableToolbarItems: some CustomizableToolbarContent {
+        pinnableItem(.extractArticle)
+        pinnableItem(.extractWithSession)
+        pinnableItem(.summarize)
+        pinnableItem(.findRelated)
+        pinnableItem(.sendToComposer)
+    }
+
+    @ToolbarContentBuilder private func pinnableItem(_ action: ReaderAction) -> some CustomizableToolbarContent {
+        ToolbarItem(id: action.toolbarID, placement: .primaryAction, showsByDefault: false) {
+            Button { perform(action.command) } label: {
+                Label(action.title(for: item), systemImage: action.systemImage)
+            }
+            .helpLabel(action.title(for: item))
+            .disabled(!action.isEnabled(for: item, activity: activity))
+        }
+    }
+
+    /// The overflow menu's action list, grouped into divider-separated runs.
+    /// Unavailable actions are omitted here — extraction is meaningless for a
+    /// local PDF — while the menu bar shows them disabled instead.
+    @ViewBuilder private var overflowActions: some View {
+        let sections = ReaderAction.sections(for: item)
+        ForEach(Array(sections.enumerated()), id: \.offset) { index, actions in
+            // Only divide from something that precedes it.
+            if index > 0 || item.url != nil { Divider() }
+            ForEach(actions) { actionButton($0) }
+        }
+    }
+
+    @ViewBuilder private func actionButton(_ action: ReaderAction, showsIcon: Bool = true) -> some View {
+        let title = action.title(for: item)
+        let run = { perform(action.command) }
+        Group {
+            if showsIcon {
+                Button(title, systemImage: action.systemImage, role: action.role, action: run)
+            } else {
+                Button(title, role: action.role, action: run)
+            }
+        }
+        .disabled(!action.isEnabled(for: item, activity: activity))
+    }
+
+    private var activity: ReaderActivity {
+        ReaderActivity(isFetching: isFetching, isSummarizing: isSummarizing,
+                       isFindingRelated: isFindingRelated, isPromoting: isPromoting)
+    }
+
+    private func perform(_ command: ReaderCommand) {
+        switch command {
+        case .extract: fetchContent()
+        case .extractAuthenticated: fetchContent(authenticated: true)
+        case .login: showLogin = true
+        case .summarize: summarize()
+        case .findRelated: activeTab = .related; findRelated()
+        case .promote: promote()
+        case .delete: showDelete = true
         }
     }
 

@@ -36,8 +36,13 @@ struct ArticleListView: View {
         .refreshable {
             try? await appState.refreshFeeds()
         }
-        .toolbar {
-            ToolbarItemGroup(placement: .principal) {
+        // See ToolbarIdentity.swift: one shared id, unique item ids, and every
+        // item always present (disabled when it doesn't apply) so the window's
+        // merged NSToolbar can persist a customized layout. The selection and
+        // search items used to be conditionally rendered, which is what made
+        // the toolbar uncustomizable.
+        .toolbar(id: mainWindowToolbarID) {
+            ToolbarItem(id: "articles-group-by", placement: .principal, showsByDefault: true) {
                 Picker("Group By", selection: Binding(
                     get: { appState.groupByMode },
                     set: { newMode in
@@ -54,39 +59,62 @@ struct ArticleListView: View {
                 .helpLabel("Group articles by \(appState.groupByMode.label)")
             }
 
-            ToolbarItemGroup {
-                if !appState.selectedArticleIds.isEmpty {
-                    selectionToolbar
+            ToolbarItem(id: "articles-mark-selected", showsByDefault: true) {
+                Button {
+                    let markRead = !selectionIsAllRead
+                    Task {
+                        try? await appState.bulkMarkRead(articleIds: Array(appState.selectedArticleIds), isRead: markRead)
+                        appState.selectedArticleIds.removeAll()
+                        listSelection.removeAll()
+                    }
+                } label: {
+                    Label(selectionReadActionTitle,
+                          systemImage: selectionIsAllRead ? "envelope.badge" : "envelope.open")
                 }
+                .helpLabel(selectionReadActionTitle)
+                .disabled(appState.selectedArticleIds.isEmpty)
+            }
 
-                // Search in summaries toggle + save search (only visible when searching)
-                if !appState.searchQuery.isEmpty {
-                    Button {
-                        appState.searchIncludeSummaries.toggle()
-                        Task { await appState.search(query: appState.searchQuery) }
-                    } label: {
-                        Label(
-                            appState.searchIncludeSummaries ? "Search in summaries" : "Skip summaries",
-                            systemImage: appState.searchIncludeSummaries ? "doc.text.magnifyingglass" : "doc.magnifyingglass"
-                        )
-                    }
-                    .helpLabel(appState.searchIncludeSummaries ? "Searching in AI summaries (click to exclude)" : "Not searching in summaries (click to include)")
-
-                    let alreadySaved = appState.savedSearches.contains {
-                        $0.query == appState.searchQuery && $0.includeSummaries == appState.searchIncludeSummaries
-                    }
-                    Button {
-                        if !alreadySaved {
-                            Task { await appState.saveCurrentSearch(name: appState.searchQuery) }
-                        }
-                    } label: {
-                        Label("Pin Search", systemImage: alreadySaved ? "pin.fill" : "pin")
-                    }
-                    .disabled(alreadySaved)
-                    .helpLabel(alreadySaved ? "Search already pinned" : "Pin this search")
+            ToolbarItem(id: "articles-clear-selection", showsByDefault: true) {
+                Button {
+                    appState.selectedArticleIds.removeAll()
+                    listSelection.removeAll()
+                } label: {
+                    Label("Clear Selection", systemImage: "xmark.circle")
                 }
+                .helpLabel(appState.selectedArticleIds.isEmpty
+                           ? "Clear Selection"
+                           : "Clear Selection (\(appState.selectedArticleIds.count))")
+                .disabled(appState.selectedArticleIds.isEmpty)
+            }
 
-                // Sort menu
+            ToolbarItem(id: "articles-search-summaries", showsByDefault: true) {
+                Button {
+                    appState.searchIncludeSummaries.toggle()
+                    Task { await appState.search(query: appState.searchQuery) }
+                } label: {
+                    Label(
+                        appState.searchIncludeSummaries ? "Search in summaries" : "Skip summaries",
+                        systemImage: appState.searchIncludeSummaries ? "doc.text.magnifyingglass" : "doc.magnifyingglass"
+                    )
+                }
+                .helpLabel(appState.searchIncludeSummaries ? "Searching in AI summaries (click to exclude)" : "Not searching in summaries (click to include)")
+                .disabled(appState.searchQuery.isEmpty)
+            }
+
+            ToolbarItem(id: "articles-pin-search", showsByDefault: true) {
+                Button {
+                    if !currentSearchIsPinned {
+                        Task { await appState.saveCurrentSearch(name: appState.searchQuery) }
+                    }
+                } label: {
+                    Label("Pin Search", systemImage: currentSearchIsPinned ? "pin.fill" : "pin")
+                }
+                .helpLabel(currentSearchIsPinned ? "Search already pinned" : "Pin this search")
+                .disabled(appState.searchQuery.isEmpty || currentSearchIsPinned)
+            }
+
+            ToolbarItem(id: "articles-sort", showsByDefault: true) {
                 Menu {
                     Picker("Sort", selection: $appState.sortOption) {
                         ForEach(ArticleSortOption.allCases, id: \.self) { option in
@@ -97,8 +125,9 @@ struct ArticleListView: View {
                     Label("Sort", systemImage: "arrow.up.arrow.down.circle")
                 }
                 .helpLabel("Sort: \(appState.sortOption.label)")
+            }
 
-                // More actions menu
+            ToolbarItem(id: "articles-more", showsByDefault: true) {
                 Menu {
                     Button {
                         Task {
@@ -110,14 +139,13 @@ struct ArticleListView: View {
 
                     Divider()
 
-                    if !appState.selectedArticleIds.isEmpty {
-                        Button {
-                            appState.selectedArticleIds.removeAll()
-                            listSelection.removeAll()
-                        } label: {
-                            Label("Clear Selection", systemImage: "xmark.circle")
-                        }
+                    Button {
+                        appState.selectedArticleIds.removeAll()
+                        listSelection.removeAll()
+                    } label: {
+                        Label("Clear Selection", systemImage: "xmark.circle")
                     }
+                    .disabled(appState.selectedArticleIds.isEmpty)
 
                     Button {
                         selectAllVisible()
@@ -266,31 +294,25 @@ struct ArticleListView: View {
         }
     }
 
-    @ViewBuilder
-    private var selectionToolbar: some View {
-        let count = appState.selectedArticleIds.count
-        let allRead = appState.selectedArticleIds.allSatisfy { id in
+    /// `allSatisfy` is vacuously true on an empty selection, so guard it —
+    /// otherwise the idle button reads "Mark 0 as Unread".
+    private var selectionIsAllRead: Bool {
+        guard !appState.selectedArticleIds.isEmpty else { return false }
+        return appState.selectedArticleIds.allSatisfy { id in
             appState.groupedArticles.flatMap { $0.articles }.first { $0.id == id }?.isRead == true
         }
+    }
 
-        Button {
-            Task {
-                try? await appState.bulkMarkRead(articleIds: Array(appState.selectedArticleIds), isRead: !allRead)
-                appState.selectedArticleIds.removeAll()
-                listSelection.removeAll()
-            }
-        } label: {
-            Image(systemName: allRead ? "envelope.badge" : "envelope.open")
-        }
-        .helpLabel(allRead ? "Mark \(count) as Unread" : "Mark \(count) as Read")
+    private var selectionReadActionTitle: String {
+        let count = appState.selectedArticleIds.count
+        guard count > 0 else { return "Mark as Read" }
+        return selectionIsAllRead ? "Mark \(count) as Unread" : "Mark \(count) as Read"
+    }
 
-        Button {
-            appState.selectedArticleIds.removeAll()
-            listSelection.removeAll()
-        } label: {
-            Image(systemName: "xmark.circle")
+    private var currentSearchIsPinned: Bool {
+        appState.savedSearches.contains {
+            $0.query == appState.searchQuery && $0.includeSummaries == appState.searchIncludeSummaries
         }
-        .helpLabel("Clear Selection (\(count))")
     }
 
     private func selectAllVisible() {

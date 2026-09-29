@@ -117,6 +117,14 @@ struct RSSReaderApp: App {
 
             // View menu
             CommandGroup(after: .sidebar) {
+                // AppKit only injects its own "Customize Toolbar…" when the
+                // View menu is opened while its conditions hold, so it comes
+                // and goes. An explicit item is always present, which is the
+                // only discoverable path to the toolbar's hidden action items.
+                Button("Customize Toolbar…") {
+                    customizeToolbar()
+                }
+
                 Divider()
 
                 Button("Show All") {
@@ -482,24 +490,33 @@ struct RSSReaderApp: App {
                 }
             }
 
+            // Reader menu — every item is rendered from ReaderAction.all, so
+            // this menu, the reader toolbar, and the reader's overflow menu
+            // can't drift. One ForEach also keeps the group at 3 elements,
+            // well under the 10-element @CommandsBuilder cap.
             CommandMenu("Reader") {
                 Menu("Section") {
                     ForEach(DetailTab.allCases, id: \.self) { tab in
                         Button(tab.rawValue) { appState.pendingDetailTab = tab }
                     }
                 }.disabled(appState.activeReaderItem == nil)
-                Group {
-                    Button("Generate Summary") { appState.pendingReaderCommand = .summarize }
-                    Button("Find Related Articles") { appState.pendingReaderCommand = .findRelated }
-                    Button("Send to Composer") { appState.pendingReaderCommand = .promote }
-                        .disabled(appState.activeReaderItem?.isPromoted == true)
-                }.disabled(appState.activeReaderItem == nil)
+
                 Divider()
-                Group {
-                    Button("Extract Article") { appState.pendingReaderCommand = .extract }
-                    Button("Extract with App Session") { appState.pendingReaderCommand = .extractAuthenticated }
-                    Button("Log in to Site…") { appState.pendingReaderCommand = .login }
-                }.disabled(appState.activeReaderItem?.origin != .feed)
+
+                ForEach(Array(ReaderAction.all.enumerated()), id: \.element.id) { index, action in
+                    // Divider between the source and intelligence runs, etc.
+                    if index > 0, ReaderAction.all[index - 1].section != action.section {
+                        Divider()
+                    }
+                    Button(action.title(for: appState.activeReaderItem)) {
+                        appState.pendingReaderCommand = action.command
+                    }
+                    .keyboardShortcut(action.shortcut)
+                    // Shown disabled rather than hidden, per MACUX.md — the
+                    // reader's own task state isn't visible from here, so
+                    // availability is the only gate.
+                    .disabled(!action.isEnabled(for: appState.activeReaderItem, activity: .idle))
+                }
             }
 
             // Help menu
@@ -516,6 +533,18 @@ struct RSSReaderApp: App {
                 .environmentObject(appState)
         }
         #endif
+    }
+
+    /// Opens AppKit's toolbar customization palette for the focused window.
+    ///
+    /// We supply this item ourselves because AppKit only injects its own
+    /// "Customize Toolbar…" into the View menu when the menu is opened while
+    /// its conditions hold; an explicit item is always there. The toolbar's
+    /// `allowsUserCustomization` and `autosavesConfiguration` are set by
+    /// SwiftUI now that every column declares identified, always-present
+    /// items under one id — see ToolbarIdentity.swift. Nothing to force here.
+    private func customizeToolbar() {
+        (NSApp.keyWindow ?? NSApp.mainWindow)?.toolbar?.runCustomizationPalette(nil)
     }
 
     private var isCurrentlyViewingFeed: Bool {

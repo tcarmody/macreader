@@ -24,6 +24,21 @@ enum KeyboardAction: Equatable {
     case toggleReaderMode      // f - toggle reader mode (focus)
 }
 
+/// Menu-bar chords for the reader actions described in
+/// [ReaderAction.swift](../Models/ReaderAction.swift). Declared here so the
+/// menu bar, toolbar, and reader surfaces agree — MACUX.md §Keyboard
+/// Shortcuts requires every chord to be registered in this file.
+///
+/// Picked from the `⌥⌘<key>` / `⇧⌘<letter>` range, avoiding chords already
+/// taken elsewhere: ⇧⌘E is Export OPML, ⇧⌘R is Refresh, ⇧⌘S is Summarize,
+/// ⌘R is Mark as Read.
+extension KeyboardShortcut {
+    static let extractArticle = KeyboardShortcut("e", modifiers: [.command, .option])
+    static let extractWithSession = KeyboardShortcut("e", modifiers: [.command, .option, .shift])
+    static let findRelatedArticles = KeyboardShortcut("r", modifiers: [.command, .option])
+    static let sendToComposer = KeyboardShortcut("p", modifiers: [.command, .shift])
+}
+
 /// Manages vim-style keyboard navigation for the article list
 ///
 /// ## Keyboard Shortcuts

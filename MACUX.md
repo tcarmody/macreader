@@ -129,6 +129,33 @@ inherit them by default:
   not hard-coded fonts, so they scale with the user's control-size
   preference.
 
+### Customization (Customize Toolbar)
+
+`NavigationSplitView` merges every column's `.toolbar` content into
+**one** `NSToolbar` on the window. Three rules follow, and all three
+must hold or SwiftUI silently leaves `allowsUserCustomization` and
+`autosavesConfiguration` off, with an empty toolbar `identifier` —
+the palette then either won't open or won't persist anything:
+
+1. **Every column declares its items under the same id**
+   (`mainWindowToolbarID` in
+   [ToolbarIdentity.swift](app/DataPointsAI/DataPointsAI/Views/ToolbarIdentity.swift)).
+   One window, one toolbar, one identity to save under.
+2. **Every item is a `ToolbarItem(id:)` with a globally unique id.**
+   One plain `.toolbar { }` or un-`id`'d `ToolbarItemGroup` anywhere
+   in the window is enough to disable customization for all of it.
+   Hence the `sidebar-` / `articles-` / `library-` / `reader-` prefixes.
+3. **Items are always present, disabled when they don't apply** —
+   never conditionally rendered. A saved layout refers to
+   identifiers; an item that vanishes can't be restored. This
+   happens to be the same rule as "show disabled controls" above.
+
+Also: `ForEach` is **not** `CustomizableToolbarContent` — SwiftUI
+resolves it as a `ViewBuilder` and the build fails with a wall of
+unrelated conformance notes. List customizable items explicitly, and
+group them in a `@ToolbarContentBuilder` property to stay clear of
+the builder's 10-element truncation.
+
 ## Sidebars
 
 - Use `NavigationSplitView { sidebar } detail: { … }` for the main

@@ -1,3 +1,4 @@
+import SwiftUI
 import XCTest
 @testable import DataPointsAI
 
@@ -37,6 +38,114 @@ final class ReaderInteractionTests: XCTestCase {
         XCTAssertEqual(AppState.SyncFeedback.newArticles(2).subtitle, "2 new articles")
         XCTAssertEqual(AppState.SyncFeedback.noChanges.subtitle, "Refresh complete — no new articles")
         XCTAssertTrue(AppState.SyncFeedback.failed("Network unavailable").subtitle.contains("Retry"))
+    }
+
+    // MARK: - Reader actions
+
+    /// `pinnableToolbarItems` in ReaderDetailView has to list these by hand —
+    /// `ForEach` isn't `CustomizableToolbarContent`. This catches an
+    /// `isPinnable` flip that forgets the toolbar, and vice versa.
+    func testPinnableActionsMatchTheToolbarList() {
+        XCTAssertEqual(ReaderAction.pinnable.map(\.id),
+                       ["extract", "extract-session", "summarize", "find-related", "promote"])
+    }
+
+    /// Toolbar ids are persisted in the user's toolbar customization, so a
+    /// change here silently resets where they put the button.
+    func testPinnableToolbarIDsAreStable() {
+        XCTAssertEqual(ReaderAction.extractArticle.toolbarID, "reader-action-extract")
+        XCTAssertEqual(ReaderAction.sendToComposer.toolbarID, "reader-action-promote")
+    }
+
+    func testExtractionActionsAreUnavailableForLibraryItems() {
+        let library = ReaderItem(libraryItem: makeLibraryItem(content: "text"))
+        XCTAssertFalse(ReaderAction.extractArticle.isAvailable(for: library))
+        XCTAssertFalse(ReaderAction.extractWithSession.isAvailable(for: library))
+        XCTAssertFalse(ReaderAction.logInToSite.isAvailable(for: library))
+        XCTAssertTrue(ReaderAction.deleteFromLibrary.isAvailable(for: library))
+        XCTAssertTrue(ReaderAction.summarize.isAvailable(for: library))
+    }
+
+    func testDeleteIsUnavailableForFeedArticles() {
+        let feed = ReaderItem(article: makeArticle(), source: "Example")
+        XCTAssertFalse(ReaderAction.deleteFromLibrary.isAvailable(for: feed))
+        XCTAssertTrue(ReaderAction.extractArticle.isAvailable(for: feed))
+    }
+
+    func testNoActionIsAvailableWithoutAnItem() {
+        for action in ReaderAction.all {
+            XCTAssertFalse(action.isAvailable(for: nil), "\(action.id) should need an item")
+            XCTAssertFalse(action.isEnabled(for: nil, activity: .idle), "\(action.id) should need an item")
+        }
+    }
+
+    func testInFlightOperationDisablesOnlyItsOwnAction() {
+        let feed = ReaderItem(article: makeArticle(), source: "Example")
+        let fetching = ReaderActivity(isFetching: true)
+        XCTAssertFalse(ReaderAction.extractArticle.isEnabled(for: feed, activity: fetching))
+        XCTAssertFalse(ReaderAction.extractWithSession.isEnabled(for: feed, activity: fetching))
+        XCTAssertTrue(ReaderAction.summarize.isEnabled(for: feed, activity: fetching))
+        XCTAssertTrue(ReaderAction.findRelated.isEnabled(for: feed, activity: fetching))
+    }
+
+    func testAlreadyPromotedItemCannotBeSentToComposerAgain() {
+        let promoted = ReaderItem(article: makeArticle(promotedToComposer: "2026-01-01T00:00:00Z"),
+                                  source: "Example")
+        XCTAssertEqual(ReaderAction.sendToComposer.title(for: promoted), "In Composer")
+        XCTAssertTrue(ReaderAction.sendToComposer.isAvailable(for: promoted))
+        XCTAssertFalse(ReaderAction.sendToComposer.isEnabled(for: promoted, activity: .idle))
+    }
+
+    func testSummarizeTitleReflectsWhetherASummaryExists() {
+        let bare = ReaderItem(article: makeArticle(), source: "Example")
+        let summarized = ReaderItem(article: makeArticle(summaryFull: "A summary"), source: "Example")
+        XCTAssertEqual(ReaderAction.summarize.title(for: bare), "Generate Summary")
+        XCTAssertEqual(ReaderAction.summarize.title(for: summarized), "Regenerate Summary")
+    }
+
+    /// Menus render these runs in order with a divider between each, so an
+    /// empty leading run would show up as a stray divider.
+    func testSectionsDropEmptyRunsPerOrigin() {
+        let feed = ReaderItem(article: makeArticle(), source: "Example")
+        let library = ReaderItem(libraryItem: makeLibraryItem(content: "text"))
+        XCTAssertEqual(ReaderAction.sections(for: feed).map { $0.map(\.id) },
+                       [["extract", "extract-session", "login"],
+                        ["summarize", "find-related", "promote"]])
+        XCTAssertEqual(ReaderAction.sections(for: library).map { $0.map(\.id) },
+                       [["summarize", "find-related", "promote"], ["delete"]])
+        XCTAssertTrue(ReaderAction.sections(for: nil).isEmpty)
+    }
+
+    /// MACUX.md §Keyboard Shortcuts: chords come only from the ⌥⌘ / ⇧⌘
+    /// ranges, and must not collide with bindings other menus already own.
+    func testReaderChordsAreDistinctAndAvoidTakenBindings() {
+        let chords = ReaderAction.all.compactMap(\.shortcut)
+        XCTAssertEqual(chords.count, 4, "Summarize and Delete defer to their owning menus")
+        XCTAssertEqual(Set(chords).count, chords.count, "Reader chords collide with each other")
+
+        let taken: Set<KeyboardShortcut> = [
+            KeyboardShortcut("e", modifiers: [.command, .shift]),  // Export OPML
+            KeyboardShortcut("r", modifiers: [.command, .shift]),  // Refresh
+            KeyboardShortcut("s", modifiers: [.command, .shift]),  // Summarize
+            KeyboardShortcut("r", modifiers: .command),            // Mark as Read
+        ]
+        for chord in chords {
+            XCTAssertFalse(taken.contains(chord), "Reader chord collides with an existing binding")
+            XCTAssertTrue(chord.modifiers.contains(.command), "Chords must be Command-based")
+        }
+    }
+
+    private func makeArticle(summaryFull: String? = nil,
+                             promotedToComposer: String? = nil) -> ArticleDetail {
+        ArticleDetail(
+            id: 1, feedId: 1, url: URL(string: "https://example.com/a")!, sourceUrl: nil,
+            title: "Test", content: nil, summaryShort: nil, summaryFull: summaryFull,
+            keyPoints: nil, isRead: false, isBookmarked: false, publishedAt: nil,
+            createdAt: Date(), author: nil, readingTimeMinutes: nil, wordCountValue: nil,
+            featuredImage: nil, hasCodeBlocks: nil, siteName: nil, relatedLinks: nil,
+            relatedLinksError: nil, promotedToComposer: promotedToComposer,
+            isFeatured: false, featuredAt: nil, featuredNote: nil
+        )
     }
 
     private func makeLibraryItem(content: String) -> LibraryItemDetail {
