@@ -129,6 +129,34 @@ inherit them by default:
   not hard-coded fonts, so they scale with the user's control-size
   preference.
 
+### The View menu drops its AppKit items — not our bug to fix
+
+Opening the View menu shows `Show Tab Bar`, `Show All Tabs` and
+`Enter Full Screen`, then loses them a moment later. AppKit injects
+those four items (three plus a separator) when the menu opens;
+SwiftUI re-syncs the main menu and they go.
+
+**Do not try to fix this with state management.** Two spikes ruled it
+out (Sept 2026), measured with a 200ms poller on the View submenu
+logging only on change:
+
+1. Every observable read stripped from the `commands` tree — 26
+   `.disabled`, 10 conditional shortcuts, 3 dynamic titles, 2 picker
+   getters. Six opens, six collapses.
+2. Plus `@StateObject appState` demoted to a plain `let`, removing the
+   App body's blanket `objectWillChange` subscription — which is what
+   `@Observable` would give us. Four opens, four collapses.
+
+With no dependency of any kind between `AppState` and the menu, it
+still collapses. So SwiftUI re-syncs the main menu on its own
+schedule, and neither a narrow menu-state object nor migrating
+`AppState` to `@Observable` would help. The migration may still be
+worth doing for app-wide re-render cost — but not for this.
+
+Impact is cosmetic: the lost items are standard macOS furniture
+reachable elsewhere (green traffic-light button, Window menu), and
+every item the app declares stays put.
+
 ### Customize Toolbar doesn't work here — don't rebuild it
 
 **Toolbar customization was tried and reverted (Sept 2026).** It does
