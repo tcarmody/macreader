@@ -228,7 +228,7 @@ struct FeedListView: View {
         // merges them into one NSToolbar, so one identity is what
         // customization and autosave can key on.
         .toolbar(id: mainWindowToolbarID) {
-            ToolbarItem(id: "sidebar-delete-selected", showsByDefault: true) {
+            ToolbarItem(id: "sidebar-delete-selected", showsByDefault: false) {
                 Button(action: {
                     feedsToDelete = Array(appState.selectedFeedIds)
                     showDeleteConfirmation = true
@@ -239,7 +239,7 @@ struct FeedListView: View {
                 .disabled(appState.selectedFeedIds.isEmpty)
             }
 
-            ToolbarItem(id: "sidebar-clear-selection", showsByDefault: true) {
+            ToolbarItem(id: "sidebar-clear-selection", showsByDefault: false) {
                 Button(action: {
                     appState.selectedFeedIds.removeAll()
                 }) {

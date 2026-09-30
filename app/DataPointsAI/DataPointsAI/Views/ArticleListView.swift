@@ -59,7 +59,7 @@ struct ArticleListView: View {
                 .helpLabel("Group articles by \(appState.groupByMode.label)")
             }
 
-            ToolbarItem(id: "articles-mark-selected", showsByDefault: true) {
+            ToolbarItem(id: "articles-mark-selected", showsByDefault: false) {
                 Button {
                     let markRead = !selectionIsAllRead
                     Task {
@@ -75,7 +75,7 @@ struct ArticleListView: View {
                 .disabled(appState.selectedArticleIds.isEmpty)
             }
 
-            ToolbarItem(id: "articles-clear-selection", showsByDefault: true) {
+            ToolbarItem(id: "articles-clear-selection", showsByDefault: false) {
                 Button {
                     appState.selectedArticleIds.removeAll()
                     listSelection.removeAll()
@@ -88,7 +88,7 @@ struct ArticleListView: View {
                 .disabled(appState.selectedArticleIds.isEmpty)
             }
 
-            ToolbarItem(id: "articles-search-summaries", showsByDefault: true) {
+            ToolbarItem(id: "articles-search-summaries", showsByDefault: false) {
                 Button {
                     appState.searchIncludeSummaries.toggle()
                     Task { await appState.search(query: appState.searchQuery) }
@@ -102,7 +102,7 @@ struct ArticleListView: View {
                 .disabled(appState.searchQuery.isEmpty)
             }
 
-            ToolbarItem(id: "articles-pin-search", showsByDefault: true) {
+            ToolbarItem(id: "articles-pin-search", showsByDefault: false) {
                 Button {
                     if !currentSearchIsPinned {
                         Task { await appState.saveCurrentSearch(name: appState.searchQuery) }

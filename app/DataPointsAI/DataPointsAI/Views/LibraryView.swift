@@ -66,7 +66,7 @@ struct LibraryView: View {
         .onDrop(of: dropTypes, isTargeted: $isDropTargeted, perform: handleDrop)
         // Shared identity + always-present items — see ToolbarIdentity.swift.
         .toolbar(id: mainWindowToolbarID) {
-            ToolbarItem(id: "library-mark-selected", placement: .primaryAction, showsByDefault: true) {
+            ToolbarItem(id: "library-mark-selected", placement: .primaryAction, showsByDefault: false) {
                 Button {
                     Task { await appState.markLibraryItemsRead(ids: appState.selectedLibraryItemIds, isRead: true) }
                 } label: { Label("Mark Selected as Read", systemImage: "envelope.open") }

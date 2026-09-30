@@ -145,10 +145,19 @@ the palette then either won't open or won't persist anything:
    One plain `.toolbar { }` or un-`id`'d `ToolbarItemGroup` anywhere
    in the window is enough to disable customization for all of it.
    Hence the `sidebar-` / `articles-` / `library-` / `reader-` prefixes.
-3. **Items are always present, disabled when they don't apply** —
+3. **Items are always declared, disabled when they don't apply** —
    never conditionally rendered. A saved layout refers to
    identifiers; an item that vanishes can't be restored. This
    happens to be the same rule as "show disabled controls" above.
+
+   Declared is not shown: give state-dependent items
+   (`showsByDefault: false`) so the identifier exists for
+   customization while the item stays out of the default row. A
+   `NavigationSplitView` column **clips its toolbar section
+   silently** when it runs out of width — no overflow chevron, the
+   button is just gone — and the sidebar fits roughly two items at
+   its default 240pt. Four permanently-visible items there made
+   Refresh disappear until the sidebar was widened.
 
 Also: `ForEach` is **not** `CustomizableToolbarContent` — SwiftUI
 resolves it as a `ViewBuilder` and the build fails with a wall of
