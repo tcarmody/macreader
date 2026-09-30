@@ -117,14 +117,6 @@ struct RSSReaderApp: App {
 
             // View menu
             CommandGroup(after: .sidebar) {
-                // AppKit only injects its own "Customize Toolbar…" when the
-                // View menu is opened while its conditions hold, so it comes
-                // and goes. An explicit item is always present, which is the
-                // only discoverable path to the toolbar's hidden action items.
-                Button("Customize Toolbar…") {
-                    customizeToolbar()
-                }
-
                 Divider()
 
                 Button("Show All") {
@@ -533,18 +525,6 @@ struct RSSReaderApp: App {
                 .environmentObject(appState)
         }
         #endif
-    }
-
-    /// Opens AppKit's toolbar customization palette for the focused window.
-    ///
-    /// We supply this item ourselves because AppKit only injects its own
-    /// "Customize Toolbar…" into the View menu when the menu is opened while
-    /// its conditions hold; an explicit item is always there. The toolbar's
-    /// `allowsUserCustomization` and `autosavesConfiguration` are set by
-    /// SwiftUI now that every column declares identified, always-present
-    /// items under one id — see ToolbarIdentity.swift. Nothing to force here.
-    private func customizeToolbar() {
-        (NSApp.keyWindow ?? NSApp.mainWindow)?.toolbar?.runCustomizationPalette(nil)
     }
 
     private var isCurrentlyViewingFeed: Bool {

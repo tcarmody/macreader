@@ -42,21 +42,6 @@ final class ReaderInteractionTests: XCTestCase {
 
     // MARK: - Reader actions
 
-    /// `pinnableToolbarItems` in ReaderDetailView has to list these by hand —
-    /// `ForEach` isn't `CustomizableToolbarContent`. This catches an
-    /// `isPinnable` flip that forgets the toolbar, and vice versa.
-    func testPinnableActionsMatchTheToolbarList() {
-        XCTAssertEqual(ReaderAction.pinnable.map(\.id),
-                       ["extract", "extract-session", "summarize", "find-related", "promote"])
-    }
-
-    /// Toolbar ids are persisted in the user's toolbar customization, so a
-    /// change here silently resets where they put the button.
-    func testPinnableToolbarIDsAreStable() {
-        XCTAssertEqual(ReaderAction.extractArticle.toolbarID, "reader-action-extract")
-        XCTAssertEqual(ReaderAction.sendToComposer.toolbarID, "reader-action-promote")
-    }
-
     func testExtractionActionsAreUnavailableForLibraryItems() {
         let library = ReaderItem(libraryItem: makeLibraryItem(content: "text"))
         XCTAssertFalse(ReaderAction.extractArticle.isAvailable(for: library))

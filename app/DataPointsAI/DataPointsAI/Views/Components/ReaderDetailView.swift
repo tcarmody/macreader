@@ -67,13 +67,7 @@ struct ReaderDetailView: View {
             }
             statusBar
         }
-        // Fully customizable, not `.reorderable`: the pinnable action items
-        // below are hidden by default and only reachable if the user can add
-        // them in View ▸ Customize Toolbar. Removing an item is safe now that
-        // the Reader menu carries every action with a chord.
-        //
-        // Shares the window's one toolbar identity — see ToolbarIdentity.swift.
-        .toolbar(id: mainWindowToolbarID) { readerToolbar }
+        .toolbar(id: "reader-toolbar") { readerToolbar.customizationBehavior(.reorderable) }
         .toolbarRole(.editor)
         .onChange(of: activeTab) { oldTab, newTab in
             scrollOffsets[oldTab] = scrollState.offset
@@ -247,17 +241,17 @@ struct ReaderDetailView: View {
             .helpLabel(appState.readerModeEnabled ? "Exit Reader Mode (f)" : "Enter Reader Mode (f)")
             .accessibilityHint(appState.readerModeEnabled ? "Uses the reader typography settings" : "Uses the reader typography settings")
         }
-        ToolbarItem(id: "reader-mark-read", placement: .primaryAction, showsByDefault: true) {
+        ToolbarItem(id: "mark-read", placement: .primaryAction, showsByDefault: true) {
             Button { updateRead() } label: {
                 Label(item.isRead ? "Mark as Unread" : "Mark as Read", systemImage: item.isRead ? "envelope.badge" : "envelope.open")
             }.helpLabel(item.isRead ? "Mark as Unread" : "Mark as Read")
         }
-        ToolbarItem(id: "reader-bookmark", placement: .primaryAction, showsByDefault: true) {
+        ToolbarItem(id: "bookmark", placement: .primaryAction, showsByDefault: true) {
             Button { toggleBookmark() } label: {
                 Label(item.isBookmarked ? "Remove Bookmark" : "Bookmark", systemImage: item.isBookmarked ? "bookmark.fill" : "bookmark")
             }.helpLabel(item.isBookmarked ? "Remove Bookmark" : "Bookmark")
         }
-        ToolbarItem(id: "reader-share", placement: .primaryAction, showsByDefault: true) {
+        ToolbarItem(id: "share", placement: .primaryAction, showsByDefault: true) {
             Menu {
                 if let url = item.url { ShareLink(item: url) { Label("Share Link", systemImage: "link") } }
                 ShareLink(item: item.shareText) { Label("Share with Summary", systemImage: "text.quote") }
@@ -269,7 +263,7 @@ struct ReaderDetailView: View {
             } label: { Label("Share", systemImage: "square.and.arrow.up") }
                 .helpLabel("Share")
         }
-        ToolbarItem(id: "reader-more-actions", placement: .primaryAction, showsByDefault: true) {
+        ToolbarItem(id: "more-actions", placement: .primaryAction, showsByDefault: true) {
             Menu {
                 if let url = item.url {
                     Button("Open in Browser", systemImage: "safari") { NSWorkspace.shared.open(url) }
@@ -277,34 +271,6 @@ struct ReaderDetailView: View {
                 overflowActions
             } label: { Label("More Actions", systemImage: "ellipsis.circle") }
                 .helpLabel("More Actions")
-        }
-        pinnableToolbarItems
-    }
-
-    /// Hidden by default so the row stays scannable (MACUX.md caps it at
-    /// ~5–7), but available in View ▸ Customize Toolbar for anyone who runs
-    /// one of these on every article.
-    ///
-    /// Listed explicitly because `ForEach` isn't `CustomizableToolbarContent`
-    /// — SwiftUI resolves it as a `ViewBuilder`. `ReaderAction.isPinnable`
-    /// stays the source of truth and `ReaderInteractionTests` asserts this
-    /// list matches it. Grouping them here also keeps `readerToolbar` at 6
-    /// elements instead of 10, the point where the builder silently truncates.
-    @ToolbarContentBuilder private var pinnableToolbarItems: some CustomizableToolbarContent {
-        pinnableItem(.extractArticle)
-        pinnableItem(.extractWithSession)
-        pinnableItem(.summarize)
-        pinnableItem(.findRelated)
-        pinnableItem(.sendToComposer)
-    }
-
-    @ToolbarContentBuilder private func pinnableItem(_ action: ReaderAction) -> some CustomizableToolbarContent {
-        ToolbarItem(id: action.toolbarID, placement: .primaryAction, showsByDefault: false) {
-            Button { perform(action.command) } label: {
-                Label(action.title(for: item), systemImage: action.systemImage)
-            }
-            .helpLabel(action.title(for: item))
-            .disabled(!action.isEnabled(for: item, activity: activity))
         }
     }
 

@@ -129,41 +129,45 @@ inherit them by default:
   not hard-coded fonts, so they scale with the user's control-size
   preference.
 
-### Customization (Customize Toolbar)
+### Customize Toolbar doesn't work here — don't rebuild it
+
+**Toolbar customization was tried and reverted (Sept 2026).** It does
+not persist across launches in this app, and the attempt cost real
+behaviour. If you're tempted to add it, read this first.
 
 `NavigationSplitView` merges every column's `.toolbar` content into
-**one** `NSToolbar` on the window. Three rules follow, and all three
-must hold or SwiftUI silently leaves `allowsUserCustomization` and
-`autosavesConfiguration` off, with an empty toolbar `identifier` —
-the palette then either won't open or won't persist anything:
+**one** `NSToolbar` on the window. By default that toolbar has an
+empty `identifier` with `allowsUserCustomization` and
+`autosavesConfiguration` both `false`. Three changes flip all three:
 
-1. **Every column declares its items under the same id**
-   (`mainWindowToolbarID` in
-   [ToolbarIdentity.swift](app/DataPointsAI/DataPointsAI/Views/ToolbarIdentity.swift)).
-   One window, one toolbar, one identity to save under.
-2. **Every item is a `ToolbarItem(id:)` with a globally unique id.**
-   One plain `.toolbar { }` or un-`id`'d `ToolbarItemGroup` anywhere
-   in the window is enough to disable customization for all of it.
-   Hence the `sidebar-` / `articles-` / `library-` / `reader-` prefixes.
-3. **Items are always declared, disabled when they don't apply** —
-   never conditionally rendered. A saved layout refers to
-   identifiers; an item that vanishes can't be restored. This
-   happens to be the same rule as "show disabled controls" above.
+1. Every column declares items under the **same** `.toolbar(id:)`.
+2. Every item is a `ToolbarItem(id:)` with a globally unique id — one
+   plain `.toolbar { }` anywhere in the window disables customization
+   for the whole thing.
+3. No conditionally-rendered items; always declared, disabled when
+   they don't apply.
 
-   Declared is not shown: give state-dependent items
-   (`showsByDefault: false`) so the identifier exists for
-   customization while the item stays out of the default row. A
-   `NavigationSplitView` column **clips its toolbar section
-   silently** when it runs out of width — no overflow chevron, the
-   button is just gone — and the sidebar fits roughly two items at
-   its default 240pt. Four permanently-visible items there made
-   Refresh disappear until the sidebar was widened.
+**That is necessary but not sufficient.** With all three satisfied and
+the toolbar reporting `identifier='…' cust=true autosave=true`, SwiftUI
+still never writes a configuration: `defaults find <toolbar-id>` comes
+back empty across every domain, while Finder's own
+`NSToolbar Configuration Browser` sits there in the classic format. The
+palette opens and drags work; quit and relaunch and it's all gone.
 
-Also: `ForEach` is **not** `CustomizableToolbarContent` — SwiftUI
-resolves it as a `ViewBuilder` and the build fails with a wall of
-unrelated conformance notes. List customizable items explicitly, and
-group them in a `@ToolbarContentBuilder` property to stay clear of
-the builder's 10-element truncation.
+Two costs are worth knowing before repeating the experiment:
+
+- Rule 3 means state-dependent buttons (delete-selection,
+  pin-search, …) can no longer appear when they become relevant.
+  Marking them `showsByDefault: false` keeps the default row sane but
+  means they're invisible unless pinned — and pinning doesn't persist.
+- A `NavigationSplitView` column **clips its toolbar section silently**
+  when it runs out of width — no overflow chevron, the button is just
+  gone. The sidebar fits about two items at its default 240pt.
+
+Unrelated but adjacent: `ForEach` is **not**
+`CustomizableToolbarContent` — SwiftUI resolves it as a `ViewBuilder`
+and the build fails with a wall of unrelated conformance notes. List
+`ToolbarItem(id:)`s explicitly.
 
 ## Sidebars
 

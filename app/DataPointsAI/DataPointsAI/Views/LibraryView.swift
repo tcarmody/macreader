@@ -64,16 +64,14 @@ struct LibraryView: View {
             }
         }
         .onDrop(of: dropTypes, isTargeted: $isDropTargeted, perform: handleDrop)
-        // Shared identity + always-present items — see ToolbarIdentity.swift.
-        .toolbar(id: mainWindowToolbarID) {
-            ToolbarItem(id: "library-mark-selected", placement: .primaryAction, showsByDefault: false) {
-                Button {
-                    Task { await appState.markLibraryItemsRead(ids: appState.selectedLibraryItemIds, isRead: true) }
-                } label: { Label("Mark Selected as Read", systemImage: "envelope.open") }
-                    .helpLabel(appState.selectedLibraryItemIds.count > 1
-                               ? "Mark \(appState.selectedLibraryItemIds.count) Items as Read"
-                               : "Mark Selected as Read")
-                    .disabled(appState.selectedLibraryItemIds.count < 2)
+        .toolbar(id: "library-toolbar") {
+            if appState.selectedLibraryItemIds.count > 1 {
+                ToolbarItem(id: "library-mark-selected", placement: .primaryAction, showsByDefault: true) {
+                    Button {
+                        Task { await appState.markLibraryItemsRead(ids: appState.selectedLibraryItemIds, isRead: true) }
+                    } label: { Label("Mark Selected as Read", systemImage: "envelope.open") }
+                        .helpLabel("Mark \(appState.selectedLibraryItemIds.count) Items as Read")
+                }
             }
             ToolbarItem(id: "library-filter", placement: .primaryAction, showsByDefault: true) {
                 Menu {

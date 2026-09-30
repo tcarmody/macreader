@@ -217,39 +217,27 @@ struct FeedListView: View {
         }
         .listStyle(.sidebar)
         .navigationTitle("Feeds")
-        // Every item carries a stable id and is always present — disabled
-        // when it doesn't apply — so the window's merged NSToolbar has a
-        // fixed item set. A toolbar whose items appear and disappear can't
-        // persist a customized layout, because the saved configuration
-        // references identifiers that may not exist on the next launch.
-        // Showing them disabled is also what MACUX.md asks for.
-        //
-        // All four columns share `mainWindowToolbarID`: NavigationSplitView
-        // merges them into one NSToolbar, so one identity is what
-        // customization and autosave can key on.
-        .toolbar(id: mainWindowToolbarID) {
-            ToolbarItem(id: "sidebar-delete-selected", showsByDefault: false) {
-                Button(action: {
-                    feedsToDelete = Array(appState.selectedFeedIds)
-                    showDeleteConfirmation = true
-                }) {
-                    Label("Delete Selected Feeds", systemImage: "trash")
+        .toolbar {
+            ToolbarItemGroup {
+                if !appState.selectedFeedIds.isEmpty {
+                    Button(action: {
+                        feedsToDelete = Array(appState.selectedFeedIds)
+                        showDeleteConfirmation = true
+                    }) {
+                        Label("Delete Selected Feeds", systemImage: "trash")
+                    }
+                    .helpLabel("Delete Selected Feeds")
+
+                    Button(action: {
+                        appState.selectedFeedIds.removeAll()
+                    }) {
+                        Label("Clear Selection", systemImage: "xmark.circle")
+                    }
+                    .helpLabel("Clear Selection")
                 }
-                .helpLabel("Delete Selected Feeds")
-                .disabled(appState.selectedFeedIds.isEmpty)
             }
 
-            ToolbarItem(id: "sidebar-clear-selection", showsByDefault: false) {
-                Button(action: {
-                    appState.selectedFeedIds.removeAll()
-                }) {
-                    Label("Clear Selection", systemImage: "xmark.circle")
-                }
-                .helpLabel("Clear Selection")
-                .disabled(appState.selectedFeedIds.isEmpty)
-            }
-
-            ToolbarItem(id: "sidebar-add-feed", showsByDefault: true) {
+            ToolbarItem {
                 Menu {
                     Button {
                         DispatchQueue.main.async {
@@ -282,7 +270,7 @@ struct FeedListView: View {
                 .helpLabel("Add Feed")
             }
 
-            ToolbarItem(id: "sidebar-refresh", showsByDefault: true) {
+            ToolbarItem {
                 Button(action: {
                     Task {
                         try? await appState.refreshFeeds()
