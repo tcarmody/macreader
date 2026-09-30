@@ -648,6 +648,15 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
     func applicationDidFinishLaunching(_ notification: Notification) {
         // Set ourselves as the notification delegate
         UNUserNotificationCenter.current().delegate = self
+
+        // DataPoints is a single-window app with no document model, so
+        // automatic window tabbing buys nothing — and it costs something:
+        // AppKit injects "Show Tab Bar" / "Show All Tabs" into the View menu
+        // when the menu opens, and SwiftUI's next re-sync of the main menu
+        // discards them, so they visibly appear and vanish. Opting out means
+        // they're never injected and there's nothing to lose.
+        // See MACUX.md §The View menu drops its AppKit items.
+        NSWindow.allowsAutomaticWindowTabbing = false
     }
 
     func applicationWillTerminate(_ notification: Notification) {

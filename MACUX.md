@@ -153,9 +153,20 @@ schedule, and neither a narrow menu-state object nor migrating
 `AppState` to `@Observable` would help. The migration may still be
 worth doing for app-wide re-render cost — but not for this.
 
-Impact is cosmetic: the lost items are standard macOS furniture
-reachable elsewhere (green traffic-light button, Window menu), and
-every item the app declares stays put.
+**Mitigated, not fixed.** `NSWindow.allowsAutomaticWindowTabbing =
+false` in `applicationDidFinishLaunching` stops macOS offering window
+tabs, so `Show Tab Bar` and `Show All Tabs` (and their separator) are
+never injected and can't be lost — AppKit's injection drops from four
+items to one. DataPoints has a single `WindowGroup` and no document
+model, so tabs cost nothing to give up.
+
+`Enter Full Screen` still flickers. Declaring our own via
+`toggleFullScreen(nil)` would survive the re-sync, but AppKit still
+injects its copy, so you trade a disappearing item for a duplicated
+one. Judged not worth it.
+
+Impact is cosmetic: the one remaining item is reachable from the green
+traffic-light button, and every item the app declares stays put.
 
 ### Customize Toolbar doesn't work here — don't rebuild it
 
