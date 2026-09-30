@@ -34,7 +34,7 @@ struct ReaderAction: Identifiable {
     let section: Section
     let systemImage: String
     /// Chords come from `KeyboardShortcut` extensions in
-    /// KeyboardShortcutManager.swift — see MACUX.md §Keyboard Shortcuts.
+    /// KeyboardShortcutManager.swift — see MACUX.md §Menus.
     /// `nil` means another menu already owns the canonical binding
     /// (Summarize is ⇧⌘S on Article/Library; Delete is ⌘⌫ on Library).
     let shortcut: KeyboardShortcut?

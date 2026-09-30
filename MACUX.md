@@ -1,19 +1,16 @@
-# DataPoints — Mac UI / UX / Accessibility Reference
+# Mac UI / UX / Accessibility Reference
 
 The rules below distill Apple's Human Interface Guidelines (HIG),
 the macOS 26 Liquid Glass design system, and the most-cited
-community references into the conventions DataPoints follows on
-macOS.
+community references into conventions a Mac app should follow.
 
 **Consult this document before adding any new UX surface** (window,
 sheet, panel, menu, toolbar, control). It is faster than re-deriving
-the rules from Apple docs each time, and it encodes decisions
-already made for this codebase.
+the rules from Apple docs each time.
 
-The Mac app lives at [app/DataPointsAI/DataPointsAI/](app/DataPointsAI/DataPointsAI/).
-Current deployment target: **macOS 15.7** (Sequoia). The macOS 26 /
-Liquid Glass section below is forward-looking — adopt it when we
-bump the target to macOS 26.
+This file is deliberately app-agnostic — it should be portable to any
+Mac app. Decisions, file locations, and findings specific to this
+codebase live in [MACAPP.md](MACAPP.md).
 
 The most useful external sources, in authority order:
 
@@ -35,45 +32,39 @@ inherit them by default:
 - **Menu bar is primary.** Every action a user might reach for
   must be in the menu bar, even when it's also on a toolbar,
   context menu, or keyboard shortcut. Users who can't find a
-  feature look in the menu bar before anywhere else. DataPoints
-  already has dedicated `CommandMenu`s for Go, Article, Feed, and
-  Library in [RSSReaderApp.swift](app/DataPointsAI/DataPointsAI/App/RSSReaderApp.swift);
-  new feature areas should follow the same pattern.
+  feature look in the menu bar before anywhere else. Give each
+  feature area its own `CommandMenu` when the standard menus don't
+  accommodate it.
 - **Settings is modeless.** No Save / Cancel / Apply buttons.
   Changes commit immediately via `@AppStorage` / bindings. ⌘,
   opens it; Esc or ⌘W closes it.
-- **Single-instance main window** today (DataPoints uses one
-  `WindowGroup`). If we add a per-document surface later (e.g. a
-  detached article reader), key the `WindowGroup` on a value so
-  reopening the same item surfaces the existing window rather than
-  duplicating.
+- **Single main window** unless the app is genuinely document-based.
+  If you add a per-document surface, key the `WindowGroup` on a
+  value so reopening the same item surfaces the existing window
+  rather than duplicating.
 - **Toolbars carry primary actions**, in the titlebar, as real
   `.toolbar { … }` content — not as in-content `HStack`s of
   buttons. On macOS 26 the toolbar is the Liquid Glass plane.
 - **Sidebars carry navigation**, not filters or transient state.
   Filters belong in a toolbar picker or `.searchable` scope.
 - **Drag-drop is a first-class input** alongside menu / picker
-  flows (Library accepts dropped URLs and files). The drop target
-  should give clear visual feedback while hovered.
+  flows. The drop target should give clear visual feedback while
+  hovered.
 - **System colors only** (`.controlAccentColor`, `.labelColor`,
   `.windowBackgroundColor`, etc.). Hand-picked hex values defeat
   Dark Mode, Increase Contrast, and accent-color personalization.
-  Article-reader theme palettes (Manuscript, Noir, Ember, Forest,
-  Ocean, Midnight, plus Auto) are the exception and must resolve
-  dynamically via `NSColor(name:dynamicProvider:)` so they still
-  honor appearance changes. See
-  [ArticleTheme.swift](app/DataPointsAI/DataPointsAI/Models/ArticleTheme.swift).
+  Reading-surface theme palettes are a legitimate exception, but
+  must resolve dynamically via `NSColor(name:dynamicProvider:)` so
+  they still honor appearance changes.
 
 ## Menus
 
 - **Required structure:** App, File, Edit, View, Window, Help.
   App-specific menus go between Edit and View (e.g. Format,
-  Insert) or between View and Window. DataPoints' custom menus
-  (Go, Article, Feed, Library) sit in the latter position.
+  Insert) or between View and Window.
 - **Ellipsis (`…`)** on any item that opens further UI: dialogs,
   sheets, secondary windows, file pickers. No ellipsis on items
-  that perform their action immediately. The Settings command
-  already uses `"Settings..."` correctly.
+  that perform their action immediately.
 - **Title case** for menu titles and items. Never ALL CAPS except
   for acronyms.
 - **Standard shortcuts** for standard actions: ⌘N New, ⌘O Open,
@@ -84,19 +75,21 @@ inherit them by default:
   `⌥⌘<arrow>` or `⇧⌘<letter>` when standard shortcuts don't apply.
 - **`@CommandsBuilder` has a 10-element cap** per group. Wrap
   longer groups in sub-Views — items past the 10th are silently
-  dropped. The Article and Feed menus are already brushing this
-  limit; new items go into a sub-View, not appended at the end.
+  dropped. (`ViewBuilder` no longer has this limit; the cap is
+  specific to the commands builder.)
 - **Disabled items**: gray them out rather than hiding. Hiding
   makes users think the feature was removed.
 - **Contextual menus** should mirror the items that would
   otherwise be in the menu bar's most-relevant menu, not invent
-  new actions. Article-row context menus should mirror the
-  Article menu; sidebar feed-row context menus should mirror the
-  Feed menu.
-- **Centralize shortcut definitions** in
-  [KeyboardShortcutManager.swift](app/DataPointsAI/DataPointsAI/Services/KeyboardShortcutManager.swift)
-  so the menu bar, toolbar, and any in-content hotkey handlers
-  agree.
+  new actions. A row's context menu mirrors the menu that owns
+  that object type.
+- **Centralize shortcut definitions** in one place so the menu bar,
+  toolbar, and any in-content hotkey handlers agree rather than
+  drifting.
+- **One canonical owner per chord.** When the same action appears
+  in several menus, bind the key in exactly one of them and leave
+  the others bare — duplicate bindings on a single chord are
+  resolved unpredictably.
 
 ## Toolbars
 
@@ -128,92 +121,43 @@ inherit them by default:
 - **Symbols** must come from SF Symbols, sized via `.imageScale`
   not hard-coded fonts, so they scale with the user's control-size
   preference.
+- **A `NavigationSplitView` column clips its toolbar section
+  silently** when it runs out of width — no overflow chevron, the
+  button is simply gone. A sidebar at its default width fits about
+  two items. Budget accordingly.
 
-### The View menu drops its AppKit items — not our bug to fix
+## Known SwiftUI / AppKit limitations
 
-Opening the View menu shows `Show Tab Bar`, `Show All Tabs` and
-`Enter Full Screen`, then loses them a moment later. AppKit injects
-those four items (three plus a separator) when the menu opens;
-SwiftUI re-syncs the main menu and they go.
+Framework behaviour that no amount of app-side design fixes. Check
+here before spending time on a workaround.
 
-**Do not try to fix this with state management.** Two spikes ruled it
-out (Sept 2026), measured with a 200ms poller on the View submenu
-logging only on change:
-
-1. Every observable read stripped from the `commands` tree — 26
-   `.disabled`, 10 conditional shortcuts, 3 dynamic titles, 2 picker
-   getters. Six opens, six collapses.
-2. Plus `@StateObject appState` demoted to a plain `let`, removing the
-   App body's blanket `objectWillChange` subscription — which is what
-   `@Observable` would give us. Four opens, four collapses.
-
-With no dependency of any kind between `AppState` and the menu, it
-still collapses. So SwiftUI re-syncs the main menu on its own
-schedule, and neither a narrow menu-state object nor migrating
-`AppState` to `@Observable` would help. The migration may still be
-worth doing for app-wide re-render cost — but not for this.
-
-**Mitigated, not fixed.** `NSWindow.allowsAutomaticWindowTabbing =
-false` in `applicationDidFinishLaunching` stops macOS offering window
-tabs, so `Show Tab Bar` and `Show All Tabs` (and their separator) are
-never injected and can't be lost — AppKit's injection drops from four
-items to one. DataPoints has a single `WindowGroup` and no document
-model, so tabs cost nothing to give up.
-
-`Enter Full Screen` still flickers. Declaring our own via
-`toggleFullScreen(nil)` would survive the re-sync, but AppKit still
-injects its copy, so you trade a disappearing item for a duplicated
-one. Judged not worth it.
-
-Impact is cosmetic: the one remaining item is reachable from the green
-traffic-light button, and every item the app declares stays put.
-
-### Customize Toolbar doesn't work here — don't rebuild it
-
-**Toolbar customization was tried and reverted (Sept 2026).** It does
-not persist across launches in this app, and the attempt cost real
-behaviour. If you're tempted to add it, read this first.
-
-`NavigationSplitView` merges every column's `.toolbar` content into
-**one** `NSToolbar` on the window. By default that toolbar has an
-empty `identifier` with `allowsUserCustomization` and
-`autosavesConfiguration` both `false`. Three changes flip all three:
-
-1. Every column declares items under the **same** `.toolbar(id:)`.
-2. Every item is a `ToolbarItem(id:)` with a globally unique id — one
-   plain `.toolbar { }` anywhere in the window disables customization
-   for the whole thing.
-3. No conditionally-rendered items; always declared, disabled when
-   they don't apply.
-
-**That is necessary but not sufficient.** With all three satisfied and
-the toolbar reporting `identifier='…' cust=true autosave=true`, SwiftUI
-still never writes a configuration: `defaults find <toolbar-id>` comes
-back empty across every domain, while Finder's own
-`NSToolbar Configuration Browser` sits there in the classic format. The
-palette opens and drags work; quit and relaunch and it's all gone.
-
-Two costs are worth knowing before repeating the experiment:
-
-- Rule 3 means state-dependent buttons (delete-selection,
-  pin-search, …) can no longer appear when they become relevant.
-  Marking them `showsByDefault: false` keeps the default row sane but
-  means they're invisible unless pinned — and pinning doesn't persist.
-- A `NavigationSplitView` column **clips its toolbar section silently**
-  when it runs out of width — no overflow chevron, the button is just
-  gone. The sidebar fits about two items at its default 240pt.
-
-Unrelated but adjacent: `ForEach` is **not**
-`CustomizableToolbarContent` — SwiftUI resolves it as a `ViewBuilder`
-and the build fails with a wall of unrelated conformance notes. List
-`ToolbarItem(id:)`s explicitly.
+- **Toolbar customization doesn't persist.** `NavigationSplitView`
+  merges every column's `.toolbar` into one `NSToolbar`. Getting
+  `allowsUserCustomization` and `autosavesConfiguration` to turn on
+  at all requires one shared `.toolbar(id:)` across every column,
+  globally unique `ToolbarItem(id:)`s, and no conditionally
+  rendered items. Even then SwiftUI never writes a configuration,
+  so customizations are lost on relaunch. Treat Customize Toolbar
+  as unavailable in a SwiftUI `NavigationSplitView` app.
+- **`ForEach` is not `CustomizableToolbarContent`** — SwiftUI
+  resolves it as a `ViewBuilder` and the build fails with a wall of
+  unrelated conformance notes. List `ToolbarItem(id:)`s explicitly.
+- **SwiftUI discards AppKit's injected menu items.** AppKit adds
+  `Show Tab Bar`, `Show All Tabs` and `Enter Full Screen` to the
+  View menu when it opens; SwiftUI re-syncs the main menu on its
+  own schedule and they disappear. This is *not* driven by your
+  observable state — removing every state dependency, including the
+  `@StateObject` subscription on the `App` struct, does not stop
+  it, so migrating to `@Observable` won't help either.
+  `NSWindow.allowsAutomaticWindowTabbing = false` removes three of
+  the four items for any app that doesn't use window tabs; the
+  full-screen item keeps flickering.
 
 ## Sidebars
 
 - Use `NavigationSplitView { sidebar } detail: { … }` for the main
-  editor-style window with a tree (DataPoints' main shell in
-  [MainView.swift](app/DataPointsAI/DataPointsAI/Views/MainView.swift)),
-  or an `HSplitView` with a list-style pane for browse surfaces.
+  editor-style window with a tree, or an `HSplitView` with a
+  list-style pane for browse surfaces.
 - **Width:** min 220pt, ideal 260–280pt, max 320–360pt. The
   Macintosh Checklist suggests min 225–275, max 350–400 — stay in
   that range.
@@ -228,25 +172,21 @@ and the build fails with a wall of unrelated conformance notes. List
   never let `@AppStorage` participate in a `List(selection:)`
   render loop, as it causes selection thrash and infinite
   re-renders.
-- Sidebar sub-views in DataPoints live under
-  [Views/Sidebar/](app/DataPointsAI/DataPointsAI/Views/Sidebar/);
-  new sidebar surfaces go there.
 
 ## Windows
 
 - **Title** identifies the document or surface. **Subtitle** (via
-  `.navigationSubtitle`) carries transient status (Refreshing
-  feeds…, Summarizing…, Save failed: …) — never the title
-  repeated.
+  `.navigationSubtitle`) carries transient status (Refreshing…,
+  Summarizing…, Save failed: …) — never the title repeated.
 - **Minimum size:** ~480×320pt for utility windows, 620×380pt for
-  browse surfaces, 900×600pt for the main reading window.
+  browse surfaces, 900×600pt for a main content window.
 - **Document-edited dot** in the red close button via
   `window.isDocumentEdited = isDirty` when a sheet has unsaved
-  edits (e.g. Edit Feed). Close-with-unsaved triggers a standard
-  Save / Discard Changes / Cancel alert.
-- **Multi-instance** `WindowGroup(for: URL.self)` if we ever add a
-  detached article reader — opening the same article should
-  surface the existing window rather than duplicating.
+  edits. Close-with-unsaved triggers a standard Save / Discard
+  Changes / Cancel alert.
+- **Multi-instance** `WindowGroup(for: URL.self)` for detached
+  per-item windows — opening the same item should surface the
+  existing window rather than duplicating.
 - **State restoration** for window position and size is automatic
   from `WindowGroup`; explicit `@SceneStorage` for per-window
   panel-visibility flags (e.g. sidebar / inspector show-hide).
@@ -255,12 +195,8 @@ and the build fails with a wall of unrelated conformance notes. List
 
 ## Settings
 
-- `Settings { … }` scene, accessible via ⌘,. Already wired in
-  [RSSReaderApp.swift](app/DataPointsAI/DataPointsAI/App/RSSReaderApp.swift)
-  and pointing at
-  [SettingsView.swift](app/DataPointsAI/DataPointsAI/Views/SettingsView.swift).
-  TabView with `.tabItem { Label("Tab", systemImage: "…") }` per
-  pane.
+- `Settings { … }` scene, accessible via ⌘,. TabView with
+  `.tabItem { Label("Tab", systemImage: "…") }` per pane.
 - **Both icon AND label** per tab — required for VoiceOver and
   for the truncation behavior when the window narrows.
 - **Conventional tab order:** general behavior first, advanced /
@@ -277,16 +213,13 @@ and the build fails with a wall of unrelated conformance notes. List
   immediately.
 - **Keep parity across panes.** A pane that's an order of
   magnitude longer than its siblings should probably split into
-  two panes. `SettingsView.swift` is currently >2000 lines and is
-  a strong candidate for splitting per-tab files when next
-  touched.
+  two panes.
 
 ## Sheets, panels, alerts
 
-- **Sheets** for window-modal flows that complete a single task:
-  Edit Feed, Add to Library, Import OPML, Feature Article, Setup
-  Wizard, Gmail / Newsletter setup. Sheets must have a clear
-  primary action button and a Cancel button; Esc cancels.
+- **Sheets** for window-modal flows that complete a single task.
+  Sheets must have a clear primary action button and a Cancel
+  button; Esc cancels.
 - **Alerts** (`.alert(…)`) for confirmations and error reporting.
   Destructive actions get the `role: .destructive` button modifier
   for the red text + right-side placement.
@@ -294,36 +227,32 @@ and the build fails with a wall of unrelated conformance notes. List
   destructive decisions (Unsubscribe / Move to Archive / Cancel).
 - **Free-floating panels** (`Window` scene with `.windowStyle`
   configured) for accessory tools that should stay visible across
-  app switches — rare in DataPoints; default to sheets.
+  app switches. Default to sheets unless the tool genuinely needs
+  to persist.
 - **Progress sheets** show determinate progress when total is
-  known (OPML import, bulk summarize); cancellable when the work
-  can be interrupted; surface per-item failure lists rather than
-  a generic "some items failed."
+  known; cancellable when the work can be interrupted; surface
+  per-item failure lists rather than a generic "some items failed."
 
 ## Search
 
 - **`.searchable(text: $query)`** is the right answer for any
-  filter-this-collection interaction. Already used in
-  [MainView.swift](app/DataPointsAI/DataPointsAI/Views/MainView.swift)
-  for article search. Lands in the titlebar on macOS 26, gets
-  glass treatment, has a native clear button, and binds ⌘F.
+  filter-this-collection interaction. Lands in the titlebar on
+  macOS 26, gets glass treatment, has a native clear button, and
+  binds ⌘F.
 - **Avoid custom search capsules.** They look native at first but
   miss the system styling that ships with `.searchable` on macOS
   26 — and they don't participate in keyboard navigation out of
-  the box. The standalone
-  [SearchBar.swift](app/DataPointsAI/DataPointsAI/Views/Components/SearchBar.swift)
-  component is OK for embedded contexts where `.searchable` can't
-  attach (e.g. inside a sheet), but it should not replace the
-  toolbar search.
-- **Scope chips** (`.searchScopes`) for multi-corpus filters (e.g.
-  All / Unread / Saved / Library).
+  the box. A standalone search component is acceptable only for
+  embedded contexts where `.searchable` can't attach (e.g. inside
+  a sheet); it should not replace the toolbar search.
+- **Scope chips** (`.searchScopes`) for multi-corpus filters.
 
 ## Liquid Glass and macOS 26 (forward-looking)
 
-DataPoints currently targets macOS 15.7 (Sequoia), so the Liquid
-Glass treatment doesn't apply yet. When we raise the deployment
-target to macOS 26 Tahoe, adoption is mostly automatic when built
-with Xcode 26 — but several things have to **not** be in the way:
+If the deployment target is below macOS 26, the Liquid Glass
+treatment doesn't apply yet. When the target moves to macOS 26
+Tahoe, adoption is mostly automatic when built with Xcode 26 — but
+several things have to **not** be in the way:
 
 - **Don't paint opaque backgrounds** on the window's root view.
   `Color(nsColor: .windowBackgroundColor)` over the full body
@@ -351,42 +280,37 @@ both targets and gate any glass-specific code paths with
 
 ## Accessibility
 
-This is the area where DataPoints has the most ground to cover —
-zero `accessibilityLabel`, `accessibilityHint`, or
-`accessibilityElement` calls in
-[app/DataPointsAI/DataPointsAI/](app/DataPointsAI/DataPointsAI/)
-today. Every new surface should ship with these from day one, and
-existing surfaces should get them whenever they're touched.
+Every new surface should ship with these from day one, and existing
+surfaces should get them whenever they're touched.
 
 - **VoiceOver labels** on every icon-only control. The convention
   is: `.accessibilityLabel("…")` mirrors the `.help("…")` copy.
   `.help` is for sighted-user tooltips; `accessibilityLabel` is
-  for VoiceOver. Both are needed.
+  for VoiceOver. Both are needed — a single helper that sets both
+  at once keeps them from drifting.
 - **`.accessibilityHint("…")`** for non-obvious actions ("Opens
   the chat panel for this article").
-- **Composite rows** (article rows, feed rows, library rows) use
-  `accessibilityElement(children: .combine)` so VoiceOver reads
-  the row as one element rather than walking every label, image,
-  favicon, and badge separately.
+- **Composite rows** (list rows with several labels, images,
+  badges) use `accessibilityElement(children: .combine)` so
+  VoiceOver reads the row as one element rather than walking every
+  subview separately.
 - **Keyboard focus** reaches every interactive surface. Add
   `.focusable()` on custom hit areas (drop zones, theme rows,
   custom pickers). Tab key should walk the whole UI; focus ring
   uses the system color, never custom.
 - **Color contrast:** rely on system colors. They satisfy WCAG AA
   against the matching background by design.
-- **Don't rely on color alone** to convey state. Feed-health and
-  read/unread states should pair color with a distinct symbol and
-  text.
+- **Don't rely on color alone** to convey state. Status indicators
+  should pair color with a distinct symbol and text.
 - **Reduce Motion** is respected automatically by SwiftUI
   transitions; custom `withAnimation` blocks should check
   `@Environment(\.accessibilityReduceMotion)` for any
   non-decorative motion.
 - **Reduce Transparency** falls out of Liquid Glass automatically
-  once we adopt macOS 26 — glass becomes frostier, no extra code.
+  on macOS 26 — glass becomes frostier, no extra code.
 - **Increase Contrast** likewise — system colors switch to
-  high-contrast variants. The article-theme palettes need
-  explicit dark / light variants and, ideally, contrast-mode
-  variants too.
+  high-contrast variants. Any custom palette needs explicit dark /
+  light variants and, ideally, contrast-mode variants too.
 - **Dynamic Type:** use `Font.system(.body)` / `.title`, never
   hard-coded point sizes.
 
@@ -402,7 +326,7 @@ existing surfaces should get them whenever they're touched.
 - Hand-rolled "preferences sheets" that aren't the `Settings`
   scene. ⌘, must open Apple's standard window.
 - Per-app accent overrides that ignore the user's System Settings
-  accent. Article themes are fine as long as they remix the
+  accent. Reading themes are fine as long as they remix the
   accent rather than replacing it.
 - In-content search fields that duplicate the toolbar
   `.searchable`. Pick one per surface.
@@ -412,12 +336,12 @@ existing surfaces should get them whenever they're touched.
 Before merging a new window, sheet, panel, toolbar, or menu:
 
 1. **Menu bar:** is there an item to reach this action from the
-   menu bar? If no, add one (Go / Article / Feed / Library or a
-   new `CommandMenu`).
+   menu bar? If no, add one to the most relevant menu or create a
+   new `CommandMenu`.
 2. **Keyboard shortcut:** is the action one users will repeat? If
    yes, give it a shortcut — but only from the standard set or
-   `⌥⌘<key>` / `⇧⌘<letter>` range. Register it in
-   [KeyboardShortcutManager.swift](app/DataPointsAI/DataPointsAI/Services/KeyboardShortcutManager.swift).
+   `⌥⌘<key>` / `⇧⌘<letter>` range, registered wherever the app
+   centralizes its chords.
 3. **VoiceOver:** every icon-only button has
    `.accessibilityLabel`. Every composite row uses
    `accessibilityElement(children: .combine)`.
@@ -425,19 +349,18 @@ Before merging a new window, sheet, panel, toolbar, or menu:
    through them in reading order.
 5. **Tooltips:** `.help("…")` on toolbar items, icon buttons, and
    non-obvious controls. Same copy as the VoiceOver label.
-6. **System colors:** no hard-coded hex. Article-theme palette
-   accessors are the exception.
+6. **System colors:** no hard-coded hex.
 7. **Liquid Glass readiness:** no opaque background paints over
    the window root; no manual dividers under the toolbar. Applies
-   even before we move to macOS 26 — it costs nothing now and
+   even before moving to macOS 26 — it costs nothing now and
    avoids cleanup later.
 8. **Ellipsis discipline:** every action that opens further UI
    ends in `…`; immediate-effect actions don't.
 9. **Standard shortcuts:** ⌘, opens Settings, ⌘F opens search,
    ⌘W closes the window, Esc cancels modal flows.
-10. **Build target:** SwiftUI APIs used are available on macOS
-    15.7 or gated with `@available(macOS 26.0, *)` for glass-only
-    paths.
+10. **Build target:** SwiftUI APIs used are available on the
+    deployment target, or gated with `@available(macOS 26.0, *)`
+    for glass-only paths.
 
 When in doubt: open the same surface in Mail, Notes, or Pages and
 copy what Apple did. Those three are the most-current reference

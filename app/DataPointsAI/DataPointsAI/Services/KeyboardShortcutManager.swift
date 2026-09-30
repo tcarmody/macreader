@@ -26,7 +26,7 @@ enum KeyboardAction: Equatable {
 
 /// Menu-bar chords for the reader actions described in
 /// [ReaderAction.swift](../Models/ReaderAction.swift). Declared here so the
-/// menu bar, toolbar, and reader surfaces agree — MACUX.md §Keyboard
+/// menu bar, toolbar, and reader surfaces agree — MACUX.md §Menus
 /// Shortcuts requires every chord to be registered in this file.
 ///
 /// Picked from the `⌥⌘<key>` / `⇧⌘<letter>` range, avoiding chords already

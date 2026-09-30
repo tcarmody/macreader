@@ -655,7 +655,7 @@ class AppDelegate: NSObject, NSApplicationDelegate, UNUserNotificationCenterDele
         // when the menu opens, and SwiftUI's next re-sync of the main menu
         // discards them, so they visibly appear and vanish. Opting out means
         // they're never injected and there's nothing to lose.
-        // See MACUX.md §The View menu drops its AppKit items.
+        // See MACAPP.md §View menu flicker.
         NSWindow.allowsAutomaticWindowTabbing = false
     }
 
