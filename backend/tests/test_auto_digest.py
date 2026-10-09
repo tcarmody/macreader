@@ -530,3 +530,23 @@ def test_period_start_week():
     now = datetime(2026, 3, 29, 12, 0)
     start = AutoDigestService._period_start("week", now)
     assert start == now - timedelta(days=7)
+
+
+# ─── Intro generation ────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_intro_token_limit_leaves_room_for_two_sentences(test_db):
+    """Haiku 5.5 intros ran to 137 tokens; a 150 limit risks cutting them off."""
+    limits = []
+
+    class LimitRecordingProvider(MockProvider):
+        def complete(self, user_prompt, max_tokens=1024, **kwargs):
+            limits.append(max_tokens)
+            return super().complete(user_prompt, max_tokens=max_tokens, **kwargs)
+
+    service = make_service(LimitRecordingProvider(), test_db)
+    section = type("Section", (), {"label": "AI Models"})()
+
+    await service._generate_intro([section], story_count=8, tone="neutral")
+
+    assert limits == [300]

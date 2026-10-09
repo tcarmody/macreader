@@ -226,7 +226,7 @@ Exa (semantic): Returns articles about:
 **How It Works:**
 ```json
 {
-  "model": "claude-sonnet-5",
+  "model": "claude-sonnet-5-5",
   "messages": [{
     "role": "user",
     "content": "Find articles related to: {title}"

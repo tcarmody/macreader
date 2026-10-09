@@ -255,19 +255,21 @@ The tradeoff is that `require_admin` **fails open**: an empty `ADMIN_EMAILS` mea
 
 **Rationale**: Different users have different API keys and preferences. Claude offers prompt caching (90% cost reduction for repeated prefixes). GPT-4o-mini is cheapest. Gemini Flash offers the best price/performance for simple summaries. Supporting all three maximizes user choice.
 
-### Primary Model: Claude Sonnet 5
+### Primary Model: Claude Sonnet 5.5
 
-**Decision**: Default all summarization to Claude Sonnet 5 (the Anthropic STANDARD tier). Superseded the previous default of Claude Haiku, which reserved Sonnet for long or technical articles.
+**Decision**: Default all summarization to Claude Sonnet 5.5 (the Anthropic STANDARD tier). Superseded the previous default of Claude Haiku, which reserved Sonnet for long or technical articles.
 
-**Tier Map** (`backend/providers/anthropic.py`): FAST → `claude-haiku-4-5`, STANDARD → `claude-sonnet-5`, ADVANCED → `claude-opus-5`.
+**Tier Map** (`backend/providers/anthropic.py`): FAST → `claude-haiku-5-5`, STANDARD → `claude-sonnet-5-5`, ADVANCED → `claude-opus-5-5`.
 
 **Alternatives Considered**:
 - **Haiku default with upgrade heuristics** (the previous design): cheapest, but the word-count/technical-term heuristic mis-classified plenty of articles that read better on Sonnet, and quality is the product.
 - **Opus for everything**: better still on hard articles, but not enough better on ordinary news to justify the cost.
 
-**Rationale**: Summaries are the product (see Core Philosophy), so the default should be the model that produces the best ones rather than the cheapest one that clears a bar. The critic pass moved from FAST to STANDARD for the same reason — having Haiku rewrite Sonnet 5's prose was a downgrade — and the critic only fires on articles >2,000 words and newsletters, so the cost is bounded.
+**Rationale**: Summaries are the product (see Core Philosophy), so the default should be the model that produces the best ones rather than the cheapest one that clears a bar. The critic pass moved from FAST to STANDARD for the same reason — having Haiku rewrite Sonnet's prose was a downgrade — and the critic only fires on articles >2,000 words and newsletters, so the cost is bounded.
 
-**Request-Shape Constraint**: Sonnet 5 and Opus 5 reject `temperature` outright, and enable thinking by default sharing the `max_tokens` budget, which can truncate a summary mid-JSON. `AnthropicProvider._apply_sampling()` omits temperature and disables thinking for those models while leaving Haiku 4.5 untouched. Without this the app returns 400s on every call that passes a temperature — `chat_service` (0.7) and `brief_generator` (0.3) both route through the default. The summarizer's output budget is 2048 tokens to absorb the newer tokenizer's higher counts.
+**Request-Shape Constraint**: The 5.5 models reject `temperature` outright, and enable thinking by default sharing the `max_tokens` budget, which can truncate a summary mid-JSON. `AnthropicProvider._apply_sampling()` omits temperature and keeps thinking off where the model allows it: `disabled` on Haiku 5.5, `between_tools` on Sonnet 5.5 (which rejects `disabled`). Opus 5.5 cannot turn thinking off, so it runs at `low` effort with extra `max_tokens` headroom. Without this the app returns 400s on every call that passes a temperature — `chat_service` (0.7) and `brief_generator` (0.3) both route through the default.
+
+**Refusals**: The 5.5 models run safety classifiers that can decline a request with `stop_reason: "refusal"` and no text. Sonnet 5.5 and Opus 5.5 calls opt into Anthropic's server-side fallback (`fallbacks: "default"`, beta), which retries some declines on the previous model in the same call; Haiku 5.5 has none. A refusal that still comes back raises an error rather than being read as an empty summary. The summarizer's output budget is 2048 tokens to absorb the newer tokenizer's higher counts.
 
 ### Content Extraction: Trafilatura
 

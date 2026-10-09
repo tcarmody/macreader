@@ -13,6 +13,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
 
+from .extractors import strip_html_if_present
 from .providers import LLMProvider, AnthropicProvider
 from .providers.base import ModelTier
 
@@ -22,7 +23,7 @@ if TYPE_CHECKING:
 
 class Model(Enum):
     """Model tier selection for summarization."""
-    SONNET = "standard"  # Default: Claude Sonnet 5 on Anthropic
+    SONNET = "standard"  # Default: Claude Sonnet 5.5 on Anthropic
     HAIKU = "fast"       # Quick, cheap model
 
 
@@ -49,8 +50,8 @@ class Summarizer:
         "semiconductor", "genomic", "molecular", "theorem",
     ]
 
-    # Maximum content length to send to API
-    MAX_CONTENT_LENGTH = 15000
+    # Maximum characters of article text (HTML stripped) to send to API
+    MAX_CONTENT_LENGTH = 30000
 
     # Output budget for a summary or critic pass. Comfortably above the ~600
     # tokens a summary needs; the newer Claude tokenizers count more tokens for
@@ -413,7 +414,8 @@ Return one JSON object and nothing else: no preamble, no markdown code fences, n
         title_line = f"Original title: {title}\n" if title else ""
         url_line = f"URL: {url}\n" if url else ""
 
-        # Truncate content if too long
+        # Strip markup, then truncate content if too long
+        content = strip_html_if_present(content)
         truncated_content = content[:self.MAX_CONTENT_LENGTH]
         if len(content) > self.MAX_CONTENT_LENGTH:
             truncated_content += "\n\n[Content truncated...]"

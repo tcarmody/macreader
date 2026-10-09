@@ -15,6 +15,7 @@ from dataclasses import dataclass
 from enum import Enum
 from typing import TYPE_CHECKING
 
+from ..extractors import strip_html_if_present
 from ..providers import LLMProvider, AnthropicProvider
 from ..providers.base import ModelTier
 
@@ -116,8 +117,8 @@ _INSTRUCTIONS: dict[tuple[BriefLength, BriefTone], str] = {
     ),
 }
 
-# Max content characters sent to the API
-_MAX_CONTENT_LENGTH = 8000
+# Max characters of article text (HTML stripped) sent to the API
+_MAX_CONTENT_LENGTH = 30000
 
 
 class BriefGenerator:
@@ -262,7 +263,7 @@ class BriefGenerator:
 
     def _build_dynamic(self, title: str, content: str) -> str:
         """Build the dynamic (per-article) part of the prompt."""
-        truncated = content[:_MAX_CONTENT_LENGTH]
+        truncated = strip_html_if_present(content)[:_MAX_CONTENT_LENGTH]
         return f"Title: {title}\n\n{truncated}"
 
     @staticmethod

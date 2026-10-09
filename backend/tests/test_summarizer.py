@@ -312,3 +312,45 @@ class TestExtractContentType:
         summarizer = Summarizer(provider=MockProvider())
 
         assert summarizer._extract_content_type('{"headline": "test"}') is None
+
+
+class TestArticleContent:
+    """What the summarizer sends to the model as the article body."""
+
+    def test_html_markup_does_not_crowd_out_article_text(self):
+        # Newsletter-style: more markup than the content limit before any body text
+        markup = '<div class="header"><a href="https://example.com/nav">x</a></div>' * 600
+        html = f"<article>{markup}<p>The court affirmed the ruling on Tuesday.</p></article>"
+        provider = MockProvider()
+        provider.queue_response(_make_step1_response())
+        summarizer = Summarizer(provider=provider, cache=None, critic_enabled=False)
+
+        summarizer.summarize(html, "https://example.com/a", title="Ruling")
+
+        prompt = provider.calls[0]["user_prompt"]
+        assert "The court affirmed the ruling on Tuesday." in prompt
+        assert "<div" not in prompt
+        assert "[Content truncated...]" not in prompt
+
+    def test_plain_text_is_sent_unchanged(self):
+        text = "Prices rose 3% in Q2.\nGrowth is < 1% and margins > 40%."
+        provider = MockProvider()
+        provider.queue_response(_make_step1_response())
+        summarizer = Summarizer(provider=provider, cache=None, critic_enabled=False)
+
+        summarizer.summarize(text, "https://example.com/b", title="Prices")
+
+        assert text in provider.calls[0]["user_prompt"]
+
+    def test_text_beyond_30000_characters_is_cut_and_marked(self):
+        text = "word " * 5000 + "KEPT " + "word " * 1000 + "tail " * 2000 + "DROPPED"
+        provider = MockProvider()
+        provider.queue_response(_make_step1_response())
+        summarizer = Summarizer(provider=provider, cache=None, critic_enabled=False)
+
+        summarizer.summarize(text, "https://example.com/c", title="Long")
+
+        prompt = provider.calls[0]["user_prompt"]
+        assert "KEPT" in prompt  # past the old 15,000 limit
+        assert "DROPPED" not in prompt
+        assert "[Content truncated...]" in prompt

@@ -17,39 +17,55 @@ class AnthropicProvider(LLMProvider):
     """
 
     # Model mappings for each tier
-    # Using aliases which point to latest snapshots
+    # 5.5 model IDs are pinned snapshots with no date suffix
     TIER_MODELS = {
-        ModelTier.FAST: "claude-haiku-4-5",
-        ModelTier.STANDARD: "claude-sonnet-5",
-        ModelTier.ADVANCED: "claude-opus-5",
+        ModelTier.FAST: "claude-haiku-5-5",
+        ModelTier.STANDARD: "claude-sonnet-5-5",
+        ModelTier.ADVANCED: "claude-opus-5-5",
     }
 
     # Model aliases for convenience
     MODEL_ALIASES = {
-        "haiku": "claude-haiku-4-5",
-        "sonnet": "claude-sonnet-5",
-        "opus": "claude-opus-5",
+        "haiku": "claude-haiku-5-5",
+        "sonnet": "claude-sonnet-5-5",
+        "opus": "claude-opus-5-5",
     }
 
-    # Models on the adaptive-thinking API surface (Claude Sonnet 5, Opus 5 and
-    # later). Two differences that matter here:
-    #   1. temperature / top_p / top_k are rejected with a 400.
-    #   2. Thinking is on by default and shares the max_tokens budget with the
-    #      response, so an unset thinking config can truncate the answer.
-    # Every call in this codebase is a single-pass structured request, so we turn
-    # thinking off and keep max_tokens meaning "room for the answer".
-    ADAPTIVE_THINKING_MODELS = (
-        "claude-sonnet-5",
-        "claude-opus-5",
-        "claude-opus-4-7",
-        "claude-opus-4-8",
-        "claude-fable-5",
+    # Every call in this codebase is a single-pass structured request, so we
+    # keep thinking off wherever the model allows it and keep max_tokens
+    # meaning "room for the answer". Models from Sonnet 5 / Opus 4.7 onwards
+    # reject temperature / top_p / top_k with a 400 and think by default out of
+    # the max_tokens budget; how thinking is turned off differs per model.
+    # Checked in order, so the 5.5 IDs must come before the "claude-sonnet-5" /
+    # "claude-opus-5" prefixes they also match.
+    THINKING_CONFIG = (
+        # Thinking can't be disabled on Opus 5.5 - see _apply_sampling
+        ("claude-opus-5-5", None),
+        # Sonnet 5.5 rejects "disabled"; "between_tools" is its lowest setting
+        ("claude-sonnet-5-5", {"type": "between_tools"}),
+        ("claude-haiku-5-5", {"type": "disabled"}),
+        ("claude-sonnet-5", {"type": "disabled"}),
+        ("claude-opus-5", {"type": "disabled"}),
+        ("claude-opus-4-7", {"type": "disabled"}),
+        ("claude-opus-4-8", {"type": "disabled"}),
+        ("claude-fable-5", {"type": "disabled"}),
     )
+
+    # Opus 5.5 always thinks. Low effort keeps it short, and the headroom stops
+    # thinking tokens from truncating an answer sized by the caller's max_tokens.
+    ALWAYS_THINKING_EFFORT = "low"
+    THINKING_HEADROOM_TOKENS = 8192
+
+    # Models whose safety classifiers can decline a request and that support
+    # server-side fallback: Anthropic retries some declines on the previous
+    # model inside the same call. Haiku 5.5 can also decline but has no fallback.
+    SERVER_FALLBACK_MODELS = ("claude-sonnet-5-5", "claude-opus-5-5")
+    SERVER_FALLBACK_BETA = "server-side-fallback-2026-07-01"
 
     def __init__(
         self,
         api_key: str,
-        default_model: str = "claude-sonnet-5",
+        default_model: str = "claude-sonnet-5-5",
     ):
         """
         Initialize Anthropic provider.
@@ -66,22 +82,51 @@ class AnthropicProvider(LLMProvider):
         return self.MODEL_ALIASES.get(model, model)
 
     @classmethod
-    def _uses_adaptive_thinking(cls, model: str) -> bool:
-        """True if the model is on the adaptive-thinking API surface."""
-        return model.startswith(cls.ADAPTIVE_THINKING_MODELS)
-
-    @classmethod
     def _apply_sampling(cls, kwargs: dict, model: str, temperature: float) -> None:
         """
         Set the sampling/thinking parameters this model accepts.
 
-        Newer models reject temperature outright and need thinking disabled
+        Newer models reject temperature outright and need thinking turned off
         explicitly; older ones take temperature and have no thinking config.
         """
-        if cls._uses_adaptive_thinking(model):
-            kwargs["thinking"] = {"type": "disabled"}
-        elif temperature > 0:
-            kwargs["temperature"] = temperature
+        for prefix, thinking in cls.THINKING_CONFIG:
+            if model.startswith(prefix):
+                if thinking is not None:
+                    kwargs["thinking"] = dict(thinking)
+                else:
+                    kwargs["max_tokens"] += cls.THINKING_HEADROOM_TOKENS
+                    # output_config / fallbacks go through extra_body: the
+                    # pinned SDK doesn't type them on messages.create yet
+                    kwargs.setdefault("extra_body", {})["output_config"] = {
+                        "effort": cls.ALWAYS_THINKING_EFFORT
+                    }
+                break
+        else:
+            if temperature > 0:
+                kwargs["temperature"] = temperature
+
+        if model.startswith(cls.SERVER_FALLBACK_MODELS):
+            kwargs.setdefault("extra_body", {})["fallbacks"] = "default"
+            kwargs["extra_headers"] = {"anthropic-beta": cls.SERVER_FALLBACK_BETA}
+
+    @staticmethod
+    def _extract_text(response) -> str:
+        """
+        Return the answer text from a Messages API response.
+
+        Reads blocks by type: a response can start with thinking or fallback
+        blocks. A refusal comes back as HTTP 200 with no usable text.
+        """
+        if response.stop_reason == "refusal":
+            details = getattr(response, "stop_details", None)
+            category = getattr(details, "category", None) or "unspecified"
+            raise RuntimeError(f"Claude declined the request (category: {category})")
+
+        return "".join(
+            block.text
+            for block in response.content
+            if getattr(block, "type", None) == "text"
+        )
 
     @property
     def name(self) -> str:
@@ -94,7 +139,7 @@ class AnthropicProvider(LLMProvider):
             supports_prompt_caching=True,
             supports_json_mode=False,  # Claude doesn't have native JSON mode
             supports_streaming=True,
-            max_context_tokens=200000,
+            max_context_tokens=1000000,
         )
 
     # get_model_for_tier inherited from LLMProvider base class
@@ -160,7 +205,7 @@ class AnthropicProvider(LLMProvider):
             cached_tokens = usage.cache_read_input_tokens or 0
 
         return LLMResponse(
-            text=response.content[0].text,
+            text=self._extract_text(response),
             model=resolved_model,
             input_tokens=usage.input_tokens,
             output_tokens=usage.output_tokens,
@@ -235,7 +280,7 @@ class AnthropicProvider(LLMProvider):
             cached_tokens = usage.cache_read_input_tokens or 0
 
         return LLMResponse(
-            text=response.content[0].text,
+            text=self._extract_text(response),
             model=resolved_model,
             input_tokens=usage.input_tokens,
             output_tokens=usage.output_tokens,
@@ -309,7 +354,7 @@ class AnthropicProvider(LLMProvider):
             cached_tokens = usage.cache_read_input_tokens or 0
 
         return LLMResponse(
-            text=response.content[0].text,
+            text=self._extract_text(response),
             model=resolved_model,
             input_tokens=usage.input_tokens,
             output_tokens=usage.output_tokens,

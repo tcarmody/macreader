@@ -310,7 +310,7 @@ class AutoDigestService:
                     user_prompt=prompt,
                     system_prompt="You are writing a brief newsletter intro paragraph.",
                     model=model,
-                    max_tokens=150,
+                    max_tokens=300,
                     temperature=0.3,
                 ),
             )

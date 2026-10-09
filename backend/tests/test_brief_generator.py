@@ -278,3 +278,33 @@ def test_cache_keys_differ_by_length():
     k1 = BriefGenerator._cache_key(1, BriefLength.SENTENCE, BriefTone.NEUTRAL)
     k2 = BriefGenerator._cache_key(1, BriefLength.PARAGRAPH, BriefTone.NEUTRAL)
     assert k1 != k2
+
+
+# ─── HTML content ────────────────────────────────────────────────────────────
+
+@pytest.mark.asyncio
+async def test_html_markup_does_not_crowd_out_article_text():
+    """Stored feed content is HTML; the body must survive the length cut."""
+    # Newsletter-style: more markup than the content limit before any body text
+    markup = '<div class="header"><a href="https://example.com/nav">x</a></div>' * 200
+    html = f"<article>{markup}<p>OpenAI today announced GPT-5 with a 2M token window.</p></article>"
+    provider = MockProvider()
+    gen = BriefGenerator(provider=provider, cache=None)
+
+    await gen.generate(1, SAMPLE_TITLE, html, BriefLength.SENTENCE, BriefTone.NEUTRAL)
+
+    prompt = provider.calls[0]["user_prompt"]
+    assert "OpenAI today announced GPT-5 with a 2M token window." in prompt
+    assert "<div" not in prompt
+    assert "href" not in prompt
+
+
+@pytest.mark.asyncio
+async def test_plain_text_content_is_sent_unchanged():
+    provider = MockProvider()
+    gen = BriefGenerator(provider=provider, cache=None)
+    text = "Prices rose 3% in Q2.\nGrowth is < 1% and margins > 40%."
+
+    await gen.generate(1, SAMPLE_TITLE, text, BriefLength.SENTENCE, BriefTone.NEUTRAL)
+
+    assert text in provider.calls[0]["user_prompt"]

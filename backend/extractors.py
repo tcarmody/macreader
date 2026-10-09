@@ -116,6 +116,22 @@ def extract_html_text(content: str) -> str:
     return "\n\n".join(lines)
 
 
+_HTML_TAG = re.compile(r"</?[a-zA-Z][^<>]*>")
+
+
+def strip_html_if_present(content: str) -> str:
+    """
+    Return plain text for HTML content; leave plain text untouched.
+
+    Feed content is stored as HTML. Callers that cut content to a length limit
+    before sending it to an LLM should strip markup first, otherwise a
+    newsletter's template can use up the whole limit before any body text.
+    """
+    if _HTML_TAG.search(content):
+        return extract_html_text(content)
+    return content
+
+
 def extract_text_file(file_path: Path) -> str:
     """
     Read a plain text or markdown file.

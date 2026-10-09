@@ -88,9 +88,11 @@ Key tables:
 
 Supports Anthropic (Claude), OpenAI (GPT), and Google (Gemini). Provider implementations follow abstract base in `backend/providers/base.py`. Anthropic is preferred — it supports prompt caching which reduces cost ~90% on repeated prefix calls.
 
-Anthropic tiers (`backend/providers/anthropic.py`): FAST → `claude-haiku-4-5`, STANDARD → `claude-sonnet-5`, ADVANCED → `claude-opus-5`. Summarization and the critic pass both default to STANDARD; only cheap side-tasks (keyword extraction for related links) use FAST.
+Anthropic tiers (`backend/providers/anthropic.py`): FAST → `claude-haiku-5-5`, STANDARD → `claude-sonnet-5-5`, ADVANCED → `claude-opus-5-5`. Summarization and the critic pass both default to STANDARD; only cheap side-tasks (keyword extraction for related links) use FAST.
 
-**Sonnet 5 / Opus 5 request shape**: these models reject `temperature` outright and enable thinking by default out of the `max_tokens` budget. `AnthropicProvider._apply_sampling()` strips temperature and disables thinking for them while leaving Haiku 4.5 untouched. Don't reintroduce a `temperature` kwarg on a STANDARD-tier call path — it returns a 400.
+**5.5 request shape**: all three models reject `temperature` and think by default out of the `max_tokens` budget, and each turns thinking off differently. `AnthropicProvider._apply_sampling()` strips temperature and applies the per-model setting from `THINKING_CONFIG`: Haiku 5.5 → `disabled`; Sonnet 5.5 → `between_tools` (`disabled` is a 400); Opus 5.5 can't turn thinking off, so it runs at `low` effort with extra `max_tokens` headroom. Don't send `temperature`, `thinking: disabled` to Sonnet/Opus 5.5, a forced `tool_choice`, or an assistant prefill — each returns a 400.
+
+**Refusals**: the 5.5 models can decline a request (HTTP 200, `stop_reason: "refusal"`, no text). Sonnet 5.5 and Opus 5.5 requests opt into server-side fallback (`fallbacks: "default"`, beta header `server-side-fallback-2026-07-01`), which retries some declines on the previous model; Haiku 5.5 has no fallback. A refusal that survives raises `RuntimeError` from `_extract_text()`. These parameters go through `extra_body` / `extra_headers` because the pinned SDK doesn't type them.
 
 ## Key APIs
 
