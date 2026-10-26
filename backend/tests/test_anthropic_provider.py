@@ -198,3 +198,29 @@ class TestResponseParsing:
         provider.client.messages.stop_reason = "refusal"
         with pytest.raises(RuntimeError, match="declined"):
             provider.complete_chat(messages=[{"role": "user", "content": "hi"}])
+
+
+class TestWorkspaceHeader:
+    """
+    Keys that aren't scoped to a workspace (the Console's default for new
+    personal keys) are rejected with a 400 unless every request names the
+    workspace in the anthropic-workspace-id header.
+    """
+
+    def test_explicit_workspace_id_sent_on_every_request(self):
+        p = AnthropicProvider(api_key="test-key", workspace_id="wrkspc_test")
+        assert p.client.default_headers["anthropic-workspace-id"] == "wrkspc_test"
+
+    def test_workspace_id_read_from_config(self, monkeypatch):
+        from backend import config as config_module
+
+        monkeypatch.setattr(config_module.config, "ANTHROPIC_WORKSPACE_ID", " wrkspc_env ")
+        p = AnthropicProvider(api_key="test-key")
+        assert p.client.default_headers["anthropic-workspace-id"] == "wrkspc_env"
+
+    def test_no_header_without_workspace_id(self, monkeypatch):
+        from backend import config as config_module
+
+        monkeypatch.setattr(config_module.config, "ANTHROPIC_WORKSPACE_ID", "")
+        p = AnthropicProvider(api_key="test-key")
+        assert "anthropic-workspace-id" not in p.client.default_headers

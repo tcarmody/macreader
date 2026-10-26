@@ -49,6 +49,11 @@ class Config:
     OPENAI_API_KEY: str = os.getenv("OPENAI_API_KEY", "")
     GOOGLE_API_KEY: str = os.getenv("GOOGLE_API_KEY", "")
 
+    # Required when ANTHROPIC_API_KEY isn't scoped to a workspace (the Console's
+    # default for new personal keys): sent as the anthropic-workspace-id header
+    # on every request. Leave blank for a key scoped to a single workspace.
+    ANTHROPIC_WORKSPACE_ID: str = os.getenv("ANTHROPIC_WORKSPACE_ID", "")
+
     # Preferred provider: "anthropic", "openai", or "google"
     # If not set, uses the first available key in order: Anthropic > OpenAI > Google
     LLM_PROVIDER: str = os.getenv("LLM_PROVIDER", "")

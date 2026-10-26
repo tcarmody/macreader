@@ -6,6 +6,7 @@ Supports Claude models with prompt caching for cost optimization.
 
 import anthropic
 
+from ..config import config
 from .base import LLMProvider, LLMResponse, ProviderCapabilities, ModelTier
 
 
@@ -66,6 +67,7 @@ class AnthropicProvider(LLMProvider):
         self,
         api_key: str,
         default_model: str = "claude-sonnet-5-5",
+        workspace_id: str | None = None,
     ):
         """
         Initialize Anthropic provider.
@@ -73,8 +75,16 @@ class AnthropicProvider(LLMProvider):
         Args:
             api_key: Anthropic API key
             default_model: Default model to use
+            workspace_id: Workspace for keys that aren't scoped to one;
+                defaults to config.ANTHROPIC_WORKSPACE_ID
         """
-        self.client = anthropic.Anthropic(api_key=api_key)
+        if workspace_id is None:
+            workspace_id = config.ANTHROPIC_WORKSPACE_ID
+        workspace_id = workspace_id.strip()
+        # A key that isn't scoped to a workspace gets a 400 on every request
+        # that doesn't name one
+        default_headers = {"anthropic-workspace-id": workspace_id} if workspace_id else None
+        self.client = anthropic.Anthropic(api_key=api_key, default_headers=default_headers)
         self._default_model = self._resolve_model(default_model)
 
     def _resolve_model(self, model: str) -> str:

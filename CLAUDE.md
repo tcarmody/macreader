@@ -139,6 +139,7 @@ When a bug is reported:
 Key variables (see `.env.example`):
 - `AUTH_API_KEY`: Shared API key for macOS app and direct API access
 - `ANTHROPIC_API_KEY`, `OPENAI_API_KEY`, `GOOGLE_API_KEY`: LLM providers
+- `ANTHROPIC_WORKSPACE_ID`: Sent as the `anthropic-workspace-id` header on every Anthropic request. Required when the key isn't scoped to a workspace — the Console's default for new personal keys (`sk-ant-usr-…`), which otherwise get a 400 on every call. Leave unset for a single-workspace key.
 - `ADMIN_EMAILS`: Comma-separated emails that get admin privileges (OAuth users). **No default, and fails open** — empty means every authenticated user is an admin. The deployment environment (Railway service variable) is the single source of truth; never reintroduce a hardcoded default in `config.py`. API-key clients are always admin.
 - `SEARCH_REBUILD_ON_START`: Rebuild the Tantivy index at startup (default false)
 - `CORS_ORIGINS`: Allowed origins for web frontend
