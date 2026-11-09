@@ -17,6 +17,7 @@ Usage:
 """
 
 import logging
+from contextlib import aclosing
 from dataclasses import dataclass
 from typing import Optional
 
@@ -31,7 +32,7 @@ logger = logging.getLogger(__name__)
 class EnhancedFetchResult(FetchResult):
     """Extended result with information about fallback methods used."""
     fallback_used: str | None = None  # "js_render", "archive", None
-    archive_source: str | None = None  # "archive.today", "wayback", "google_cache"
+    archive_source: str | None = None  # "archive.today", "archive.ph", "ghostarchive", "wayback"
     original_error: str | None = None  # Error from primary fetch if fallback was used
 
 
@@ -55,6 +56,7 @@ class EnhancedFetcher:
         min_content_length: int = 500,
         js_render_timeout: int = 30000,
         archive_max_age_days: int = 30,
+        archive_timeout: float = 10,
     ):
         """
         Initialize the enhanced fetcher.
@@ -66,6 +68,9 @@ class EnhancedFetcher:
             min_content_length: Minimum content length to consider valid
             js_render_timeout: Playwright timeout in milliseconds
             archive_max_age_days: Maximum age for archived content
+            archive_timeout: Per-service archive timeout in seconds. Services
+                run concurrently, so this bounds the whole archive step; keep
+                timeout + archive_timeout under the clients' 60s request limit.
         """
         self.enable_js_render = enable_js_render and PLAYWRIGHT_AVAILABLE
         self.enable_archive = enable_archive
@@ -86,7 +91,7 @@ class EnhancedFetcher:
 
         if self.enable_archive:
             self._archive_service = ArchiveService(
-                timeout=timeout,
+                timeout=archive_timeout,
                 max_age_days=archive_max_age_days
             )
 
@@ -273,44 +278,39 @@ class EnhancedFetcher:
             )
 
         try:
-            archive_result = await self._archive_service.fetch(url)
+            error = "No archived version found"
+            # Take the first hit with usable content; a stub or CAPTCHA page
+            # from one archive must not hide a real copy from another.
+            async with aclosing(self._archive_service.iter_results(url)) as results:
+                async for archive_result in results:
+                    fetch_result = self._fetcher._extract_content(
+                        archive_result.url,
+                        archive_result.html
+                    )
 
-            if not archive_result.success:
-                return EnhancedFetchResult(
-                    url=url,
-                    title="",
-                    content="",
-                    source="error",
-                    original_error=archive_result.error
-                )
+                    if not self._is_good_content(fetch_result) or self._is_bot_detection_page(fetch_result.content):
+                        logger.info(f"Archive {archive_result.source} returned insufficient content for {url}")
+                        error = f"Archive {archive_result.source} returned insufficient content"
+                        continue
 
-            # Extract content from archived HTML
-            fetch_result = self._fetcher._extract_content(
-                archive_result.url,
-                archive_result.html
-            )
-
-            # Validate the extracted content is useful
-            if not self._is_good_content(fetch_result) or self._is_bot_detection_page(fetch_result.content):
-                logger.info(f"Archive {archive_result.source} returned insufficient content for {url}")
-                return EnhancedFetchResult(
-                    url=url,
-                    title="",
-                    content="",
-                    source="error",
-                    original_error=f"Archive {archive_result.source} returned insufficient content"
-                )
+                    return EnhancedFetchResult(
+                        url=fetch_result.url,
+                        title=fetch_result.title,
+                        content=fetch_result.content,
+                        author=fetch_result.author,
+                        published=fetch_result.published,
+                        source="archive",
+                        content_hash=fetch_result.content_hash,
+                        fallback_used="archive",
+                        archive_source=archive_result.source,
+                    )
 
             return EnhancedFetchResult(
-                url=fetch_result.url,
-                title=fetch_result.title,
-                content=fetch_result.content,
-                author=fetch_result.author,
-                published=fetch_result.published,
-                source="archive",
-                content_hash=fetch_result.content_hash,
-                fallback_used="archive",
-                archive_source=archive_result.source,
+                url=url,
+                title="",
+                content="",
+                source="error",
+                original_error=error
             )
 
         except Exception as e:

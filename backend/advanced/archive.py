@@ -3,8 +3,11 @@ Archive Services - Fetch content from web archives to bypass paywalls.
 
 Supports:
 - Archive.today (archive.is, archive.ph)
+- Ghostarchive (ghostarchive.org)
 - Wayback Machine (web.archive.org)
-- Google Cache (webcache.googleusercontent.com)
+
+Google Cache is deliberately absent: Google shut it down in 2024 and the
+endpoint now answers 200 with a stub page for every URL.
 
 These services often have cached versions of articles that were
 captured before the paywall or have full content available.
@@ -13,6 +16,8 @@ captured before the paywall or have full content available.
 import asyncio
 import logging
 import re
+from collections.abc import AsyncIterator
+from contextlib import aclosing
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from typing import Optional
@@ -29,7 +34,7 @@ class ArchiveResult:
     url: str
     original_url: str
     html: str
-    source: str  # "archive.today", "wayback", "google_cache"
+    source: str  # "archive.today", "archive.ph", "ghostarchive", "wayback"
     cached_date: datetime | None
     success: bool
     error: str | None = None
@@ -39,15 +44,15 @@ class ArchiveService:
     """
     Fetches content from various web archive services.
 
-    Tries multiple archives in order of reliability for bypassing paywalls:
-    1. Archive.today - Often has full article content
-    2. Wayback Machine - Historical snapshots
-    3. Google Cache - Recent cached version
+    Queries several archives concurrently:
+    - Archive.today / Archive.ph - Often has full article content
+    - Ghostarchive - Sometimes has content others don't
+    - Wayback Machine - Historical snapshots
     """
 
     def __init__(
         self,
-        timeout: int = 30,
+        timeout: float = 10,
         max_age_days: int = 30,  # Maximum age of cached content
         user_agent: str | None = None,
     ):
@@ -68,7 +73,7 @@ class ArchiveService:
         """
         Try to fetch content from archive services.
 
-        Attempts each service in order until one succeeds.
+        Returns the first service to answer with content.
 
         Args:
             url: Original URL to find in archives
@@ -76,24 +81,9 @@ class ArchiveService:
         Returns:
             ArchiveResult with archived content if found
         """
-        # Try each archive service in order
-        services = [
-            ("archive.today", self._fetch_archive_today),
-            ("archive.ph", self._fetch_archive_ph),
-            ("ghostarchive", self._fetch_ghostarchive),
-            ("wayback", self._fetch_wayback),
-            ("google_cache", self._fetch_google_cache),
-        ]
-
-        for service_name, fetch_func in services:
-            try:
-                result = await fetch_func(url)
-                if result.success and result.html:
-                    logger.info(f"Found {url} in {service_name}")
-                    return result
-            except Exception as e:
-                logger.debug(f"Failed to fetch from {service_name}: {e}")
-                continue
+        async with aclosing(self.iter_results(url)) as results:
+            async for result in results:
+                return result
 
         # No archive found
         return ArchiveResult(
@@ -105,6 +95,41 @@ class ArchiveService:
             success=False,
             error="No archived version found"
         )
+
+    async def iter_results(self, url: str) -> AsyncIterator[ArchiveResult]:
+        """
+        Query every archive service at once, yielding hits as they arrive.
+
+        Services run concurrently, each capped at self.timeout, so a service
+        that never answers (archive.today stalls non-browser clients) costs
+        one timeout in total rather than one per service. Callers that stop
+        early should wrap this in contextlib.aclosing so the stragglers are
+        cancelled.
+        """
+        services = [
+            ("archive.today", self._fetch_archive_today),
+            ("archive.ph", self._fetch_archive_ph),
+            ("ghostarchive", self._fetch_ghostarchive),
+            ("wayback", self._fetch_wayback),
+        ]
+
+        async def run(service_name, fetch_func):
+            try:
+                return await asyncio.wait_for(fetch_func(url), self.timeout)
+            except Exception as e:
+                logger.debug(f"Failed to fetch from {service_name}: {e!r}")
+                return None
+
+        tasks = [asyncio.create_task(run(name, func)) for name, func in services]
+        try:
+            for next_done in asyncio.as_completed(tasks):
+                result = await next_done
+                if result and result.success and result.html:
+                    logger.info(f"Found {url} in {result.source}")
+                    yield result
+        finally:
+            for task in tasks:
+                task.cancel()
 
     async def _fetch_archive_today(self, url: str) -> ArchiveResult:
         """
@@ -385,49 +410,6 @@ class ArchiveService:
                     success=True
                 )
 
-    async def _fetch_google_cache(self, url: str) -> ArchiveResult:
-        """
-        Fetch from Google Cache.
-
-        Google Cache is often the most recent cached version,
-        but may not always have full content for paywalled sites.
-        """
-        cache_url = f"https://webcache.googleusercontent.com/search?q=cache:{quote(url, safe='')}"
-
-        async with aiohttp.ClientSession(headers=self.headers) as session:
-            async with session.get(
-                cache_url,
-                timeout=aiohttp.ClientTimeout(total=self.timeout),
-                allow_redirects=True
-            ) as resp:
-                if resp.status == 200:
-                    html = await resp.text()
-
-                    # Try to extract cache date from Google's header
-                    cached_date = self._parse_google_cache_date(html)
-
-                    # Clean up Google's wrapper
-                    html = self._clean_google_cache_html(html)
-
-                    return ArchiveResult(
-                        url=cache_url,
-                        original_url=url,
-                        html=html,
-                        source="google_cache",
-                        cached_date=cached_date,
-                        success=True
-                    )
-
-                return ArchiveResult(
-                    url=url,
-                    original_url=url,
-                    html="",
-                    source="google_cache",
-                    cached_date=None,
-                    success=False,
-                    error=f"Not in cache (status {resp.status})"
-                )
-
     def _is_too_old(self, cached_date: datetime) -> bool:
         """Check if the cached date is older than the maximum allowed age."""
         max_age = timedelta(days=self.max_age_days)
@@ -455,20 +437,6 @@ class ArchiveService:
         except (ValueError, IndexError):
             return None
 
-    def _parse_google_cache_date(self, html: str) -> datetime | None:
-        """Extract cache date from Google Cache header."""
-        # Google includes text like "This is Google's cache of ... as retrieved on Jan 15, 2024"
-        match = re.search(
-            r"as retrieved on (\w+ \d+, \d{4})",
-            html[:2000]  # Only check the beginning
-        )
-        if match:
-            try:
-                return datetime.strptime(match.group(1), "%b %d, %Y")
-            except ValueError:
-                pass
-        return None
-
     def _clean_wayback_html(self, html: str) -> str:
         """Remove Wayback Machine toolbar and scripts from HTML."""
         # Remove the Wayback banner/toolbar
@@ -487,18 +455,6 @@ class ArchiveService:
             flags=re.DOTALL | re.IGNORECASE
         )
 
-        return html
-
-    def _clean_google_cache_html(self, html: str) -> str:
-        """Remove Google Cache header from HTML."""
-        # Remove Google's cache header div
-        html = re.sub(
-            r'<div[^>]*style="[^"]*background:#[^"]*"[^>]*>.*?</div>\s*<hr[^>]*>',
-            '',
-            html,
-            count=1,
-            flags=re.DOTALL | re.IGNORECASE
-        )
         return html
 
 
