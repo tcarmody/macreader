@@ -14,6 +14,10 @@ struct AISettingsView: View {
     @State private var saveError: String?
     @State private var showBackendKeySheet = false
     @State private var backendKeyInput = ""
+    @State private var showExaKeySheet = false
+    @State private var exaKeyInput = ""
+    // Nothing else re-renders this view when the Exa key changes, so track it here
+    @State private var hasExaKey = KeychainService.shared.hasExaAPIKey
 
     var body: some View {
         Form {
@@ -117,6 +121,35 @@ struct AISettingsView: View {
                     }
                 }
 
+                HStack {
+                    Text("Exa (Related Links)")
+                    Spacer()
+                    if hasExaKey {
+                        Image(systemName: "checkmark.circle.fill")
+                            .foregroundStyle(.green)
+                        Button("Change") {
+                            exaKeyInput = ""
+                            saveError = nil
+                            showExaKeySheet = true
+                        }
+                        .buttonStyle(.link)
+                        Button("Remove") {
+                            removeExaKey()
+                        }
+                        .buttonStyle(.link)
+                        .foregroundStyle(.red)
+                    } else {
+                        Text("Not configured")
+                            .foregroundStyle(.secondary)
+                        Button("Add") {
+                            exaKeyInput = ""
+                            saveError = nil
+                            showExaKeySheet = true
+                        }
+                        .buttonStyle(.link)
+                    }
+                }
+
                 Text("API keys are stored securely in your macOS Keychain.")
                     .font(.caption)
                     .foregroundStyle(.secondary)
@@ -135,6 +168,9 @@ struct AISettingsView: View {
         }
         .sheet(isPresented: $showBackendKeySheet) {
             backendKeySheet
+        }
+        .sheet(isPresented: $showExaKeySheet) {
+            exaKeySheet
         }
         .sheet(isPresented: $showSetupWizard) {
             SetupWizardView {
@@ -212,6 +248,64 @@ struct AISettingsView: View {
         }
         .padding(30)
         .frame(width: 400)
+    }
+
+    private var exaKeySheet: some View {
+        VStack(spacing: 20) {
+            Text("Exa API Key")
+                .font(.headline)
+
+            Text("Used by Related Links. Create a key at dashboard.exa.ai.")
+                .font(.caption)
+                .foregroundStyle(.secondary)
+
+            SecureField("API Key", text: $exaKeyInput)
+                .textFieldStyle(.roundedBorder)
+                .frame(width: 300)
+
+            if let error = saveError {
+                Text(error)
+                    .foregroundStyle(.red)
+                    .font(.caption)
+            }
+
+            HStack {
+                Button("Cancel") {
+                    showExaKeySheet = false
+                }
+                .keyboardShortcut(.escape)
+
+                Button("Save") {
+                    saveExaKey()
+                }
+                .keyboardShortcut(.return)
+                .buttonStyle(.borderedProminent)
+                .disabled(exaKeyInput.isEmpty)
+            }
+        }
+        .padding(30)
+        .frame(width: 400)
+    }
+
+    private func saveExaKey() {
+        saveError = nil
+        do {
+            try KeychainService.shared.saveExaAPIKey(exaKeyInput)
+        } catch {
+            saveError = error.localizedDescription
+            return
+        }
+        hasExaKey = true
+        showExaKeySheet = false
+    }
+
+    private func removeExaKey() {
+        do {
+            try KeychainService.shared.deleteExaAPIKey()
+        } catch {
+            print("Failed to remove Exa API key: \(error)")
+        }
+        hasExaKey = KeychainService.shared.hasExaAPIKey
     }
 
     private func saveBackendKey() {

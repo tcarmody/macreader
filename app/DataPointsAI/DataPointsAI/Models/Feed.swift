@@ -257,8 +257,9 @@ enum LLMProvider: String, Codable, CaseIterable, Sendable {
             ]
         case .google:
             return [
-                ("flash", "Gemini Flash (Faster)", "Fast with large context"),
-                ("pro", "Gemini Pro (Smarter)", "Best quality from Google")
+                ("hydrogen", "Gemini 4 Hydrogen (Faster)", "Fast and efficient, lowest cost"),
+                ("argon", "Gemini 4 Argon (Balanced)", "Efficient reasoning for most articles"),
+                ("carbon", "Gemini 4 Carbon (Smarter)", "Google's strongest model, slower and costlier")
             ]
         }
     }

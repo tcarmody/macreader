@@ -128,6 +128,10 @@ final class KeychainService: Sendable {
             }
         }
 
+        if let exaKey = exaAPIKey(), !exaKey.isEmpty {
+            env["EXA_API_KEY"] = exaKey
+        }
+
         return env
     }
 
@@ -213,6 +217,58 @@ extension KeychainService {
     }
 
     var hasBackendAPIKey: Bool { backendAPIKey() != nil }
+}
+
+// MARK: - Exa API Key
+
+/// The Exa neural search (`EXA_API_KEY`) credential for Related Links. Not an
+/// LLM provider, so it stays out of KeychainKey and doesn't count towards
+/// hasAnyAPIKey().
+extension KeychainService {
+    private var exaKeyAccount: String { "exa_api_key" }
+
+    func saveExaAPIKey(_ key: String) throws {
+        let trimmed = key.trimmingCharacters(in: .whitespacesAndNewlines)
+        let base: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: serviceName,
+            kSecAttrAccount as String: exaKeyAccount,
+        ]
+        SecItemDelete(base as CFDictionary)
+        var add = base
+        add[kSecValueData as String] = Data(trimmed.utf8)
+        add[kSecAttrAccessible as String] = kSecAttrAccessibleWhenUnlocked
+        let status = SecItemAdd(add as CFDictionary, nil)
+        guard status == errSecSuccess else { throw KeychainError.saveFailed(status) }
+    }
+
+    func exaAPIKey() -> String? {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: serviceName,
+            kSecAttrAccount as String: exaKeyAccount,
+            kSecReturnData as String: true,
+            kSecMatchLimit as String: kSecMatchLimitOne,
+        ]
+        var result: AnyObject?
+        let status = SecItemCopyMatching(query as CFDictionary, &result)
+        guard status == errSecSuccess, let data = result as? Data else { return nil }
+        return String(data: data, encoding: .utf8)
+    }
+
+    func deleteExaAPIKey() throws {
+        let query: [String: Any] = [
+            kSecClass as String: kSecClassGenericPassword,
+            kSecAttrService as String: serviceName,
+            kSecAttrAccount as String: exaKeyAccount,
+        ]
+        let status = SecItemDelete(query as CFDictionary)
+        guard status == errSecSuccess || status == errSecItemNotFound else {
+            throw KeychainError.deleteFailed(status)
+        }
+    }
+
+    var hasExaAPIKey: Bool { exaAPIKey() != nil }
 }
 
 // MARK: - Errors
