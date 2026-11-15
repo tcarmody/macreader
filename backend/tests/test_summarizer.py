@@ -21,10 +21,11 @@ class MockProvider(LLMProvider):
         ModelTier.ADVANCED: "mock-advanced",
     }
 
-    def __init__(self):
+    def __init__(self, supports_json_mode: bool = False):
         self.calls: list[dict] = []
         self.responses: list[str] = []
         self._call_index = 0
+        self._supports_json_mode = supports_json_mode
 
     @property
     def name(self) -> str:
@@ -32,7 +33,7 @@ class MockProvider(LLMProvider):
 
     @property
     def capabilities(self) -> ProviderCapabilities:
-        return ProviderCapabilities()
+        return ProviderCapabilities(supports_json_mode=self._supports_json_mode)
 
     def queue_response(self, text: str):
         """Queue a response to be returned on the next complete() call."""
@@ -52,6 +53,7 @@ class MockProvider(LLMProvider):
             "user_prompt": user_prompt,
             "system_prompt": system_prompt,
             "model": model,
+            "json_mode": json_mode,
         })
         text = self.responses[self._call_index] if self._call_index < len(self.responses) else "{}"
         self._call_index += 1
@@ -261,6 +263,30 @@ class TestCriticModelSelection:
 
         # Model used should reflect the generation step, not the critic
         assert summary.model_used == Model.SONNET
+
+
+class TestJsonMode:
+    """Providers with native JSON mode get it on both passes."""
+
+    def test_json_mode_requested_when_supported(self):
+        provider = MockProvider(supports_json_mode=True)
+        provider.queue_response(_make_step1_response())
+        provider.queue_response(_make_critic_response())
+
+        summarizer = Summarizer(provider=provider)
+        summarizer.summarize("word " * 2500, "https://example.com/long")
+
+        assert [c["json_mode"] for c in provider.calls] == [True, True]
+
+    def test_json_mode_off_when_unsupported(self):
+        provider = MockProvider()
+        provider.queue_response(_make_step1_response())
+        provider.queue_response(_make_critic_response())
+
+        summarizer = Summarizer(provider=provider)
+        summarizer.summarize("word " * 2500, "https://example.com/long")
+
+        assert [c["json_mode"] for c in provider.calls] == [False, False]
 
 
 class TestShouldUseCritic:

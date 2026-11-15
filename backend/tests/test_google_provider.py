@@ -62,6 +62,14 @@ class TestTierModels:
         assert p._resolve_model("carbon") == "gemini-4-carbon"
         assert p._resolve_model("flash") == "gemini-4-hydrogen"
         assert p._resolve_model("pro") == "gemini-4-carbon"
+        assert p._resolve_model("argon") == "gemini-4-argon"
+
+    def test_argon_gets_gemini_4_request_shape(self, provider):
+        provider.complete(user_prompt="hi", model="argon", temperature=0.7)
+        config = _config(provider)
+        assert _sent(provider)["model"] == "gemini-4-argon"
+        assert config.temperature is None
+        assert config.thinking_config.thinking_level.value == "LOW"
 
 
 class TestGemini4:

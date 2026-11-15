@@ -324,6 +324,7 @@ Return one JSON object and nothing else: no preamble, no markdown code fences, n
                 system_prompt=self.SYSTEM_PROMPT,
                 model=self.provider.get_model_for_tier(model_tier),
                 max_tokens=self.MAX_OUTPUT_TOKENS,
+                json_mode=self.provider.capabilities.supports_json_mode,
             )
 
         # Check if critic step should run
@@ -476,6 +477,7 @@ Article:
                     system_prompt=self.SYSTEM_PROMPT,
                     model=critic_model,
                     max_tokens=self.MAX_OUTPUT_TOKENS,
+                    json_mode=self.provider.capabilities.supports_json_mode,
                 )
 
             # Validate the critic produced parseable JSON

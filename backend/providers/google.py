@@ -34,6 +34,7 @@ class GoogleProvider(LLMProvider):
         "gemini-pro": "gemini-4-carbon",
         "fast": "gemini-4-hydrogen",
         "standard": "gemini-4-carbon",
+        "argon": "gemini-4-argon",
         # Stable 2.5 aliases
         "gemini-2.5-flash": "gemini-2.5-flash",
         "gemini-2.5-pro": "gemini-2.5-pro",
