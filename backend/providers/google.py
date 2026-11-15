@@ -17,21 +17,23 @@ class GoogleProvider(LLMProvider):
     """
 
     # Model mappings for each tier
-    # Using Gemini 3 preview models (latest)
+    # Hydrogen is the fast/efficient Gemini 4 model; Carbon is the frontier one
     TIER_MODELS = {
-        ModelTier.FAST: "gemini-3-flash-preview",
-        ModelTier.STANDARD: "gemini-3-pro-preview",
-        ModelTier.ADVANCED: "gemini-3-pro-preview",
+        ModelTier.FAST: "gemini-4-hydrogen",
+        ModelTier.STANDARD: "gemini-4-carbon",
+        ModelTier.ADVANCED: "gemini-4-carbon",
     }
 
     # Model aliases for convenience
     MODEL_ALIASES = {
-        "flash": "gemini-3-flash-preview",
-        "pro": "gemini-3-pro-preview",
-        "gemini-flash": "gemini-3-flash-preview",
-        "gemini-pro": "gemini-3-pro-preview",
-        "fast": "gemini-3-flash-preview",
-        "standard": "gemini-3-pro-preview",
+        "hydrogen": "gemini-4-hydrogen",
+        "carbon": "gemini-4-carbon",
+        "flash": "gemini-4-hydrogen",
+        "pro": "gemini-4-carbon",
+        "gemini-flash": "gemini-4-hydrogen",
+        "gemini-pro": "gemini-4-carbon",
+        "fast": "gemini-4-hydrogen",
+        "standard": "gemini-4-carbon",
         # Stable 2.5 aliases
         "gemini-2.5-flash": "gemini-2.5-flash",
         "gemini-2.5-pro": "gemini-2.5-pro",
@@ -39,10 +41,19 @@ class GoogleProvider(LLMProvider):
         "gemini-2.0-flash": "gemini-2.0-flash",
     }
 
+    # Gemini 4 models ignore temperature / top_p / top_k (and 400 on
+    # out-of-range values) and always think out of the max_output_tokens
+    # budget - Hydrogen defaults to "high". Low thinking keeps it short, and
+    # the headroom stops thinking tokens from truncating an answer sized by
+    # the caller's max_tokens.
+    ALWAYS_THINKING_PREFIX = "gemini-4-"
+    THINKING_LEVEL = types.ThinkingLevel.LOW
+    THINKING_HEADROOM_TOKENS = 8192
+
     def __init__(
         self,
         api_key: str,
-        default_model: str = "gemini-3-flash-preview",
+        default_model: str = "gemini-4-hydrogen",
     ):
         """
         Initialize Google Gemini provider.
@@ -103,10 +114,16 @@ class GoogleProvider(LLMProvider):
         resolved_model = self._resolve_model(model) if model else self._default_model
 
         # Build generation config
-        config_kwargs = {
-            "max_output_tokens": max_tokens,
-            "temperature": temperature,
-        }
+        if resolved_model.startswith(self.ALWAYS_THINKING_PREFIX):
+            config_kwargs = {
+                "max_output_tokens": max_tokens + self.THINKING_HEADROOM_TOKENS,
+                "thinking_config": types.ThinkingConfig(thinking_level=self.THINKING_LEVEL),
+            }
+        else:
+            config_kwargs = {
+                "max_output_tokens": max_tokens,
+                "temperature": temperature,
+            }
 
         # Add system instruction if provided
         if system_prompt:

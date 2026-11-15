@@ -369,8 +369,8 @@ Return one JSON object and nothing else: no preamble, no markdown code fences, n
         if "haiku" in model_lower:
             return Model.HAIKU.value
 
-        # Google: gemini-3.0-flash, gemini-2.0-flash, etc.
-        if "flash" in model_lower:
+        # Google: gemini-4-hydrogen, gemini-3.0-flash, gemini-2.0-flash, etc.
+        if "flash" in model_lower or "hydrogen" in model_lower:
             return Model.HAIKU.value
 
         # OpenAI: gpt-5.2-mini, gpt-4o-mini, etc.
