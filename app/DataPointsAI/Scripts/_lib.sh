@@ -95,9 +95,15 @@ swift_build_flags() {
     fi
 }
 
-# Path to the linked executable for one architecture.
+# Path to the linked executable for one architecture. Asks SwiftPM rather than
+# hardcoding: the native build system writes to .build/<arch>-apple-macosx/release,
+# but the swift-build backend (default since Swift 6.4) writes to
+# .build/out/Products/Release — shared across architectures.
 built_binary_path() {
-    echo "$PROJECT_ROOT/.build/$1-apple-macosx/release/$APP_NAME"
+    swift_build_flags "$1"
+    local bin_dir
+    bin_dir="$(cd "$PROJECT_ROOT" && "$SWIFT" build "${BUILD_FLAGS[@]}" --show-bin-path)"
+    echo "$bin_dir/$APP_NAME"
 }
 
 # Resolve a codesigning identity to a SHA-1 hash, never a name — several certs

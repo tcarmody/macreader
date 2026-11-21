@@ -22,13 +22,20 @@ select_toolchain
 # Compile
 # ---------------------------------------------------------------------------
 SLICES=()
+SLICE_DIR="$PROJECT_ROOT/.build/slices"
+rm -rf "$SLICE_DIR"
+mkdir -p "$SLICE_DIR"
 for arch in $ARCHS; do
     swift_build_flags "$arch"   # sets BUILD_FLAGS
     log "Building $APP_NAME (release, $arch)"
     ( cd "$PROJECT_ROOT" && "$SWIFT" build "${BUILD_FLAGS[@]}" )
 
-    slice="$(built_binary_path "$arch")"
-    [[ -x "$slice" ]] || die "swift build did not produce $slice"
+    built="$(built_binary_path "$arch")"
+    [[ -x "$built" ]] || die "swift build did not produce $built"
+    # Copy out before the next arch builds: the swift-build backend reuses
+    # one output directory for every architecture.
+    slice="$SLICE_DIR/$APP_NAME-$arch"
+    cp "$built" "$slice"
     SLICES+=("$slice")
 done
 
