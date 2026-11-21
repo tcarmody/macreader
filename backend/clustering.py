@@ -10,8 +10,8 @@ import json
 from dataclasses import dataclass
 from typing import TYPE_CHECKING
 
-from .providers import LLMProvider
-from .providers.base import ModelTier
+from dpcommon.llm import LLMProvider
+from dpcommon.llm import ModelTier
 
 if TYPE_CHECKING:
     from .cache import TieredCache
@@ -306,6 +306,6 @@ def create_clusterer_from_api_key(
 
     Deprecated: Use create_clusterer(provider, cache) instead.
     """
-    from .providers import AnthropicProvider
+    from dpcommon.llm import AnthropicProvider
     provider = AnthropicProvider(api_key=api_key)
     return Clusterer(provider=provider, cache=cache)

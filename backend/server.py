@@ -29,7 +29,7 @@ from .services.auto_digest import AutoDigestService
 from .services.brief_generator import BriefGenerator
 from .services.story_groups import StoryGroupService
 from .clustering import Clusterer
-from .providers import get_provider_from_env
+from dpcommon.llm import get_provider_from_env
 from .routes import (
     articles_router,
     digest_router,
@@ -137,6 +137,7 @@ async def lifespan(app: FastAPI):
             google_key=config.GOOGLE_API_KEY or None,
             preferred_provider=config.LLM_PROVIDER or None,
             default_model=config.LLM_MODEL or None,
+            workspace_id=config.ANTHROPIC_WORKSPACE_ID,
         )
 
         if state.provider:
@@ -307,6 +308,7 @@ async def inject_api_keys_from_headers(request: Request, call_next):
             google_key=config.GOOGLE_API_KEY or None,
             preferred_provider=config.LLM_PROVIDER or None,
             default_model=config.LLM_MODEL or None,
+            workspace_id=config.ANTHROPIC_WORKSPACE_ID,
         )
         if state.provider:
             state.summarizer = Summarizer(provider=state.provider, cache=state.cache)

@@ -14,8 +14,8 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 from .extractors import strip_html_if_present
-from .providers import LLMProvider, AnthropicProvider
-from .providers.base import ModelTier
+from dpcommon.llm import LLMProvider, AnthropicProvider
+from dpcommon.llm import ModelTier
 
 if TYPE_CHECKING:
     from .cache import TieredCache
@@ -685,6 +685,6 @@ def create_summarizer_from_api_key(
 
     Deprecated: Use create_summarizer(provider, cache) instead.
     """
-    from .providers import AnthropicProvider
+    from dpcommon.llm import AnthropicProvider
     provider = AnthropicProvider(api_key=api_key)
     return Summarizer(provider=provider, cache=cache)

@@ -8,7 +8,7 @@ Uses a mock LLM provider to test the 2-step summarization flow
 import json
 import pytest
 
-from backend.providers.base import LLMProvider, LLMResponse, ProviderCapabilities, ModelTier
+from dpcommon.llm import LLMProvider, LLMResponse, ProviderCapabilities, ModelTier
 from backend.summarizer import Summarizer, Summary, Model
 
 

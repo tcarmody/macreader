@@ -10,7 +10,7 @@ from datetime import datetime, timezone
 
 import pytest
 
-from backend.providers.base import LLMProvider, LLMResponse, ProviderCapabilities, ModelTier
+from dpcommon.llm import LLMProvider, LLMResponse, ProviderCapabilities, ModelTier
 from backend.services.story_groups import StoryGroupService, StoryGroup
 
 
@@ -325,7 +325,7 @@ def test_get_group_for_article_not_found(test_db):
     """Article not in any group returns None."""
     import asyncio
     service = StoryGroupService(db=test_db, provider=MockProvider(), cache=None)
-    result = asyncio.get_event_loop().run_until_complete(
+    result = asyncio.run(
         service.get_group_for_article(article_id=999)
     )
     assert result is None

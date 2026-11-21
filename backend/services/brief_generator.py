@@ -16,8 +16,8 @@ from enum import Enum
 from typing import TYPE_CHECKING
 
 from ..extractors import strip_html_if_present
-from ..providers import LLMProvider, AnthropicProvider
-from ..providers.base import ModelTier
+from dpcommon.llm import LLMProvider, AnthropicProvider
+from dpcommon.llm import ModelTier
 
 if TYPE_CHECKING:
     from ..cache import TieredCache

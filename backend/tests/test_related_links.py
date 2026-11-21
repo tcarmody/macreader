@@ -577,7 +577,7 @@ class TestExaIntegration:
         """Real Exa service for integration testing."""
         import os
         from backend.cache import create_cache
-        from backend.providers.anthropic import AnthropicProvider
+        from dpcommon.llm import AnthropicProvider
 
         api_key = os.getenv("EXA_API_KEY")
         if not api_key:

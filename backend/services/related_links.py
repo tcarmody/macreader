@@ -20,7 +20,7 @@ from ..extractors import extract_html_text
 if TYPE_CHECKING:
     from ..cache import TieredCache
     from ..database.models import DBArticle
-    from ..providers.base import LLMProvider
+    from dpcommon.llm import LLMProvider
 
 logger = logging.getLogger(__name__)
 
@@ -61,7 +61,7 @@ def extract_keywords_llm(article: "DBArticle", provider: "LLMProvider") -> list[
     Use Claude Haiku to extract 3-5 key concepts from article.
     Fast (<1s) and cheap (~$0.001 per extraction).
     """
-    from ..providers.base import ModelTier
+    from dpcommon.llm import ModelTier
 
     # Check cache first
     if article.extracted_keywords:

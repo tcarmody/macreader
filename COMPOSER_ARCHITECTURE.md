@@ -375,8 +375,8 @@ Prioritize consistency with DataPoints where possible so the mental overhead of 
 - **Python 3.11+, FastAPI** — same as DataPoints; same patterns (repository layer, service layer, Pydantic schemas, async throughout)
 - **SQLite** with `sqlite-vec` for vector search; migrate to Postgres later only if needed
 - **Uvicorn** on port 5006
-- **Shared venv or separate?** Separate. Two requirements files, two venvs. Shared Python version.
-- **LLM providers**: reuse the abstract base pattern from DataPoints (`providers/base.py`). You could literally copy the provider code into Composer, or extract it into a small shared package (`datapoints-llm`) installed by both. Extract if the code starts diverging; copy if it doesn't.
+- **Shared venv or separate?** Separate. Each repo has its own `pyproject.toml`, `uv.lock` and `.venv`; both pin Python 3.14 in `.python-version`.
+- **LLM providers**: shared. The provider layer was extracted into [dpcommon](https://github.com/tcarmody/datapoints-common) (`dpcommon.llm`), installed by both apps and pinned by tag, after the two copies drifted (the same `anthropic-workspace-id` fix landed in each repo separately). The same package holds the ingest contract (`dpcommon.ingest`, the models DataPoints sends and Composer's `/v1/ingest/*` accepts) and the Mac app build tool (`dpcommon-macapp`). Domain code stays in each app.
 - **Embeddings**: Voyage (`voyage-3`) or OpenAI (`text-embedding-3-small`). Both are fine. Voyage is cheaper; OpenAI is more familiar.
 
 ### Frontend

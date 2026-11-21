@@ -4,22 +4,29 @@ DataPoints is an RSS reader with AI-powered summarization. It has a Python FastA
 
 ## Python Environment
 
-Always activate the virtual environment before running Python commands:
+Dependencies are managed with [uv](https://docs.astral.sh/uv/): `pyproject.toml` declares them, `uv.lock` pins them, and `.python-version` pins Python 3.14 (uv installs it if needed). Run Python commands through `uv run`, which uses `.venv` and keeps it in sync with the lockfile:
 
-```bash
-source rss_venv/bin/activate && <command>
-```
+- Run tests: `uv run pytest backend/tests/ -v`
+- Run server: `uv run uvicorn backend.server:app --reload --port 5005`
+- Install / sync deps: `uv sync`
+- Add a dependency: `uv add <package>` (updates `pyproject.toml` and `uv.lock`)
 
-Examples:
-- Run tests: `source rss_venv/bin/activate && pytest backend/tests/ -v`
-- Run server: `source rss_venv/bin/activate && python -m uvicorn backend.server:app --reload --port 5005`
-- Install deps: `source rss_venv/bin/activate && pip install -r requirements.txt`
+There is no `requirements.txt`. The Mac app starts its local backend from `.venv/bin/python`.
+
+## Shared package (dpcommon)
+
+Code shared with Composer lives in [datapoints-common](https://github.com/tcarmody/datapoints-common), installed as `dpcommon` and pinned by tag in `[tool.uv.sources]`:
+
+- `dpcommon.llm`: the LLM provider layer (Anthropic, OpenAI, Google). Import providers from here; there is no `backend/providers/`.
+- `dpcommon.ingest`: the ingest contract for promoting articles to Composer (`backend/composer_client.py` builds `IngestItem`).
+- `dpcommon-macapp`: the Mac app build tool behind `make app`.
+
+A change to any of these is made in that repo, released as a new tag, then picked up here by bumping the tag and running `uv lock`. Its README explains how to develop against a local checkout.
 
 ## Project Structure
 
 - **backend/**: Python FastAPI server (port 5005)
   - `routes/`: API endpoints (articles, feeds, summarization, standalone, gmail, notifications, statistics, chat, digest, admin, misc)
-  - `providers/`: LLM implementations (anthropic, openai, google) with abstract base class in `base.py`
   - `services/`: Business logic (article_service, feed_service, library_service, related_links, brief_generator, story_groups, auto_digest, chat_service)
   - `database/`: Repository pattern for SQLite operations; `connection.py` owns schema + migrations
   - `site_extractors/`: Custom per-site content extraction (bloomberg, github, medium, substack, twitter, wikipedia, youtube)
@@ -31,10 +38,12 @@ Examples:
 
 ## Building & Running
 
-- Backend: `source rss_venv/bin/activate && python -m uvicorn backend.server:app --reload --port 5005`
-- Backend tests: `source rss_venv/bin/activate && pytest backend/tests/ -v`
+- Setup: `make setup` (runs `uv sync`)
+- Backend: `uv run uvicorn backend.server:app --reload --port 5005` (or `make run`)
+- Backend tests: `uv run pytest backend/tests/ -v` (or `make test`)
 - Web dev server: `cd web && npm run dev` (runs on localhost:3000)
-- Swift app: `make app` (build + sign), then `make app-run`. Builds with SwiftPM on the standalone Command Line Tools — Xcode.app is not required. See `app/DataPointsAI/Scripts/README.md`.
+- Swift app: `make app` (build + sign), then `make app-run`. Builds with SwiftPM on the standalone Command Line Tools — Xcode.app is not required. Built by `dpcommon-macapp`, configured in `[tool.dpcommon.macapp]` in `pyproject.toml`. See `app/DataPointsAI/BUILDING.md`.
+- Deploy: Railway builds `Dockerfile` (Python 3.14 + `uv sync --frozen`), per `railway.json`.
 
 ## Architecture Patterns
 
@@ -86,13 +95,15 @@ Key tables:
 
 ## LLM Providers
 
-Supports Anthropic (Claude), OpenAI (GPT), and Google (Gemini). Provider implementations follow abstract base in `backend/providers/base.py`. Anthropic is preferred — it supports prompt caching which reduces cost ~90% on repeated prefix calls.
+Supports Anthropic (Claude), OpenAI (GPT), and Google (Gemini) through `dpcommon.llm` (the shared package; see above). Providers implement the `LLMProvider` base in `dpcommon/llm/base.py`. Anthropic is preferred — it supports prompt caching which reduces cost ~90% on repeated prefix calls.
 
-Anthropic tiers (`backend/providers/anthropic.py`): FAST → `claude-haiku-5-5`, STANDARD → `claude-sonnet-5-5`, ADVANCED → `claude-opus-5-5`. Summarization and the critic pass both default to STANDARD; only cheap side-tasks (keyword extraction for related links) use FAST.
+Anthropic tiers (`dpcommon/llm/anthropic.py`): FAST → `claude-haiku-5-5`, STANDARD → `claude-sonnet-5-5`, ADVANCED → `claude-opus-5-5`. Summarization and the critic pass both default to STANDARD; only cheap side-tasks (keyword extraction for related links) use FAST.
 
-**5.5 request shape**: all three models reject `temperature` and think by default out of the `max_tokens` budget, and each turns thinking off differently. `AnthropicProvider._apply_sampling()` strips temperature and applies the per-model setting from `THINKING_CONFIG`: Haiku 5.5 → `disabled`; Sonnet 5.5 → `between_tools` (`disabled` is a 400); Opus 5.5 can't turn thinking off, so it runs at `low` effort with extra `max_tokens` headroom. Don't send `temperature`, `thinking: disabled` to Sonnet/Opus 5.5, a forced `tool_choice`, or an assistant prefill — each returns a 400.
+**SDK and API version**: `anthropic` 2.x, which sends API version `2026-10-21` and the key as `Authorization: Bearer`. That version rejects `temperature` / `top_p` / `top_k` on every model, so the provider never sends them (the `temperature` arguments on `complete()` etc. are accepted and ignored).
 
-**Refusals**: the 5.5 models can decline a request (HTTP 200, `stop_reason: "refusal"`, no text). Sonnet 5.5 and Opus 5.5 requests opt into server-side fallback (`fallbacks: "default"`, beta header `server-side-fallback-2026-07-01`), which retries some declines on the previous model; Haiku 5.5 has no fallback. A refusal that survives raises `RuntimeError` from `_extract_text()`. These parameters go through `extra_body` / `extra_headers` because the pinned SDK doesn't type them.
+**5.5 request shape**: all three models think by default out of the `max_tokens` budget, and each turns thinking off differently. `AnthropicProvider.prepare_request()` applies the per-model setting from `THINKING_CONFIG`: Haiku 5.5 → `disabled`; Sonnet 5.5 → `between_tools` (`disabled` is a 400); Opus 5.5 can't turn thinking off, so it runs at `low` effort (`output_config`) with extra `max_tokens` headroom. Don't send `thinking: disabled` to Sonnet/Opus 5.5, a forced `tool_choice`, or an assistant prefill — each returns a 400.
+
+**Refusals**: the 5.5 models can decline a request (HTTP 200, `stop_reason: "refusal"`, no text). Sonnet 5.5 and Opus 5.5 requests opt into server-side fallback (`fallbacks: "default"`, beta header `server-side-fallback-2026-07-01`), which retries some declines on the previous model; Haiku 5.5 has no fallback. A refusal that survives raises `RefusalError` (a `RuntimeError` subclass, with `.category`). `fallbacks` goes through `extra_body` because the SDK doesn't type it.
 
 ## Key APIs
 

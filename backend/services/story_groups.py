@@ -19,8 +19,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
-from ..providers import LLMProvider
-from ..providers.base import ModelTier
+from dpcommon.llm import LLMProvider
+from dpcommon.llm import ModelTier
 
 if TYPE_CHECKING:
     from ..cache import TieredCache
@@ -217,7 +217,7 @@ class StoryGroupService:
 
     async def _call_llm(self, articles: "list[DBArticle]") -> list[dict]:
         """Call LLM and parse story groups from response. Returns [] on any failure."""
-        from ..providers import AnthropicProvider
+        from dpcommon.llm import AnthropicProvider
 
         dynamic = self._build_dynamic(articles)
         model = self._provider.get_model_for_tier(ModelTier.FAST)

@@ -73,12 +73,9 @@ A modern RSS reader with AI-powered summarization, available as a native macOS a
 git clone https://github.com/yourusername/macreader.git
 cd macreader
 
-# Create and activate virtual environment
-python3 -m venv rss_venv
-source rss_venv/bin/activate
-
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies (uv installs Python 3.14 into .venv if needed;
+# get uv with `brew install uv`)
+make setup
 
 # Create .env file with your API key
 cp .env.example .env
@@ -109,7 +106,7 @@ make app-run    # launch it, with logs on the terminal
 On first launch, configure API keys via the setup wizard.
 
 Build options (universal binaries, signing identity, `#Preview` support) are
-documented in [app/DataPointsAI/Scripts/README.md](app/DataPointsAI/Scripts/README.md).
+documented in [app/DataPointsAI/BUILDING.md](app/DataPointsAI/BUILDING.md).
 
 ### Web PWA
 
@@ -183,7 +180,6 @@ macreader/
 │   └── DataPointsAI/
 ├── backend/                # Python FastAPI server
 │   ├── routes/             # API endpoints
-│   ├── providers/          # LLM provider integrations
 │   ├── advanced/           # JS rendering, archive fallbacks
 │   └── tests/              # Test suite
 ├── web/                    # React PWA frontend

@@ -1,5 +1,7 @@
 """Tests for the Composer client + /articles/{id}/promote route."""
 
+import json
+
 import httpx
 import pytest
 
@@ -149,3 +151,52 @@ def test_promote_route_success_marks_db_and_returns_ids(
 
     detail = test_client.get(f"/articles/{article_id}").json()
     assert detail["promoted_to_composer"] is not None
+
+
+# --- Shared ingest contract (dpcommon.ingest) --------------------------------
+
+
+def test_payload_reproduces_shared_contract_fixture():
+    """
+    An article mirroring the contract's `datapoints_full` fixture must produce
+    exactly that payload, so DataPoints and the contract can't drift apart.
+    Composer's tests run the same fixture through its ingest route.
+    """
+    from datetime import timezone
+
+    from dpcommon.ingest import load_fixtures
+
+    expected = load_fixtures()["datapoints_full"]
+    article = _fake_article(
+        url=expected["url"],
+        source_url=None,
+        title=expected["title"],
+        author=expected["author"],
+        published_at=datetime(2026, 11, 20, 9, 30, tzinfo=timezone.utc),
+        content=expected["content"],
+        summary_full=expected["summary"],
+        key_points=expected["key_points"],
+        extracted_keywords=json.dumps(expected["keywords"]),
+        related_links=json.dumps({"links": expected["related_links"]}),
+        site_name=expected["metadata"]["site_name"],
+        word_count=expected["metadata"]["word_count"],
+        reading_time_minutes=expected["metadata"]["reading_time_minutes"],
+        featured_image=expected["metadata"]["featured_image"],
+        feed_name=expected["metadata"]["feed_name"],
+    )
+    assert composer_client._build_payload(article) == expected
+
+
+def test_payload_declares_contract_version():
+    assert composer_client._build_payload(_fake_article())["schema_version"] == 1
+
+
+@pytest.mark.asyncio
+async def test_promote_article_rejects_response_outside_contract(monkeypatch):
+    monkeypatch.setattr(Config, "COMPOSER_URL", "https://composer.test")
+    transport = httpx.MockTransport(
+        lambda req: httpx.Response(200, json={"id": "cmp-1"})  # no url / already_existed
+    )
+    async with httpx.AsyncClient(transport=transport) as client:
+        with pytest.raises(composer_client.ComposerError, match="Invalid Composer response"):
+            await composer_client.promote_article(_fake_article(), client=client)

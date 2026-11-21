@@ -4,8 +4,8 @@ import PackageDescription
 // DataPointsAI is a SwiftUI macOS app built with SwiftPM instead of Xcode.
 //
 // SwiftPM only produces a bare executable — it has no notion of an .app bundle,
-// an Info.plist, or an asset catalog. Scripts/build-app.sh wraps the binary
-// produced here into build/DataPointsAI.app. See Scripts/README.md.
+// an Info.plist, or an asset catalog. `make app` (dpcommon-macapp) wraps the binary
+// produced here into build/DataPointsAI.app. See BUILDING.md.
 //
 // The settings below mirror the build settings the old .xcodeproj carried, so
 // the source compiles identically:
@@ -21,7 +21,7 @@ let package = Package(
             name: "DataPointsAI",
             path: "DataPointsAI",
             // Compiling an asset catalog needs actool, which ships only inside
-            // Xcode. build-app.sh renders AppIcon to an .icns with iconutil
+            // Xcode. dpcommon-macapp renders AppIcon to an .icns with iconutil
             // instead, so the catalog is not a build input here.
             exclude: ["Assets.xcassets"],
             swiftSettings: [

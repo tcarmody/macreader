@@ -33,7 +33,7 @@ class PythonServer: ObservableObject {
             throw ServerError.projectNotFound
         }
 
-        let venvPython = projectPath.appendingPathComponent("rss_venv/bin/python")
+        let venvPython = projectPath.appendingPathComponent(".venv/bin/python")
         let backendDir = projectPath.appendingPathComponent("backend")
 
         guard FileManager.default.fileExists(atPath: venvPython.path) else {

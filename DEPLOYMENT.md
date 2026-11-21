@@ -34,9 +34,9 @@ This guide explains how to deploy the DataPoints RSS reader as a web application
 1. Go to [railway.app](https://railway.app) and sign in
 2. Click **"New Project"** → **"Deploy from GitHub repo"**
 3. Select your `macreader` repository
-4. Railway will detect the Python project and use [Railpack](https://docs.railway.com/guides/build-configuration) to build it automatically
+4. Railway builds the `Dockerfile` in the repo root: Python 3.14 with the dependencies locked in `uv.lock`
 
-> **Note**: The `railway.json` file configures Railway to use Railpack (the current default builder). Nixpacks is deprecated but still supported for existing services.
+> **Note**: The `railway.json` file sets the builder to `DOCKERFILE`. The image installs exactly what `uv.lock` pins (`uv sync --frozen`), so a deploy runs the same dependency versions as local development and CI.
 
 ### 1.2 Configure Environment Variables
 
@@ -81,7 +81,7 @@ SQLite needs persistent storage to survive redeploys. See Railway's [Volumes doc
 
 ### 1.4 Verify Deployment
 
-1. Railway will automatically deploy using the `Procfile`
+1. Railway will automatically build and deploy the `Dockerfile`
 2. Once deployed, go to your service → **Settings** → **Networking** to find your service URL (e.g., `https://macreader-production.up.railway.app`)
 3. Test the API: `https://your-url.railway.app/status`
 
@@ -193,7 +193,7 @@ You're now ready to:
 
 ### Build failures on Railway
 
-1. Check that the project is using Railpack (set in `railway.json` or service settings)
+1. Check that the service builds with the `Dockerfile` (set in `railway.json` or service settings), and that `uv.lock` is committed and up to date with `pyproject.toml` (`uv lock --check`)
 2. Review build logs in Railway dashboard → your service → **Deployments**
 3. See [Build Configuration](https://docs.railway.com/guides/build-configuration) for customization options
 
@@ -343,8 +343,7 @@ For local development, you don't need cloud services:
 
 ```bash
 # Terminal 1: Start backend
-source rss_venv/bin/activate
-python -m uvicorn backend.server:app --reload --port 5005
+uv run uvicorn backend.server:app --reload --port 5005
 
 # Terminal 2: Start frontend
 cd web

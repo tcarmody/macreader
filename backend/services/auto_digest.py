@@ -19,8 +19,8 @@ from dataclasses import dataclass, field
 from datetime import datetime, timedelta
 from typing import TYPE_CHECKING
 
-from ..providers import LLMProvider
-from ..providers.base import ModelTier
+from dpcommon.llm import LLMProvider
+from dpcommon.llm import ModelTier
 
 if TYPE_CHECKING:
     from ..cache import TieredCache

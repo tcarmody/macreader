@@ -297,7 +297,7 @@ struct FeedHealthRow: View {
     }
 }
 
-// #Preview needs Xcode's macro plugin; off by default. See Scripts/README.md.
+// #Preview needs Xcode's macro plugin; off by default. See BUILDING.md.
 #if PREVIEWS
 #Preview {
     FeedHealthDashboardView()

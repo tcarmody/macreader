@@ -4,6 +4,9 @@ Composer client — promotes DataPoints articles to the Composer workbench.
 Composer runs a separate ingest API (see COMPOSER_ARCHITECTURE.md). We POST
 `/v1/ingest/items` with an `X-Ingest-Key` header. Ingest is idempotent on
 (source, source_ref), so re-posting the same article is safe.
+
+The payload and response shapes are the shared contract in `dpcommon.ingest`,
+which Composer's routes use as their request and response models.
 """
 
 import json
@@ -11,6 +14,13 @@ import logging
 from dataclasses import dataclass
 
 import httpx
+from dpcommon.ingest import (
+    INGEST_ITEMS_PATH,
+    INGEST_KEY_HEADER,
+    IngestItem,
+    IngestItemResponse,
+)
+from pydantic import ValidationError
 
 from .config import Config
 from .database.models import DBArticle
@@ -81,7 +91,7 @@ def _build_payload(article: DBArticle) -> dict:
         article.published_at.isoformat() if article.published_at else None
     )
 
-    return {
+    fields = {
         "source": "datapoints",
         # article.url (UNIQUE) rather than the AUTOINCREMENT id: ids diverge
         # between DataPoints instances (local vs Railway), so two instances
@@ -100,6 +110,9 @@ def _build_payload(article: DBArticle) -> dict:
         "related_links": related_links,
         "metadata": metadata,
     }
+    # Built through the shared contract model, so a payload Composer would
+    # reject fails here first
+    return IngestItem.model_validate(fields).model_dump(mode="json")
 
 
 async def promote_article(
@@ -114,9 +127,9 @@ async def promote_article(
     payload = _build_payload(article)
     headers = {"Content-Type": "application/json"}
     if Config.COMPOSER_INGEST_KEY:
-        headers["X-Ingest-Key"] = Config.COMPOSER_INGEST_KEY
+        headers[INGEST_KEY_HEADER] = Config.COMPOSER_INGEST_KEY
 
-    url = Config.COMPOSER_URL.rstrip("/") + "/v1/ingest/items"
+    url = Config.COMPOSER_URL.rstrip("/") + INGEST_ITEMS_PATH
 
     owns_client = client is None
     client = client or httpx.AsyncClient(timeout=10.0)
@@ -136,12 +149,12 @@ async def promote_article(
         raise ComposerError(f"Composer returned {resp.status_code}")
 
     try:
-        body = resp.json()
-    except ValueError as exc:
+        body = IngestItemResponse.model_validate(resp.json())
+    except (ValueError, ValidationError) as exc:
         raise ComposerError(f"Invalid Composer response: {exc}") from exc
 
     return PromotionResult(
-        composer_id=body["id"],
-        composer_url=body["url"],
-        already_existed=bool(body.get("already_existed")),
+        composer_id=body.id,
+        composer_url=body.url,
+        already_existed=body.already_existed,
     )

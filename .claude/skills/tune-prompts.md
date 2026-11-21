@@ -30,13 +30,13 @@ The prompts live in two files:
 3. **Show the current prompt** to the user and propose specific edits based on what they want to change. Keep edits surgical — change only what's needed.
 
 4. **Get a test article.** Ask the user for one of:
-   - An article ID from the database (fetch via `source rss_venv/bin/activate && python3 -c "..."` using the Database class)
+   - An article ID from the database (fetch via `uv run python -c "..."` using the Database class)
    - A URL to fetch content from
    - Paste raw text
    
    If they don't have a preference, pick a recent article from the database:
    ```bash
-   source rss_venv/bin/activate && python3 -c "
+   uv run python -c "
    from backend.database import Database
    import asyncio
    async def main():
@@ -51,7 +51,7 @@ The prompts live in two files:
 
 5. **Run the BEFORE test** using the current prompts (read the article content, call the summarizer via Python):
    ```bash
-   source rss_venv/bin/activate && python3 -c "
+   uv run python -c "
    import json, os
    from backend.providers import AnthropicProvider
    from backend.summarizer import Summarizer

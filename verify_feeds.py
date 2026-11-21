@@ -74,7 +74,7 @@ def main():
 
     if api_feeds is None:
         print("  ❌ Could not fetch feeds from API")
-        print("  Make sure the backend is running: source rss_venv/bin/activate && python -m uvicorn backend.server:app --reload --port 5005")
+        print("  Make sure the backend is running: uv run uvicorn backend.server:app --reload --port 5005")
         return
 
     api_rss, api_newsletters = categorize_feeds(api_feeds)

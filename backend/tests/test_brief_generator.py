@@ -6,7 +6,7 @@ Uses a mock LLM provider — no API keys needed.
 
 import pytest
 
-from backend.providers.base import LLMProvider, LLMResponse, ProviderCapabilities, ModelTier
+from dpcommon.llm import LLMProvider, LLMResponse, ProviderCapabilities, ModelTier
 from backend.services.brief_generator import (
     BriefGenerator,
     BriefLength,

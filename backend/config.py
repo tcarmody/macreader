@@ -16,7 +16,7 @@ if TYPE_CHECKING:
     from .fetcher import Fetcher
     from .summarizer import Summarizer
     from .clustering import Clusterer
-    from .providers import LLMProvider
+    from dpcommon.llm import LLMProvider
     from .services.chat_service import ChatService
     from .services.auto_digest import AutoDigestService
     from .services.brief_generator import BriefGenerator

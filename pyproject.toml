@@ -1,0 +1,71 @@
+[project]
+name = "datapoints"
+version = "0.1.0"
+description = "DataPoints: an RSS reader with AI summarization (FastAPI backend)."
+requires-python = ">=3.14"
+dependencies = [
+    # LLM providers (Anthropic, OpenAI, Google) come from the shared package
+    "dpcommon[openai,google]",
+
+    # Core
+    "fastapi>=0.127.0",
+    "uvicorn>=0.40.0",
+    "python-dotenv>=1.2.1",
+    "pydantic>=2.12.0",
+    "slowapi>=0.1.9",          # Rate limiting
+
+    # OAuth authentication
+    "authlib>=1.4.0",          # OAuth client for Google/GitHub
+    "itsdangerous>=2.2.0",     # Session signing
+    "httpx>=0.28.0",           # Async HTTP for OAuth
+
+    # HTTP & parsing
+    "aiohttp>=3.13.0",
+    "Brotli>=1.1.0",           # Brotli content-encoding support
+    "feedparser>=6.0.12",
+    "beautifulsoup4>=4.14.0",
+    "lxml>=6.0.0",
+    "trafilatura>=2.0.0",      # Reader-mode article extraction
+
+    # Document extraction
+    "pymupdf>=1.25.0",         # PDF text extraction
+    "python-docx>=1.1.0",      # DOCX text extraction
+    "python-multipart>=0.0.20",  # File uploads
+
+    # Search
+    "tantivy>=0.22.0",         # Rust-based full-text search (SQLite FTS5 is the fallback)
+
+    # Related links (Exa neural search)
+    "exa-py>=1.1.0",
+    "tenacity>=9.0.0",         # Retry logic with exponential backoff
+
+    # JS rendering (optional at runtime: ENABLE_JS_RENDER, plus `playwright install chromium`)
+    "playwright>=1.49.0",
+]
+
+[dependency-groups]
+dev = [
+    "pytest>=9.0.0",
+    "pytest-asyncio>=1.3.0",
+]
+
+[tool.uv]
+package = false
+
+[tool.uv.sources]
+dpcommon = { url = "https://github.com/tcarmody/datapoints-common/archive/refs/tags/v0.1.0.tar.gz" }
+
+[tool.pytest.ini_options]
+testpaths = ["backend/tests"]
+markers = ["integration: needs network access or real API keys"]
+
+[tool.dpcommon.macapp]
+package = "app/DataPointsAI"
+product = "DataPointsAI"
+info_plist = "app/DataPointsAI/BundleAssets/Info.plist"
+entitlements = "app/DataPointsAI/BundleAssets/DataPointsAI.entitlements"
+# iconutil, not actool: the catalog's only content is the AppIcon set
+icon = { catalog = "app/DataPointsAI/DataPointsAI/Assets.xcassets", method = "iconutil" }
+output = "app/DataPointsAI/build"
+run = "exec"     # stream the app's stdout/stderr to the terminal
+min_sdk = 27

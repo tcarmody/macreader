@@ -22,6 +22,7 @@ wheels/
 
 # Virtual environments
 rss_venv/
+.venv/
 venv/
 ENV/
 env/

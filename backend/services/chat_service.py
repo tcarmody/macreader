@@ -13,7 +13,7 @@ from ..database import Database
 from ..database.models import DBArticle, DBChatMessage
 
 if TYPE_CHECKING:
-    from ..providers.base import LLMProvider
+    from dpcommon.llm import LLMProvider
 
 
 # Maximum tokens to use for article content in context

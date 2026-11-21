@@ -1,61 +1,61 @@
-.PHONY: setup run test clean init-db rebuild app app-build app-sign app-verify app-run app-clean
+.PHONY: setup run test clean init-db rebuild app app-build app-sign app-verify app-run app-clean format typecheck
 
-# Setup development environment
+# Setup development environment. uv installs the Python in .python-version
+# (3.14) itself, so the system python3 doesn't matter. Install uv once with
+# `brew install uv`.
 setup:
-	python3 -m venv rss_venv
-	./rss_venv/bin/pip install --upgrade pip
-	./rss_venv/bin/pip install -r requirements.txt
+	uv sync
 	mkdir -p data
 	@echo "Setup complete. Copy .env.example to .env and add your API key."
 	@echo "Run 'make run' to start the server."
 
 # Run development server
 run:
-	./rss_venv/bin/python -m uvicorn backend.server:app --reload --port 5005
+	uv run uvicorn backend.server:app --reload --port 5005
 
 # Run tests
 test:
-	./rss_venv/bin/python -m pytest backend/tests/ -v
+	uv run pytest backend/tests/ -v
 
 # Clean generated files
 clean:
 	rm -rf __pycache__ .pytest_cache
-	rm -rf backend/__pycache__ backend/**/__pycache__
-	find . -type d -name "__pycache__" -exec rm -rf {} + 2>/dev/null || true
-	find . -type f -name "*.pyc" -delete 2>/dev/null || true
+	find . -type d -name "__pycache__" -not -path "./.venv/*" -exec rm -rf {} + 2>/dev/null || true
+	find . -type f -name "*.pyc" -not -path "./.venv/*" -delete 2>/dev/null || true
 
 # Initialize database
 init-db:
-	./rss_venv/bin/python -c "from backend.database import Database; from pathlib import Path; Database(Path('data/articles.db'))"
+	uv run python -c "from backend.database import Database; from pathlib import Path; Database(Path('data/articles.db'))"
 	@echo "Database initialized at data/articles.db"
 
 # Full rebuild
 rebuild: clean setup init-db
 	@echo "Rebuild complete."
 
-# macOS app (SwiftPM — no Xcode required, see app/DataPointsAI/Scripts/README.md)
-app: app-build app-sign
-	@echo "Built and signed app/DataPointsAI/build/DataPointsAI.app"
+# macOS app (SwiftPM, no Xcode required). Built by dpcommon-macapp from the
+# shared package; config is [tool.dpcommon.macapp] in pyproject.toml.
+app:
+	uv run dpcommon-macapp app
 
 app-build:
-	cd app/DataPointsAI && ./Scripts/build-app.sh
+	uv run dpcommon-macapp build
 
 app-sign:
-	cd app/DataPointsAI && ./Scripts/sign-app.sh
+	uv run dpcommon-macapp sign
 
 app-verify:
-	cd app/DataPointsAI && ./Scripts/verify-app.sh
+	uv run dpcommon-macapp verify
 
 app-run:
-	cd app/DataPointsAI && ./Scripts/run-app.sh
+	uv run dpcommon-macapp run
 
 app-clean:
 	rm -rf app/DataPointsAI/.build app/DataPointsAI/build
 
 # Format code
 format:
-	./rss_venv/bin/python -m black backend/
+	uv run --with black black backend/
 
 # Type check
 typecheck:
-	./rss_venv/bin/python -m mypy backend/
+	uv run --with mypy mypy backend/

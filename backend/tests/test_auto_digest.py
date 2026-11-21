@@ -10,7 +10,7 @@ from datetime import datetime, timedelta
 import pytest
 
 from backend.clustering import Clusterer
-from backend.providers.base import LLMProvider, LLMResponse, ProviderCapabilities, ModelTier
+from dpcommon.llm import LLMProvider, LLMResponse, ProviderCapabilities, ModelTier
 from backend.services.auto_digest import AutoDigestService, _MIN_STORIES
 from backend.services.brief_generator import BriefGenerator, BriefLength, BriefTone
 from backend.services.story_groups import StoryGroupService
