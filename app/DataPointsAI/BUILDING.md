@@ -6,8 +6,16 @@ tool from the shared [dpcommon](https://github.com/tcarmody/datapoints-common)
 package, which Composer's Mac app uses too. Its settings for this app are the
 `[tool.dpcommon.macapp]` table in the repo's `pyproject.toml`.
 
-The build runs on the standalone **Command Line Tools** (`xcode-select
---install`), so Xcode.app does not need to be installed at all.
+The build is meant to run on the standalone **Command Line Tools**
+(`xcode-select --install`), with no Xcode.app. **Since CLT 27.2 that no longer
+works on its own:** the 27.2 SDK's SwiftUI implements `@State` and other macros
+in a compiler plugin, `libSwiftUIMacros`, that ships only inside Xcode.app.
+Without it the build fails with misleading errors such as `cannot find '$name'
+in scope`. When the CLT lack the plugin, `dpcommon-macapp` uses an installed
+Xcode that has it, and says so. With no Xcode installed, it warns, and the
+options are installing Xcode or building against the 26.5 SDK
+(`SDKROOT=/Library/Developer/CommandLineTools/SDKs/MacOSX26.5.sdk`), which
+this app's code still supports.
 
 From the repo root:
 
@@ -83,7 +91,8 @@ opens a package as a project) and set `-DPREVIEWS` in the scheme's Swift flags.
 | `--arch ARCH` (repeatable), `--universal`, `ARCHS` | `arm64` | `--universal` builds arm64 + x86_64 |
 | `--previews` | off | compiles the `#Preview` blocks (needs Xcode's toolchain) |
 | `--debug` | release | debug configuration |
-| `DEVELOPER_DIR` | Command Line Tools | point at another toolchain |
+| `DEVELOPER_DIR` | Command Line Tools (Xcode if the CLT lack `libSwiftUIMacros`) | point at a toolchain; turns the Xcode fallback off |
+| `SDKROOT` | the toolchain's SDK | build against another SDK; turns the Xcode fallback off |
 | `--sign`, `CODESIGN_IDENTITY` | auto | `-` for ad-hoc, a SHA-1 hash, or part of an identity's name |
 
 Universal builds compile one architecture at a time and merge the slices with

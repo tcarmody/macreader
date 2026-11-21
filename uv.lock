@@ -538,7 +538,7 @@ requires-dist = [
     { name = "authlib", specifier = ">=1.4.0" },
     { name = "beautifulsoup4", specifier = ">=4.14.0" },
     { name = "brotli", specifier = ">=1.1.0" },
-    { name = "dpcommon", extras = ["openai", "google"], url = "https://github.com/tcarmody/datapoints-common/archive/refs/tags/v0.1.0.tar.gz" },
+    { name = "dpcommon", extras = ["openai", "google"], url = "https://github.com/tcarmody/datapoints-common/archive/refs/tags/v0.1.1.tar.gz" },
     { name = "exa-py", specifier = ">=1.1.0" },
     { name = "fastapi", specifier = ">=0.127.0" },
     { name = "feedparser", specifier = ">=6.0.12" },
@@ -611,13 +611,13 @@ wheels = [
 
 [[package]]
 name = "dpcommon"
-version = "0.1.0"
-source = { url = "https://github.com/tcarmody/datapoints-common/archive/refs/tags/v0.1.0.tar.gz" }
+version = "0.1.1"
+source = { url = "https://github.com/tcarmody/datapoints-common/archive/refs/tags/v0.1.1.tar.gz" }
 dependencies = [
     { name = "anthropic" },
     { name = "pydantic" },
 ]
-sdist = { hash = "sha256:18be67d8622db9878f8b38d82a11a1b918fd334d773ed5dc4bb119c580701e9c" }
+sdist = { hash = "sha256:8a8eb930e8df735054e68168a7c4abe3556f6f59f13b7174c5765d7f0705e641" }
 
 [package.optional-dependencies]
 google = [

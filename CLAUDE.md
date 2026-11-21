@@ -42,7 +42,7 @@ A change to any of these is made in that repo, released as a new tag, then picke
 - Backend: `uv run uvicorn backend.server:app --reload --port 5005` (or `make run`)
 - Backend tests: `uv run pytest backend/tests/ -v` (or `make test`)
 - Web dev server: `cd web && npm run dev` (runs on localhost:3000)
-- Swift app: `make app` (build + sign), then `make app-run`. Builds with SwiftPM on the standalone Command Line Tools — Xcode.app is not required. Built by `dpcommon-macapp`, configured in `[tool.dpcommon.macapp]` in `pyproject.toml`. See `app/DataPointsAI/BUILDING.md`.
+- Swift app: `make app` (build + sign), then `make app-run`. Builds with SwiftPM, meant for the standalone Command Line Tools; since CLT 27.2 SwiftUI's macro plugin ships only with Xcode, so the tool switches to an installed Xcode when the CLT lack it (details in BUILDING.md). Built by `dpcommon-macapp`, configured in `[tool.dpcommon.macapp]` in `pyproject.toml`. See `app/DataPointsAI/BUILDING.md`.
 - Deploy: Railway builds `Dockerfile` (Python 3.14 + `uv sync --frozen`), per `railway.json`.
 
 ## Architecture Patterns
