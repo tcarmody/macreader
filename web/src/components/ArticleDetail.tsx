@@ -709,6 +709,11 @@ export function ArticleDetail() {
                       <p className="text-lg font-medium mb-1">No summary yet</p>
                       <p className="text-sm">Generate an AI summary to see key insights and highlights</p>
                     </div>
+                    {article.summary_error && (
+                      <p role="alert" className="max-w-md text-sm text-destructive">
+                        Last attempt failed: {article.summary_error}
+                      </p>
+                    )}
                     <SmartTooltip
                       hintId="summarize-tip"
                       title="AI Summarization"

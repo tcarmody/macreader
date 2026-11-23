@@ -231,6 +231,9 @@ struct ArticleDetail: Identifiable, Codable, Sendable {
     let relatedLinks: [RelatedLink]?
     let relatedLinksError: String?
 
+    // Why the last summarization attempt failed; nil once one succeeds.
+    var summaryError: String? = nil
+
     // ISO8601 timestamp of when this article was sent to Composer; nil if not promoted.
     var promotedToComposer: String? = nil
 
@@ -261,6 +264,7 @@ struct ArticleDetail: Identifiable, Codable, Sendable {
         case siteName = "site_name"
         case relatedLinks = "related_links"
         case relatedLinksError = "related_links_error"
+        case summaryError = "summary_error"
         case promotedToComposer = "promoted_to_composer"
         case isFeatured = "is_featured"
         case featuredAt = "featured_at"
@@ -290,6 +294,7 @@ struct ArticleDetail: Identifiable, Codable, Sendable {
         siteName = try c.decodeIfPresent(String.self, forKey: .siteName)
         relatedLinks = try c.decodeIfPresent([RelatedLink].self, forKey: .relatedLinks)
         relatedLinksError = try c.decodeIfPresent(String.self, forKey: .relatedLinksError)
+        summaryError = try c.decodeIfPresent(String.self, forKey: .summaryError)
         promotedToComposer = try c.decodeIfPresent(String.self, forKey: .promotedToComposer)
         isFeatured = try c.decodeIfPresent(Bool.self, forKey: .isFeatured) ?? false
         featuredAt = try c.decodeIfPresent(Date.self, forKey: .featuredAt)
@@ -641,6 +646,9 @@ struct LibraryItemDetail: Identifiable, Codable, Sendable {
     let relatedLinks: [RelatedLink]?
     let relatedLinksError: String?
 
+    // Why the last summarization attempt failed; nil once one succeeds.
+    var summaryError: String? = nil
+
     // ISO8601 timestamp of when this item was sent to Composer; nil if not promoted.
     var promotedToComposer: String?
 
@@ -662,6 +670,7 @@ struct LibraryItemDetail: Identifiable, Codable, Sendable {
         case createdAt = "created_at"
         case relatedLinks = "related_links"
         case relatedLinksError = "related_links_error"
+        case summaryError = "summary_error"
         case promotedToComposer = "promoted_to_composer"
         case alreadyExisted = "already_existed"
     }

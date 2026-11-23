@@ -25,6 +25,7 @@ from ..database import Database
 from .article_service import ArticleService
 from .feed_service import FeedService
 from .library_service import LibraryService
+from .summarizer_selection import select_summarizer
 
 __all__ = [
     # Services
@@ -48,7 +49,7 @@ def get_article_service(db: Annotated[Database, Depends(get_db)]) -> ArticleServ
         db=db,
         fetcher=state.fetcher,
         enhanced_fetcher=state.enhanced_fetcher,
-        summarizer=state.summarizer,
+        summarizer=select_summarizer(),
         clusterer=state.clusterer,
     )
 
@@ -67,7 +68,7 @@ def get_library_service(db: Annotated[Database, Depends(get_db)]) -> LibraryServ
         db=db,
         fetcher=state.fetcher,
         enhanced_fetcher=state.enhanced_fetcher,
-        summarizer=state.summarizer,
+        summarizer=select_summarizer(),
     )
 
 

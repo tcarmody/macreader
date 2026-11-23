@@ -172,9 +172,13 @@ extension AppState {
             try await Task.sleep(nanoseconds: 1_000_000_000)
 
             let detail = try await apiClient.getArticle(id: articleId)
-            if detail.summaryFull != nil {
+            if detail.summaryFull != nil || detail.summaryError != nil {
                 if selectedArticleDetail?.id == articleId {
                     self.selectedArticleDetail = detail
+                }
+                // The backend records why a background summarization failed
+                if detail.summaryFull == nil, let message = detail.summaryError {
+                    throw SummarizationError(message: message)
                 }
                 return
             }
@@ -509,4 +513,10 @@ extension AppState {
             picker.show(relativeTo: .zero, of: contentView, preferredEdge: .minY)
         }
     }
+}
+
+/// A summarization the backend tried and recorded as failed (articles.summary_error).
+struct SummarizationError: LocalizedError, Sendable {
+    let message: String
+    var errorDescription: String? { message }
 }

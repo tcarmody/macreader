@@ -8,10 +8,11 @@ import uuid
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, File, HTTPException, Query, UploadFile
+from fastapi import APIRouter, BackgroundTasks, Depends, File, Header, HTTPException, Query, UploadFile
 
 from ..auth import verify_api_key, get_current_user
 from ..config import state, get_db, config
+from ..services.summarizer_selection import select_summarizer
 from ..database import Database
 from ..exceptions import require_item
 from ..validators import require_sufficient_content
@@ -67,7 +68,7 @@ def schedule_auto_summarize(
         url: URL for context
         title: Title for context
     """
-    if auto_summarize and state.summarizer and content:
+    if auto_summarize and select_summarizer() and content:
         background_tasks.add_task(
             summarize_article,
             item_id,
@@ -339,10 +340,12 @@ async def summarize_standalone_item(
     item_id: int,
     db: Annotated[Database, Depends(get_db)],
     user_id: Annotated[int, Depends(get_current_user)],
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
+    x_preferred_provider: Annotated[str | None, Header()] = None,
 ) -> dict:
     """Generate or regenerate summary for a standalone item."""
-    if not state.summarizer:
+    summarizer = select_summarizer(x_preferred_provider)
+    if not summarizer:
         raise HTTPException(status_code=503, detail="Summarization not configured")
 
     item = require_item(db.get_library_item(user_id, item_id))
@@ -351,12 +354,14 @@ async def summarize_standalone_item(
         "Item has insufficient content for summarization"
     )
 
+    db.set_summary_error(item_id, None)
     background_tasks.add_task(
         summarize_article,
         item_id,
         content,
         item.url,
-        item.title
+        item.title,
+        summarizer,
     )
 
     return {"success": True, "message": "Summarization started"}

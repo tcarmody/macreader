@@ -173,6 +173,9 @@ class DatabaseConnection:
             self._migrate_add_column(connection, "articles", "extracted_keywords", "TEXT")
             self._migrate_add_column(connection, "articles", "related_links_error", "TEXT")
 
+            # Why the last summarization attempt failed (NULL once one succeeds)
+            self._migrate_add_column(connection, "articles", "summary_error", "TEXT")
+
             # Composer integration: timestamp when article was promoted to Composer
             self._migrate_add_column(connection, "articles", "promoted_to_composer", "TIMESTAMP")
 

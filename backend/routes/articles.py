@@ -5,10 +5,11 @@ Article routes: list, detail, read/bookmark operations.
 from datetime import datetime
 from typing import Annotated
 
-from fastapi import APIRouter, BackgroundTasks, Depends, HTTPException, Query
+from fastapi import APIRouter, BackgroundTasks, Depends, Header, HTTPException, Query
 
 from ..auth import verify_api_key, get_current_user, require_admin, viewer_is_admin
 from ..config import state, get_db
+from ..services.summarizer_selection import select_summarizer
 from ..database import Database
 from ..exceptions import require_article, require_feed
 from ..validators import require_sufficient_content
@@ -513,10 +514,12 @@ async def extract_from_html(
 async def summarize_article_endpoint(
     article_id: int,
     db: Annotated[Database, Depends(get_db)],
-    background_tasks: BackgroundTasks
+    background_tasks: BackgroundTasks,
+    x_preferred_provider: Annotated[str | None, Header()] = None,
 ) -> dict:
     """Generate or regenerate summary for an article."""
-    if not state.summarizer:
+    summarizer = select_summarizer(x_preferred_provider)
+    if not summarizer:
         raise HTTPException(status_code=503, detail="Summarization not configured")
 
     article = require_article(db.get_article(article_id))
@@ -530,12 +533,15 @@ async def summarize_article_endpoint(
 
     # Run summarization in background
     # The background task will handle content quality checks and fetch if needed
+    # Clear a previous failure so polling clients don't see a stale error
+    db.set_summary_error(article_id, None)
     background_tasks.add_task(
         summarize_article,
         article_id,
         content,
         url_for_summary,
-        article.title
+        article.title,
+        summarizer,
     )
 
     return {"success": True, "message": "Summarization started"}

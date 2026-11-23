@@ -281,13 +281,11 @@ async def inject_api_keys_from_headers(request: Request, call_next):
     original_anthropic = config.ANTHROPIC_API_KEY
     original_openai = config.OPENAI_API_KEY
     original_google = config.GOOGLE_API_KEY
-    original_provider = config.LLM_PROVIDER
 
     # Check for header-provided keys
     header_anthropic = request.headers.get("X-Anthropic-Key")
     header_openai = request.headers.get("X-OpenAI-Key")
     header_google = request.headers.get("X-Google-Key")
-    header_provider = request.headers.get("X-Preferred-Provider")
 
     # Temporarily override config if headers are provided
     # Only override if header is non-empty and config is empty
@@ -297,8 +295,8 @@ async def inject_api_keys_from_headers(request: Request, call_next):
         config.OPENAI_API_KEY = header_openai
     if header_google and not config.GOOGLE_API_KEY:
         config.GOOGLE_API_KEY = header_google
-    if header_provider:
-        config.LLM_PROVIDER = header_provider
+    # X-Preferred-Provider is read per request by summarizer_selection; it no
+    # longer rewrites the global config, which leaked between requests.
 
     # Reinitialize provider if we got new keys and don't have one yet
     if not state.provider and (header_anthropic or header_openai or header_google):
@@ -306,7 +304,7 @@ async def inject_api_keys_from_headers(request: Request, call_next):
             anthropic_key=config.ANTHROPIC_API_KEY or None,
             openai_key=config.OPENAI_API_KEY or None,
             google_key=config.GOOGLE_API_KEY or None,
-            preferred_provider=config.LLM_PROVIDER or None,
+            preferred_provider=request.headers.get("X-Preferred-Provider") or config.LLM_PROVIDER or None,
             default_model=config.LLM_MODEL or None,
             workspace_id=config.ANTHROPIC_WORKSPACE_ID,
         )
@@ -334,7 +332,6 @@ async def inject_api_keys_from_headers(request: Request, call_next):
         config.ANTHROPIC_API_KEY = original_anthropic
         config.OPENAI_API_KEY = original_openai
         config.GOOGLE_API_KEY = original_google
-        config.LLM_PROVIDER = original_provider
 
 
 # Include routers

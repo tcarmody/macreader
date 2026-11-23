@@ -27,7 +27,7 @@ class ArticleRepository:
         a.file_path, a.reading_time_minutes, a.word_count, a.featured_image,
         a.has_code_blocks, a.site_name, a.user_id,
         COALESCE(a.feed_name, fj.name) AS feed_name, a.related_links,
-        a.extracted_keywords, a.related_links_error, a.promoted_to_composer,
+        a.extracted_keywords, a.related_links_error, a.summary_error, a.promoted_to_composer,
         a.is_featured, a.featured_at, a.featured_by_user_id, a.featured_note
     """.strip()
 
@@ -290,10 +290,18 @@ class ArticleRepository:
             conn.execute(
                 """UPDATE articles SET
                    summary_short = ?, summary_full = ?, key_points = ?,
-                   model_used = ?, summarized_at = ?
+                   model_used = ?, summarized_at = ?, summary_error = NULL
                    WHERE id = ?""",
                 (summary_short, summary_full, json.dumps(key_points),
                  model_used, datetime.now().isoformat(), article_id)
+            )
+
+    def set_summary_error(self, article_id: int, error: str | None):
+        """Record why summarization failed, or clear it with None."""
+        with self._db.conn() as conn:
+            conn.execute(
+                "UPDATE articles SET summary_error = ? WHERE id = ?",
+                (error[:1000] if error else None, article_id),
             )
 
     # Note: mark_read, toggle_bookmark, bulk_mark_read, mark_feed_read, mark_all_read

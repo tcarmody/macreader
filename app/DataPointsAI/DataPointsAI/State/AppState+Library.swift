@@ -190,9 +190,12 @@ extension AppState {
             try await Task.sleep(nanoseconds: 1_000_000_000)
 
             let detail = try await apiClient.getLibraryItem(id: itemId)
-            if detail.summaryFull != nil {
+            if detail.summaryFull != nil || detail.summaryError != nil {
                 if selectedLibraryItemDetail?.id == itemId {
                     self.selectedLibraryItemDetail = detail
+                }
+                if detail.summaryFull == nil, let message = detail.summaryError {
+                    throw SummarizationError(message: message)
                 }
                 return
             }

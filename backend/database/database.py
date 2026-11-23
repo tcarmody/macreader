@@ -337,6 +337,9 @@ class Database:
     def update_article_source_url(self, article_id: int, source_url: str):
         return self.articles.update_source_url(article_id, source_url)
 
+    def set_summary_error(self, article_id: int, error: str | None):
+        self.articles.set_summary_error(article_id, error)
+
     def update_summary(
         self,
         article_id: int,

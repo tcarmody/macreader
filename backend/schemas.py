@@ -147,6 +147,7 @@ class ArticleDetailResponse(BaseModel):
     # Related links from Exa neural search
     related_links: list[RelatedLink] | None = None
     related_links_error: str | None = None
+    summary_error: str | None = None  # why the last summarization attempt failed
 
     # Timestamp when promoted to Composer (None = not promoted)
     promoted_to_composer: str | None = None
@@ -192,6 +193,7 @@ class ArticleDetailResponse(BaseModel):
             feed_name=article.feed_name,
             related_links=related_links,
             related_links_error=article.related_links_error,
+            summary_error=article.summary_error,
             promoted_to_composer=serialize_datetime(article.promoted_to_composer),
             is_featured=getattr(article, 'is_featured', False),
             featured_at=serialize_datetime(getattr(article, 'featured_at', None)),
@@ -446,6 +448,7 @@ class StandaloneItemDetailResponse(BaseModel):
     # Related links from Exa neural search
     related_links: list[RelatedLink] | None = None
     related_links_error: str | None = None
+    summary_error: str | None = None  # why the last summarization attempt failed
 
     # ISO timestamp of when this item was promoted to Composer; null if not promoted
     promoted_to_composer: str | None = None
@@ -481,6 +484,7 @@ class StandaloneItemDetailResponse(BaseModel):
             created_at=serialize_datetime(article.created_at),
             related_links=related_links,
             related_links_error=article.related_links_error,
+            summary_error=article.summary_error,
             promoted_to_composer=serialize_datetime(article.promoted_to_composer),
             already_existed=already_existed,
         )

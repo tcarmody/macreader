@@ -3,10 +3,15 @@ Background tasks for feed fetching and article summarization.
 """
 
 import asyncio
+from typing import TYPE_CHECKING
 import re
 from bs4 import BeautifulSoup
 
 from .config import state
+from .services.summarizer_selection import select_summarizer
+
+if TYPE_CHECKING:
+    from .summarizer import Summarizer
 from .source_extractor import SourceExtractor
 from .notification_service import NotificationService, NotificationMatch
 
@@ -89,15 +94,52 @@ def _extract_source_sync(url: str, content: str) -> str | None:
         return None
 
 
-def summarize_article(article_id: int, content: str, url: str, title: str):
-    """Background task to summarize an article (sync version for BackgroundTasks)."""
-    if not state.summarizer or not state.db:
-        print(f"Summarizer not configured for article {article_id}")
+def describe_summary_error(error: Exception, provider_name: str) -> str:
+    """A short message for the client; the full traceback stays in the logs."""
+    text = str(error)
+    status = getattr(error, "status_code", None) or getattr(error, "code", None)
+    lowered = text.lower()
+    label = {"anthropic": "Anthropic", "openai": "OpenAI", "google": "Google"}.get(
+        provider_name, provider_name
+    )
+    if status in (401, 403) or "authentication" in lowered or "api key not valid" in lowered:
+        return f"{label} rejected the server's API key. Check {provider_name.upper()}_API_KEY on the backend."
+    if status == 429 or "rate limit" in lowered or "quota" in lowered:
+        return f"{label} rate limit or quota reached. Try again later."
+    if type(error).__name__ == "RefusalError":
+        return f"{label} declined to summarize this article."
+    return f"Summarization with {label} failed: {text[:300]}"
+
+
+def summarize_article(
+    article_id: int,
+    content: str,
+    url: str,
+    title: str,
+    summarizer: "Summarizer | None" = None,
+):
+    """
+    Background task to summarize an article (sync version for BackgroundTasks).
+
+    `summarizer` is the one the request chose (see summarizer_selection); with
+    none, the `llm_provider` setting decides. A failure is stored in
+    articles.summary_error, which clients poll alongside the summary.
+    """
+    if not state.db:
         return
+    summarizer = summarizer or select_summarizer()
+    if not summarizer:
+        print(f"Summarizer not configured for article {article_id}")
+        state.db.set_summary_error(article_id, "Summarization is not configured on the server.")
+        return
+
+    def fail(message: str):
+        print(f"Article {article_id}: {message}")
+        state.db.set_summary_error(article_id, message)
 
     # First check: basic content existence
     if not content or len(content.strip()) < 50:
-        print(f"Article {article_id} has insufficient content for summarization")
+        fail("Not enough article content to summarize.")
         return
 
     # Second check: is the content actually usable (not just aggregator links)?
@@ -117,7 +159,7 @@ def summarize_article(article_id: int, content: str, url: str, title: str):
                 state.db.update_article_source_url(article_id, source_url)
                 print(f"Article {article_id}: Fetched content from source URL")
             else:
-                print(f"Article {article_id}: Could not fetch usable content from source URL")
+                fail("Couldn't fetch usable content from the source article.")
                 return
         else:
             # Try fetching directly from the original URL
@@ -127,12 +169,12 @@ def summarize_article(article_id: int, content: str, url: str, title: str):
                 state.db.update_article_content(article_id, fetched)
                 print(f"Article {article_id}: Fetched content from original URL")
             else:
-                print(f"Article {article_id}: Content is not suitable for summarization (aggregator links only)")
+                fail("The article content is only links, so there's nothing to summarize. Try Fetch Source Article first.")
                 return
 
     try:
         print(f"Starting summarization for article {article_id}")
-        summary = state.summarizer.summarize(working_content, url, title)
+        summary = summarizer.summarize(working_content, url, title)
         state.db.update_summary(
             article_id=article_id,
             summary_short=summary.one_liner,
@@ -142,9 +184,10 @@ def summarize_article(article_id: int, content: str, url: str, title: str):
         )
         print(f"Successfully summarized article {article_id}")
     except Exception as e:
-        print(f"Error summarizing article {article_id}: {e}")
+        print(f"Error summarizing article {article_id} with {summarizer.provider.name}: {e}")
         import traceback
         traceback.print_exc()
+        state.db.set_summary_error(article_id, describe_summary_error(e, summarizer.provider.name))
 
 
 def fetch_related_links_task(article_id: int):
@@ -233,7 +276,7 @@ async def enrich_featured_article_task(article_id: int) -> None:
         return
 
     # 1. Summarize (handles content fetching internally if needed)
-    if not article.summary_full and state.summarizer and article.content:
+    if not article.summary_full and select_summarizer() and article.content:
         url_for_summary = article.source_url or article.url
         try:
             await asyncio.to_thread(
@@ -386,9 +429,10 @@ async def fetch_feed_articles(feed_id: int, feed) -> list[NotificationMatch]:
 
         # Auto-summarize only if setting is enabled and API key configured
         auto_summarize = state.db.get_setting("auto_summarize", "false").lower() == "true"
-        if article_id and state.summarizer and content and auto_summarize:
+        summarizer = select_summarizer()
+        if article_id and summarizer and content and auto_summarize:
             try:
-                summary = await state.summarizer.summarize_async(
+                summary = await summarizer.summarize_async(
                     content, item.url, item.title
                 )
                 state.db.update_summary(
@@ -400,5 +444,8 @@ async def fetch_feed_articles(feed_id: int, feed) -> list[NotificationMatch]:
                 )
             except Exception as e:
                 print(f"Error summarizing article {item.url}: {e}")
+                state.db.set_summary_error(
+                    article_id, describe_summary_error(e, summarizer.provider.name)
+                )
 
     return notification_matches

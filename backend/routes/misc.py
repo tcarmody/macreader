@@ -4,10 +4,11 @@ Miscellaneous routes: health check, search, settings, stats.
 
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, HTTPException, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query
 
 from ..auth import verify_api_key, get_current_user, require_admin, viewer_is_admin
 from ..config import state, get_db, config
+from ..services.summarizer_selection import select_summarizer
 from ..database import Database
 from ..schemas import (
     ArticleResponse, SettingsResponse, SettingsUpdateRequest,
@@ -26,13 +27,16 @@ public_router = APIRouter(tags=["misc"])
 # ─────────────────────────────────────────────────────────────
 
 @public_router.get("/status")
-async def health_check() -> dict:
-    """API health check."""
+async def health_check(
+    x_preferred_provider: Annotated[str | None, Header()] = None,
+) -> dict:
+    """API health check. `provider` is the one summaries would use now."""
+    summarizer = select_summarizer(x_preferred_provider)
     return {
         "status": "ok",
         "version": "2.0.0",
-        "summarization_enabled": state.summarizer is not None,
-        "provider": state.provider.name if state.provider else None,
+        "summarization_enabled": summarizer is not None,
+        "provider": summarizer.provider.name if summarizer else None,
         "auth_enabled": bool(config.AUTH_API_KEY),
     }
 

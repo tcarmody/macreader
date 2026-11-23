@@ -388,7 +388,8 @@ export function useSummarizeArticle() {
     onSuccess: (_, articleId) => {
       startPolling({
         fetchFn: () => api.getArticle(articleId),
-        isComplete: (article) => !!article.summary_full,
+        // Stop on a summary OR a recorded failure (shown in the AI tab)
+        isComplete: (article) => !!article.summary_full || !!article.summary_error,
         queryKey: queryKeys.article(articleId),
         invalidateKeys: [['articles']],
       })
@@ -553,7 +554,7 @@ export function useSummarizeLibraryItem() {
     onSuccess: (_, itemId) => {
       startPolling({
         fetchFn: () => api.getLibraryItem(itemId),
-        isComplete: (item) => !!item.summary_full,
+        isComplete: (item) => !!item.summary_full || !!item.summary_error,
         queryKey: queryKeys.libraryItem(itemId),
         invalidateKeys: [['library']],
       })

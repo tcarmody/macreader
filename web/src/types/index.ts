@@ -49,6 +49,7 @@ export interface ArticleDetail extends Article {
   source_url: string | null
   related_links: RelatedLink[] | null
   related_links_error: string | null
+  summary_error: string | null
   promoted_to_composer: string | null
 }
 
@@ -82,6 +83,7 @@ export interface StandaloneItemDetail extends StandaloneItem {
   model_used: string | null
   related_links: RelatedLink[] | null
   related_links_error: string | null
+  summary_error: string | null
   promoted_to_composer: string | null
 }
 

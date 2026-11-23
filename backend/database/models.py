@@ -48,6 +48,9 @@ class DBArticle:
     # Related links error message if fetch failed
     related_links_error: str | None = None
 
+    # Why the last summarization attempt failed (None once one succeeds)
+    summary_error: str | None = None
+
     # Timestamp when article was promoted to Composer (NULL = not promoted)
     promoted_to_composer: datetime | None = None
 
